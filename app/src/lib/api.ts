@@ -21,8 +21,10 @@ export interface Draft { name: string; pages: number; modified: number }
 export interface ExportOpts {
   color: boolean; share: boolean; print: boolean; images: boolean;
   cleanup: boolean; open_pdf: boolean; open_folder: boolean;
-  max_mb: number | null;
+  max_mb: number | null; searchable: boolean;
 }
+export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop"
+  | { Levels: { brightness: number; contrast: number } };
 export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }
 export interface ShrinkResult { out: string; before: number; after: number }
 export interface Exported { files: string[]; closed: boolean }
@@ -55,6 +57,8 @@ export const api = {
   scanTop: () => invoke<TopHalf>("scan_top"),
   scanBottom: (top: TopHalf, slot: Slot = {}) => invoke<PageResult>("scan_bottom", { top, ...slot }),
   fillPage: (index: number) => invoke<PageResult>("fill_page", { index }),
+  editPage: (index: number, edit: Edit) => invoke<PageResult>("edit_page", { index, edit }),
+  ocrLanguages: () => invoke<string[]>("ocr_languages"),
   deletePage: (index: number) => invoke<SessionView>("delete_page", { index }),
   movePage: (from: number, to: number) => invoke<SessionView>("move_page", { from, to }),
   getExportOpts: () => invoke<ExportOpts>("get_export_opts"),

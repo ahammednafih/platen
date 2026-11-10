@@ -13,3 +13,5 @@ Driverless scan/copy/print for AirScan + AirPrint printers. Plan and milestone s
 - Don't add vendor branding or names to the UI.
 - eSCL clamps >600 dpi to 300; 1200 dpi goes over the native protocol (`core/src/native.rs`, TCP 54921).
   Inquiry + scan must share one connection, else `-NG 401`. Full page at 1200 ≈ 2m20s, ~40 MB.
+- Searchable PDF shells out to Tesseract (`core/src/ocr.rs`): text-only PDF per page at 300 dpi, merged
+  over our pages with lopdf. Uses eng+mal when installed (`mal.traineddata` in Homebrew's tessdata).

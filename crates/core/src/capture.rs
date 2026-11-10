@@ -137,7 +137,7 @@ pub fn black_and_white(img: &image::RgbImage) -> image::GrayImage {
     gray
 }
 
-fn otsu(img: &image::GrayImage) -> u8 {
+pub fn otsu(img: &image::GrayImage) -> u8 {
     let mut hist = [0u64; 256];
     img.pixels().for_each(|p| hist[p[0] as usize] += 1);
     let total = img.pixels().len() as f64;

@@ -267,7 +267,7 @@ impl App {
             KeyCode::Up | KeyCode::Char('k') => self.mode = Mode::Export { cursor: (cursor + n - 1) % n, then_quit },
             KeyCode::Down | KeyCode::Char('j') => self.mode = Mode::Export { cursor: (cursor + 1) % n, then_quit },
             KeyCode::Char(' ') | KeyCode::Char('x') => self.export_opts.toggle(cursor),
-            KeyCode::Char(c @ '1'..='7') => self.export_opts.toggle(c as usize - '1' as usize),
+            KeyCode::Char(c @ '1'..='8') => self.export_opts.toggle(c as usize - '1' as usize),
             KeyCode::Enter => {
                 if !self.export_opts.any_output() {
                     self.warn("Pick at least one output".into());

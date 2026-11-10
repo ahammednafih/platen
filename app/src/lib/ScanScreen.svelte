@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { api, dur, img, mm, type PageResult, type SessionView } from "./api";
+  import { api, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
+  import AdjustDialog from "./AdjustDialog.svelte";
   import LongPageWizard from "./LongPageWizard.svelte";
   import Lightbox from "./Lightbox.svelte";
 
@@ -17,6 +18,7 @@
   let log = $state<{ ok: boolean; text: string } | null>(null);
   let wizard = $state<{ replace?: number } | null>(null);
   let preview = $state<number | null>(null);
+  let adjusting = $state<number | null>(null);
   let dragFrom = $state<number | null>(null);
   let dragOver = $state<number | null>(null);
 
@@ -63,6 +65,16 @@
     if (r) landed(r);
   }
 
+  const editLabels: Record<string, string> = {
+    RotateLeft: "Rotating", RotateRight: "Rotating", Rotate180: "Rotating",
+    Straighten: "Straightening", Crop: "Cropping", Levels: "Adjusting",
+  };
+
+  async function edit(i: number, e: Edit) {
+    const r = await run(editLabels[typeof e === "string" ? e : "Levels"], () => api.editPage(i, e));
+    if (r) landed(r);
+  }
+
   async function remove(i: number) {
     const s = await run("", () => api.deletePage(i));
     if (!s) return;
@@ -80,7 +92,7 @@
   }
 
   function onkey(e: KeyboardEvent) {
-    if (busy || wizard || preview !== null || e.target instanceof HTMLInputElement) return;
+    if (busy || wizard || preview !== null || adjusting !== null || e.target instanceof HTMLInputElement) return;
     const n = session.pages.length;
     if (!n) return;
     const i = selected ?? 0;
@@ -88,6 +100,8 @@
     else if (e.key === "ArrowLeft") selected = Math.max(0, i - 1);
     else if (e.key === " " && selected !== null) preview = selected;
     else if ((e.key === "Backspace" || e.key === "Delete") && selected !== null) remove(selected);
+    else if (e.key === "r" && selected !== null) edit(selected, "RotateRight");
+    else if (e.key === "R" && selected !== null) edit(selected, "RotateLeft");
     else return;
     e.preventDefault();
   }
@@ -148,6 +162,11 @@
               <button class="ghost" title="View larger (Space)" onclick={() => (preview = i)}>View</button>
               <button class="ghost" title="Scan this page again" onclick={() => retake(i)} disabled={!connected || !!busy}>Retake</button>
               <button class="ghost" title="Paint torn or cut-away edges" onclick={() => fill(i)} disabled={!!busy}>Fill</button>
+              <button class="ghost" title="Rotate left (⇧R)" aria-label="Rotate left" onclick={() => edit(i, "RotateLeft")} disabled={!!busy}>↺</button>
+              <button class="ghost" title="Rotate right (R)" aria-label="Rotate right" onclick={() => edit(i, "RotateRight")} disabled={!!busy}>↻</button>
+              <button class="ghost" title="Straighten tilted text" onclick={() => edit(i, "Straighten")} disabled={!!busy}>Straighten</button>
+              <button class="ghost" title="Trim the dark lid around the paper (straighten first)" onclick={() => edit(i, "Crop")} disabled={!!busy}>Crop</button>
+              <button class="ghost" title="Brightness and contrast" onclick={() => (adjusting = i)} disabled={!!busy}>Adjust</button>
               <button class="ghost danger" title="Delete (⌫)" onclick={() => remove(i)} disabled={!!busy}>Delete</button>
             </div>
           {/if}
@@ -169,6 +188,15 @@
     at={insertAt}
     oncancel={() => (wizard = null)}
     ondone={(r) => { wizard = null; landed(r); }}
+  />
+{/if}
+
+{#if adjusting !== null}
+  <AdjustDialog
+    page={session.pages[adjusting]}
+    number={adjusting + 1}
+    oncancel={() => (adjusting = null)}
+    onapply={(brightness, contrast) => { const i = adjusting!; adjusting = null; edit(i, { Levels: { brightness, contrast } }); }}
   />
 {/if}
 

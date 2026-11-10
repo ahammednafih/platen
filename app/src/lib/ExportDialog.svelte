@@ -9,10 +9,16 @@
   let busy = $state(false);
   let error = $state("");
   let done = $state<Exported | null>(null);
+  let langs = $state<string[] | null>(null);
 
   onMount(async () => {
     opts = await api.getExportOpts();
+    langs = await api.ocrLanguages().catch(() => []);
+    if (!langs.length) opts.searchable = false;
   });
+
+  const langName: Record<string, string> = { eng: "English", mal: "Malayalam" };
+  const anyPdf = $derived(!!opts && (opts.color || opts.share || opts.print));
 
   type Flag = Exclude<keyof ExportOpts, "max_mb">;
   const outputs: [Flag, string, string][] = [
@@ -84,6 +90,17 @@
         {/each}
       </fieldset>
       <fieldset>
+        <legend><h3>Text</h3></legend>
+        <label class="opt" class:off={!langs?.length || !anyPdf}>
+          <input type="checkbox" bind:checked={opts.searchable} disabled={!langs?.length || !anyPdf} />
+          <span><strong>Searchable PDFs</strong> <span class="muted">—
+            {#if langs === null}checking for text recognition…
+            {:else if !langs.length}needs Tesseract (<code>brew install tesseract</code>)
+            {:else}recognise {langs.map((l) => langName[l] ?? l).join(" and ")} text so it can be found and copied{/if}
+          </span></span>
+        </label>
+      </fieldset>
+      <fieldset>
         <legend><h3>Size limit</h3></legend>
         <label class="opt">
           <input type="checkbox" checked={opts.max_mb !== null} onchange={(e) => (opts!.max_mb = e.currentTarget.checked ? 1 : null)} />
@@ -97,7 +114,7 @@
       <footer>
         <button class="ghost" onclick={onclose} disabled={busy}>Cancel</button>
         <span class="grow"></span>
-        <button class="primary" onclick={run} disabled={busy || !anyOutput}>{busy ? "Exporting…" : "Export"}</button>
+        <button class="primary" onclick={run} disabled={busy || !anyOutput}>{busy ? (opts.searchable && anyPdf ? "Recognising text…" : "Exporting…") : "Export"}</button>
       </footer>
     {/if}
   </div>
@@ -110,6 +127,7 @@
   .opt { display: flex; gap: 10px; align-items: baseline; cursor: pointer; }
   .mb { width: 70px; height: 24px; }
   .opt.danger { color: var(--danger); }
+  .opt.off { cursor: default; opacity: 0.6; }
   input[type="checkbox"] { accent-color: var(--accent); }
   .files { list-style: none; margin: 0; padding: 0; }
   .files button { height: 24px; padding: 0 6px; color: var(--accent); justify-content: flex-start; }

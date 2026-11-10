@@ -1,5 +1,6 @@
 //! Commands the Svelte frontend invokes. Blocking work (network, image) runs off the main thread.
 use crate::{AppState, Res, err};
+use scan_core::adjust::{self, Edit};
 use scan_core::capture::{self, Captured, Settings, TopHalf};
 use scan_core::device::{self, Draft};
 use scan_core::escl::{Caps, Scanner};
@@ -171,6 +172,20 @@ pub async fn fill_page(st: State<'_, AppState>, index: usize) -> Res<PageResult>
     let mode = st.settings.lock().unwrap().fill;
     let c = blocking(move || capture::fill_page(&dir, &page, mode)).await?;
     place(&st, c, Some(index), None)
+}
+
+#[tauri::command]
+pub async fn edit_page(st: State<'_, AppState>, index: usize, edit: Edit) -> Res<PageResult> {
+    let dir = session_dir(&st)?;
+    let page = st.session.lock().unwrap().as_ref().and_then(|s| s.pages.get(index).cloned()).ok_or("No such page")?;
+    let c = blocking(move || adjust::edit_page(&dir, &page, edit)).await?;
+    place(&st, c, Some(index), None)
+}
+
+/// OCR languages available for searchable PDFs; empty when Tesseract isn't installed.
+#[tauri::command]
+pub async fn ocr_languages() -> Res<Vec<String>> {
+    blocking(|| Ok(scan_core::ocr::languages())).await
 }
 
 #[tauri::command]

@@ -54,6 +54,8 @@ pub fn run() {
             commands::scan_top,
             commands::scan_bottom,
             commands::fill_page,
+            commands::edit_page,
+            commands::ocr_languages,
             commands::delete_page,
             commands::move_page,
             commands::get_export_opts,

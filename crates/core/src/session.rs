@@ -100,6 +100,16 @@ impl Session {
                 written.push(out("print.pdf"));
             }
         }
+        if o.searchable {
+            let pdfs: Vec<&PathBuf> = written.iter().collect();
+            if !pdfs.is_empty() {
+                let ocr = crate::ocr::Ocr::find()?;
+                let layers = ocr.layers(&originals, &self.dir.join("ocr"))?;
+                for f in pdfs {
+                    std::fs::write(f, crate::ocr::overlay(&std::fs::read(f)?, &layers)?)?;
+                }
+            }
+        }
         if let Some(mb) = o.max_mb {
             for f in written.iter().filter(|f| f.extension().is_some_and(|e| e == "pdf")) {
                 fit_pdf(f, mb)?;
@@ -136,10 +146,13 @@ pub struct ExportOpts {
     /// Shrink each PDF to fit under this many megabytes (upload limits).
     #[serde(default)]
     pub max_mb: Option<f32>,
+    /// Add an invisible OCR text layer to each PDF.
+    #[serde(default)]
+    pub searchable: bool,
 }
 
 impl ExportOpts {
-    pub const LABELS: [&str; 7] = [
+    pub const LABELS: [&str; 8] = [
         "Colour PDF (full quality)",
         "Share PDF (colour, 300 dpi, small)",
         "Print PDF (black & white, paper whitened)",
@@ -147,10 +160,11 @@ impl ExportOpts {
         "Delete working scans afterwards (ends session)",
         "Open PDF in Preview when done",
         "Open folder in Finder when done",
+        "Searchable PDFs (OCR text layer)",
     ];
 
     pub fn get(&self, i: usize) -> bool {
-        [self.color, self.share, self.print, self.images, self.cleanup, self.open_pdf, self.open_folder][i]
+        [self.color, self.share, self.print, self.images, self.cleanup, self.open_pdf, self.open_folder, self.searchable][i]
     }
 
     pub fn toggle(&mut self, i: usize) {
@@ -161,7 +175,8 @@ impl ExportOpts {
             3 => &mut self.images,
             4 => &mut self.cleanup,
             5 => &mut self.open_pdf,
-            _ => &mut self.open_folder,
+            6 => &mut self.open_folder,
+            _ => &mut self.searchable,
         };
         *f = !*f;
     }
@@ -178,7 +193,7 @@ impl ExportOpts {
         std::fs::read(Self::path())
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or(ExportOpts { color: true, share: false, print: false, images: false, cleanup: false, open_pdf: true, open_folder: false, max_mb: None })
+            .unwrap_or(ExportOpts { color: true, share: false, print: false, images: false, cleanup: false, open_pdf: true, open_folder: false, max_mb: None, searchable: false })
     }
 
     pub fn save(&self) {
@@ -259,7 +274,7 @@ mod tests {
         s.pages.push(Page { file: "a.jpg".into(), kind: Kind::A4, dpi: 75, w: 620, h: 877, secs: 1.0 });
         s.save().unwrap();
 
-        let opts = ExportOpts { color: false, share: true, print: true, images: true, cleanup: true, open_pdf: false, open_folder: false, max_mb: None };
+        let opts = ExportOpts { color: false, share: true, print: true, images: true, cleanup: true, open_pdf: false, open_folder: false, max_mb: None, searchable: false };
         let files = s.export(opts).unwrap();
 
         let names: Vec<_> = files.iter().map(|f| f.file_name().unwrap().to_string_lossy().into_owned()).collect();
