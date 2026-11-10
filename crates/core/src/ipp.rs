@@ -1,7 +1,7 @@
-//! Minimal IPP/2.0 client: printer status + ink, and printing JPEG pages.
+//! Minimal IPP/2.0 client: printer status, ink, capabilities, and printing one JPEG per job.
 //!
-//! The target device accepts image/jpeg, image/urf and image/pwg-raster (no PDF),
-//! so documents are sent one JPEG page per job and the printer scales to fit.
+//! The target device accepts image/jpeg, image/urf and image/pwg-raster (no PDF), so
+//! `printjob` lays pages out on sheets and sends each sheet as a JPEG.
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -92,6 +92,18 @@ impl Default for PrintOpts {
     }
 }
 
+/// What the printer offers, for the print dialog.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PrintCaps {
+    pub media: Vec<String>,
+    pub media_default: String,
+    pub color: bool,
+    pub qualities: Vec<Quality>,
+    pub max_copies: i32,
+    /// True when the printer reports two-sided printing (otherwise use odd/even sheets).
+    pub duplex: bool,
+}
+
 impl Printer {
     /// Printer on the same device as the scanner (`host` = IP or name).
     pub fn for_host(host: &str) -> Printer {
@@ -130,6 +142,24 @@ impl Printer {
         })
     }
 
+    pub fn caps(&self) -> Result<PrintCaps> {
+        let a = self.attributes(&["media-supported", "media-default", "print-color-mode-supported", "print-quality-supported", "copies-supported", "sides-supported"])?;
+        let strs = |k: &str| -> Vec<String> { a.get(k).map(|v| v.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default() };
+        let qualities = a.get("print-quality-supported").map(|v| v.iter().filter_map(Value::as_int).filter_map(quality).collect()).unwrap_or_default();
+        let max_copies = match a.get("copies-supported").and_then(|v| v.first()) {
+            Some(Value::Range(_, hi)) => *hi,
+            _ => 1,
+        };
+        Ok(PrintCaps {
+            media: strs("media-supported"),
+            media_default: strs("media-default").into_iter().next().unwrap_or_else(|| "iso_a4_210x297mm".into()),
+            color: strs("print-color-mode-supported").iter().any(|m| m == "color"),
+            qualities,
+            max_copies,
+            duplex: strs("sides-supported").iter().any(|s| s.starts_with("two-sided")),
+        })
+    }
+
     /// Print one JPEG page. Returns the job id.
     pub fn print_jpeg(&self, jpeg: &[u8], o: &PrintOpts, job_name: &str) -> Result<i32> {
         let mut req = Request::new(OP_PRINT_JOB, &self.uri);
@@ -151,24 +181,6 @@ impl Printer {
         Ok(job.unwrap_or(0))
     }
 
-    /// Print pages collated: all pages for copy 1, then copy 2, …
-    pub fn print_pages(&self, pages: &[Vec<u8>], o: &PrintOpts, job_name: &str) -> Result<Vec<i32>> {
-        let one = PrintOpts { copies: 1, ..o.clone() };
-        let mut jobs = Vec::new();
-        for c in 0..o.copies.max(1) {
-            for (i, p) in pages.iter().enumerate() {
-                let name = format!("{job_name} p{} c{}", i + 1, c + 1);
-                // A single page needs no collation; let the printer make the copies.
-                let opts = if pages.len() == 1 { o } else { &one };
-                jobs.push(self.print_jpeg(p, opts, &name)?);
-                if pages.len() == 1 {
-                    return Ok(jobs);
-                }
-            }
-        }
-        Ok(jobs)
-    }
-
     fn send(&self, body: Vec<u8>, doc: &[u8]) -> Result<(u16, Vec<Vec<(String, Vec<Value>)>>)> {
         let mut data = body;
         data.extend_from_slice(doc);
@@ -182,6 +194,15 @@ impl Printer {
             bail!("printer refused request (IPP status 0x{status:04x})");
         }
         Ok((status, groups))
+    }
+}
+
+fn quality(v: i32) -> Option<Quality> {
+    match v {
+        3 => Some(Quality::Draft),
+        4 => Some(Quality::Normal),
+        5 => Some(Quality::High),
+        _ => None,
     }
 }
 

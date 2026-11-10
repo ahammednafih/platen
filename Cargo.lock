@@ -4325,6 +4325,8 @@ dependencies = [
  "image",
  "lopdf",
  "mdns-sd",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
  "rayon",
  "serde",
  "serde_json",

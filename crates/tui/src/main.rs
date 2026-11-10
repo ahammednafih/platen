@@ -41,7 +41,7 @@ struct Cli {
     /// Show printer status and ink levels.
     #[arg(long)]
     status: bool,
-    /// Print JPEG files (pages, in order).
+    /// Print PDFs and images (pages, in order).
     #[arg(long, num_args = 1.., value_name = "FILE")]
     print: Option<Vec<PathBuf>>,
     /// Copies when printing.
@@ -105,9 +105,18 @@ fn main() -> Result<()> {
         let s = connect_noisy(cli.host.as_deref())?;
         let printer = ipp::Printer::for_host(s.host());
         if let Some(files) = cli.print {
-            let pages: Vec<Vec<u8>> = files.iter().map(std::fs::read).collect::<std::io::Result<_>>()?;
             let opts = ipp::PrintOpts { copies: cli.copies, color: !cli.gray, ..Default::default() };
-            let jobs = printer.print_pages(&pages, &opts, "scan")?;
+            let job = scan_core::printjob::PrintJob {
+                files,
+                ranges: String::new(),
+                subset: Default::default(),
+                reverse: false,
+                nup: 1,
+                scale: Default::default(),
+                collate: true,
+                opts,
+            };
+            let jobs = job.run(&printer, "scan", |d, n| eprintln!("sent {d}/{n}"))?;
             println!("sent {} job(s): {jobs:?}", jobs.len());
             return Ok(());
         }
