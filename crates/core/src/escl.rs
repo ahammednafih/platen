@@ -139,13 +139,23 @@ impl Scanner {
         Ok(tag(&body, "pwg:State").unwrap_or("Unknown").to_string())
     }
 
+    /// eSCL capabilities, plus 1200 dpi when the native protocol grants it.
     pub fn capabilities(&self) -> Result<Caps> {
         let mut r = self.agent.get(format!("{}/ScannerCapabilities", self.base)).call()?;
-        Ok(Caps::parse(&r.body_mut().read_to_string()?))
+        let mut caps = Caps::parse(&r.body_mut().read_to_string()?);
+        let top = caps.resolutions.last().copied().unwrap_or(0);
+        if top < 1200 && crate::native::inquire(self.host(), 1200).is_ok_and(|g| g.dpi == (1200, 1200)) {
+            caps.resolutions.push(1200);
+        }
+        Ok(caps)
     }
 
     /// Run one platen scan and return the JPEG bytes.
     pub fn scan(&self, o: ScanOpts) -> Result<Vec<u8>> {
+        // eSCL silently clamps anything above 600 dpi.
+        if o.dpi > 600 {
+            return crate::native::scan(self.host(), o);
+        }
         let job = self.create_job(o)?;
         let result = self.fetch(&job);
         // Always close the job; otherwise the scanner stays "Processing".

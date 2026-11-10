@@ -4,6 +4,7 @@ pub mod device;
 pub mod escl;
 pub mod fill;
 pub mod ipp;
+pub mod native;
 pub mod pdf;
 pub mod session;
 pub mod stitch;
