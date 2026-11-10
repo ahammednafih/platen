@@ -7,6 +7,17 @@
   let drafts = $state<Draft[]>([]);
   let name = $state("");
   let error = $state("");
+  let confirming = $state<string | null>(null);
+
+  async function remove(n: string) {
+    error = "";
+    try {
+      drafts = await api.deleteDraft(n);
+    } catch (e) {
+      error = String(e);
+    }
+    confirming = null;
+  }
 
   async function open(n?: string) {
     error = "";
@@ -41,12 +52,21 @@
     {#if drafts.length}
       <ul>
         {#each drafts as d (d.name)}
-          <li>
+          <li class="row">
             <button class="draft" onclick={() => open(d.name)}>
               <span class="dname">{d.name}</span>
               <span class="muted">{d.pages} {d.pages === 1 ? "page" : "pages"} · {when(d.modified)}</span>
               <span class="resume">Resume →</span>
             </button>
+            {#if confirming === d.name}
+              <span class="confirm">
+                <span class="muted small">Delete scans?</span>
+                <button class="danger small" onclick={() => remove(d.name)}>Delete</button>
+                <button class="ghost small" onclick={() => (confirming = null)}>Keep</button>
+              </span>
+            {:else}
+              <button class="ghost del" title="Delete draft (exported files are kept)" onclick={() => (confirming = d.name)}>Delete</button>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -68,6 +88,12 @@
     width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 16px;
     align-items: center; text-align: left; padding: 10px 14px;
   }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .row .draft { flex: 1; }
+  .del { color: var(--muted); font-size: 12px; }
+  .del:hover { color: var(--danger); }
+  .confirm { display: flex; gap: 4px; align-items: center; }
+  .small { font-size: 12px; padding: 4px 8px; }
   .dname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .resume { color: var(--accent); font-weight: 600; }
 </style>

@@ -21,6 +21,74 @@ pub fn serve<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>>, re
     });
 }
 
+/// `scanfile://localhost/?path=<abs>&page=<n>&w=<px>` — a preview JPEG of one page of an exported
+/// PDF or image. Only files under the scans folder, or ones the user picked, are served.
+pub fn serve_file<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>>, responder: UriSchemeResponder) {
+    let q = query(req.uri().query().unwrap_or(""));
+    let path = q.iter().find(|(k, _)| k == "path").map(|(_, v)| PathBuf::from(v));
+    let path = path.and_then(|p| allowed(&ctx.app_handle().state::<AppState>(), &p));
+    let page: usize = q.iter().find(|(k, _)| k == "page").and_then(|(_, v)| v.parse().ok()).unwrap_or(0);
+    let w = width(req.uri().query()).unwrap_or(1600);
+    std::thread::spawn(move || {
+        let res = path.and_then(|p| {
+            let is_pdf = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+            if is_pdf { scan_core::pdfedit::page_preview(&std::fs::read(&p).ok()?, page, w).ok() } else { resized(&p, w).ok() }
+        });
+        responder.respond(match res {
+            Some(bytes) => Response::builder().header("Content-Type", "image/jpeg").body(bytes).unwrap(),
+            None => Response::builder().status(StatusCode::NOT_FOUND).body(Vec::new()).unwrap(),
+        });
+    });
+}
+
+/// The canonical path if it's inside the scans folder or was picked by the user.
+pub fn allowed(st: &AppState, path: &Path) -> Option<PathBuf> {
+    let real = path.canonicalize().ok()?;
+    let root = scan_core::device::default_root().canonicalize().ok();
+    let inside = root.is_some_and(|r| real.starts_with(r));
+    let picked = st.picked.lock().unwrap().iter().any(|p| p.canonicalize().ok().as_ref() == Some(&real));
+    (inside || picked).then_some(real)
+}
+
+fn query(q: &str) -> Vec<(String, String)> {
+    q.split('&')
+        .filter_map(|kv| kv.split_once('='))
+        .map(|(k, v)| (k.to_string(), decode(v)))
+        .collect()
+}
+
+/// Percent-decoding for `encodeURIComponent` output.
+fn decode(v: &str) -> String {
+    let b = v.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = (b[i] == b'%' && i + 2 < b.len() && b[i + 1].is_ascii_hexdigit() && b[i + 2].is_ascii_hexdigit())
+            .then(|| u8::from_str_radix(&v[i + 1..i + 3], 16).ok())
+            .flatten();
+        match hex {
+            Some(c) => {
+                out.push(c);
+                i += 3;
+            }
+            None => {
+                out.push(if b[i] == b'+' { b' ' } else { b[i] });
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn resized(src: &Path, w: u32) -> anyhow::Result<Vec<u8>> {
+    let img = session::load_rgb(src)?;
+    if img.width() <= w {
+        return session::encode_rgb(&img, 85);
+    }
+    let h = (img.height() as u64 * w as u64 / img.width() as u64) as u32;
+    session::encode_rgb(&image::imageops::thumbnail(&img, w, h.max(1)), 85)
+}
+
 /// Only plain file names inside `pages/` or `raw/`; nothing else in the session folder.
 fn resolve(dir: &Path, path: &str) -> Option<PathBuf> {
     let (sub, file) = path.trim_start_matches('/').split_once('/')?;
@@ -60,5 +128,12 @@ mod tests {
         assert_eq!(resolve(d, "/pages/../session.json"), None);
         assert_eq!(resolve(d, "/thumbs/x.jpg"), None);
         assert_eq!(resolve(d, "/pages/.hidden"), None);
+    }
+
+    #[test]
+    fn decodes_uri_component_paths() {
+        assert_eq!(decode("%2FUsers%2Fme%2Fmy%20scan%E2%80%94a.pdf"), "/Users/me/my scan—a.pdf");
+        assert_eq!(decode("a%2"), "a%2");
+        assert_eq!(decode("%é1"), "%é1");
     }
 }

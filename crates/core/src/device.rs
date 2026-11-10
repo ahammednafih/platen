@@ -85,6 +85,23 @@ pub fn drafts(root: &Path) -> Vec<Draft> {
     out
 }
 
+/// Delete a draft's working scans; keep anything exported, and drop the folder if it ends up empty.
+pub fn delete_draft(root: &Path, name: &str) -> Result<()> {
+    if name.is_empty() || name.contains(['/', '\\']) || name.starts_with('.') {
+        anyhow::bail!("bad draft name {name:?}");
+    }
+    let dir = root.join(name);
+    if !dir.join("session.json").exists() {
+        anyhow::bail!("{name} is not a draft");
+    }
+    for sub in ["pages", "raw", "thumbs"] {
+        let _ = std::fs::remove_dir_all(dir.join(sub));
+    }
+    std::fs::remove_file(dir.join("session.json"))?;
+    let _ = std::fs::remove_dir(&dir); // only succeeds when empty
+    Ok(())
+}
+
 /// An exported file in a session folder.
 #[derive(Serialize, Debug)]
 pub struct Saved {
@@ -137,6 +154,24 @@ mod tests {
         let d = drafts(&root);
 
         assert_eq!(d.iter().map(|d| (d.name.as_str(), d.pages)).collect::<Vec<_>>(), [("letters", 1)]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn delete_draft_keeps_exports() {
+        let root = std::env::temp_dir().join(format!("scan-del-{}", Session::new_stem()));
+        Session::open(root.join("empty")).unwrap().save().unwrap();
+        let kept = Session::open(root.join("kept")).unwrap();
+        std::fs::write(kept.dir.join("kept_color.pdf"), b"pdf").unwrap();
+        std::fs::write(kept.dir.join("session.json"), b"[]").unwrap();
+
+        delete_draft(&root, "empty").unwrap();
+        delete_draft(&root, "kept").unwrap();
+
+        assert!(!root.join("empty").exists());
+        assert!(root.join("kept/kept_color.pdf").exists() && !root.join("kept/pages").exists());
+        assert!(drafts(&root).is_empty());
+        assert!(delete_draft(&root, "../x").is_err());
         std::fs::remove_dir_all(root).unwrap();
     }
 

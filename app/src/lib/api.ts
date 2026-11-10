@@ -19,7 +19,10 @@ export interface Draft { name: string; pages: number; modified: number }
 export interface ExportOpts {
   color: boolean; share: boolean; print: boolean; images: boolean;
   cleanup: boolean; open_pdf: boolean; open_folder: boolean;
+  max_mb: number | null;
 }
+export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }
+export interface ShrinkResult { out: string; before: number; after: number }
 export interface Exported { files: string[]; closed: boolean }
 
 type Slot = { replace?: number; at?: number };
@@ -41,11 +44,24 @@ export const api = {
   movePage: (from: number, to: number) => invoke<SessionView>("move_page", { from, to }),
   getExportOpts: () => invoke<ExportOpts>("get_export_opts"),
   export: (opts: ExportOpts) => invoke<Exported>("export", { opts }),
+  library: () => invoke<Saved[]>("library"),
+  deleteDraft: (name: string) => invoke<Draft[]>("delete_draft", { name }),
+  filePages: (path: string) => invoke<number>("file_pages", { path }),
+  shrinkPdf: (path: string, maxMb: number) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb }),
 };
 
 /** Thumbnail URL for a session image. Edits write new files, so URLs never go stale. */
 export function img(sub: "pages" | "raw", file: string, w = 360): string {
   return `scanimg://localhost/${sub}/${encodeURIComponent(file)}?w=${w}`;
+}
+
+/** Preview JPEG of one page of a saved PDF or image. */
+export function fileImg(path: string, page = 0, w = 1600): string {
+  return `scanfile://localhost/?path=${encodeURIComponent(path)}&page=${page}&w=${w}`;
+}
+
+export function size(bytes: number): string {
+  return bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
 }
 
 export function mm(p: Page): [number, number] {

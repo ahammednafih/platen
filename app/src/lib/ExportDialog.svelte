@@ -14,13 +14,14 @@
     opts = await api.getExportOpts();
   });
 
-  const outputs: [keyof ExportOpts, string, string][] = [
+  type Flag = Exclude<keyof ExportOpts, "max_mb">;
+  const outputs: [Flag, string, string][] = [
     ["color", "Colour PDF", "Full quality, as scanned"],
     ["share", "Share PDF", "Colour, 300 dpi, small enough to email"],
     ["print", "Print PDF", "Black & white with the paper whitened"],
     ["images", "Page images", "One full-quality JPEG per page"],
   ];
-  const after: [keyof ExportOpts, string][] = [
+  const after: [Flag, string][] = [
     ["open_pdf", "Open the PDF when done"],
     ["open_folder", "Show the folder when done"],
     ["cleanup", "Delete working scans afterwards (ends the session)"],
@@ -82,6 +83,16 @@
           </label>
         {/each}
       </fieldset>
+      <fieldset>
+        <legend><h3>Size limit</h3></legend>
+        <label class="opt">
+          <input type="checkbox" checked={opts.max_mb !== null} onchange={(e) => (opts!.max_mb = e.currentTarget.checked ? 1 : null)} />
+          <span>Fit each PDF under</span>
+          <input class="mb" type="number" min="0.05" step="0.1" disabled={opts.max_mb === null}
+            value={opts.max_mb ?? 1} oninput={(e) => (opts!.max_mb = Number(e.currentTarget.value) || null)} />
+          <span>MB <span class="muted">— for upload limits</span></span>
+        </label>
+      </fieldset>
       {#if error}<p class="error">{error}</p>{/if}
       <footer>
         <button class="ghost" onclick={onclose} disabled={busy}>Cancel</button>
@@ -98,6 +109,7 @@
   fieldset { border: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   legend { padding: 0; margin-bottom: 6px; }
   .opt { display: flex; gap: 10px; align-items: baseline; cursor: pointer; }
+  .mb { width: 70px; font: inherit; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); }
   .opt.danger { color: var(--danger); }
   input[type="checkbox"] { accent-color: var(--accent); }
   .files { list-style: none; margin: 0; padding: 0; }
