@@ -1,9 +1,7 @@
 //! The TUI: page list, key handling, and background scan jobs.
-use scan_core::escl::{self, ScanOpts, Scanner};
-use scan_core::fill::{self, Fill};
-use scan_core::pdf::jpeg_info;
+use scan_core::capture::{self, Settings, TopHalf, dur};
+use scan_core::escl::Scanner;
 use scan_core::session::{self, ExportOpts, Kind, Page, Session};
-use scan_core::stitch;
 use anyhow::{Context, Result};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout};
@@ -17,19 +15,12 @@ use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Copy)]
-pub struct Settings {
-    pub dpi: u32,
-    pub color: bool,
-    pub fill: Fill,
-}
-
 enum Mode {
     Idle,
     /// Optional image to keep previewing while the job runs.
     Busy(String, Instant, Option<PathBuf>),
     /// Top half scanned; waiting for the user to turn the page.
-    Flip { top: PathBuf, stem: String, replace: Option<usize>, top_secs: f32 },
+    Flip { top: TopHalf, replace: Option<usize> },
     /// Choosing what to export.
     Export { cursor: usize, then_quit: bool },
 }
@@ -38,7 +29,7 @@ enum Msg {
     State(String),
     Ink(String),
     Page { page: Page, replace: Option<usize>, note: String },
-    Top { top: PathBuf, stem: String, replace: Option<usize>, top_secs: f32 },
+    Top { top: TopHalf, replace: Option<usize> },
     Exported { files: Vec<PathBuf>, quit: bool },
     Failed(String),
     Thumb(String, Option<DynamicImage>),
@@ -294,103 +285,42 @@ impl App {
 
     // ---- jobs --------------------------------------------------------------
 
-    fn opts(&self, kind: Kind) -> ScanOpts {
-        let (width, height) = match kind {
-            Kind::A4 => (escl::A4_W, escl::A4_H),
-            Kind::Long => (escl::GLASS_W, escl::GLASS_H),
-        };
-        ScanOpts { dpi: self.settings.dpi, color: self.settings.color, width, height }
-    }
-
     fn busy(&mut self, what: &str) {
         self.mode = Mode::Busy(what.into(), Instant::now(), None);
     }
 
     fn scan_a4(&mut self, replace: Option<usize>) {
         self.busy("Scanning A4 page");
-        let (scanner, tx, opts) = (self.scanner.clone(), self.tx.clone(), self.opts(Kind::A4));
-        let path = self.session.dir.join("pages");
-        let fill_mode = self.settings.fill;
-        job(tx, move || {
-            let t0 = Instant::now();
-            let data = scanner.scan(opts)?;
-            let secs = t0.elapsed().as_secs_f32();
-            let data = apply_fill(data, fill_mode)?;
-            let (w, h, _) = jpeg_info(&data).context("scanner sent a bad image")?;
-            let file = format!("{}.jpg", Session::new_stem());
-            std::fs::write(path.join(&file), &data)?;
-            let page = Page { file, kind: Kind::A4, dpi: opts.dpi, w, h, secs };
-            let (mw, mh) = page.mm();
-            Ok(Msg::Page { page, replace, note: format!("A4 page {mw}×{mh} mm in {}", dur(secs)) })
+        let (scanner, settings, dir) = (self.scanner.clone(), self.settings, self.session.dir.clone());
+        job(self.tx.clone(), move || {
+            let c = capture::scan_a4(&scanner, settings, &dir)?;
+            Ok(Msg::Page { page: c.page, replace, note: c.note })
         });
     }
 
     fn fill_selected(&mut self) {
         let Some(i) = self.list.selected() else { return };
-        let mode = if self.settings.fill == Fill::Off { Fill::White } else { self.settings.fill };
-        let mut page = self.session.pages[i].clone();
-        let src = self.session.page_path(&page);
-        let dir = self.session.dir.join("pages");
+        let (page, mode, dir) = (self.session.pages[i].clone(), self.settings.fill, self.session.dir.clone());
         self.busy("Filling torn areas");
         job(self.tx.clone(), move || {
-            let mut img = session::load_rgb(&src)?;
-            let n = fill::fill_holes(&mut img, mode);
-            if n == 0 {
-                anyhow::bail!("no torn or cut areas found on page {}", i + 1);
-            }
-            page.file = format!("{}.jpg", Session::new_stem());
-            std::fs::write(dir.join(&page.file), session::encode_rgb(&img, 92)?)?;
-            let pct = n as f32 * 100.0 / (img.width() * img.height()) as f32;
-            Ok(Msg::Page { page, replace: Some(i), note: format!("filled torn areas {} ({pct:.1}% of page)", mode.label()) })
+            let c = capture::fill_page(&dir, &page, mode).with_context(|| format!("page {}", i + 1))?;
+            Ok(Msg::Page { page: c.page, replace: Some(i), note: c.note })
         });
     }
 
     fn scan_top(&mut self, replace: Option<usize>) {
         self.busy("Scanning top half");
-        let (scanner, tx, opts) = (self.scanner.clone(), self.tx.clone(), self.opts(Kind::Long));
-        let stem = Session::new_stem();
-        let top = self.session.dir.join("raw").join(format!("{stem}_top.jpg"));
-        job(tx, move || {
-            let t0 = Instant::now();
-            std::fs::write(&top, scanner.scan(opts)?)?;
-            Ok(Msg::Top { top, stem, replace, top_secs: t0.elapsed().as_secs_f32() })
-        });
+        let (scanner, settings, dir) = (self.scanner.clone(), self.settings, self.session.dir.clone());
+        job(self.tx.clone(), move || Ok(Msg::Top { top: capture::scan_top(&scanner, settings, &dir)?, replace }));
     }
 
     fn scan_bottom(&mut self) {
-        let Mode::Flip { top, stem, replace, top_secs } = std::mem::replace(&mut self.mode, Mode::Idle) else { return };
-        self.mode = Mode::Busy("Scanning bottom half, then joining".into(), Instant::now(), Some(top.clone()));
-        let (scanner, tx, opts) = (self.scanner.clone(), self.tx.clone(), self.opts(Kind::Long));
-        let dir = self.session.dir.clone();
-        let fill_mode = self.settings.fill;
-        job(tx, move || {
-            let bottom = dir.join("raw").join(format!("{stem}_bottom.jpg"));
-            let t0 = Instant::now();
-            std::fs::write(&bottom, scanner.scan(opts)?)?;
-            let bottom_secs = t0.elapsed().as_secs_f32();
-            let t1 = Instant::now();
-            let r = stitch::stitch(&session::load_rgb(&top)?, &session::load_rgb(&bottom)?)?;
-            let file = format!("{stem}.jpg");
-            std::fs::write(dir.join("pages").join(&file), session::encode_rgb(&r.image, 92)?)?;
-            let mut r = r;
-            fill::fill_holes(&mut r.image, fill_mode);
-            let join_secs = t1.elapsed().as_secs_f32();
-            let secs = top_secs + bottom_secs + join_secs;
-            let page = Page { file, kind: Kind::Long, dpi: opts.dpi, w: r.image.width(), h: r.image.height(), secs };
-            let (mw, mh) = page.mm();
-            let warn = if r.score < 0.2 { " — low match, check with [v]" } else { "" };
-            Ok(Msg::Page {
-                page,
-                replace,
-                note: format!(
-                    "Long page {mw}×{mh} mm in {} (top {} · bottom {} · join {}, match {:.2}){warn}",
-                    dur(secs),
-                    dur(top_secs),
-                    dur(bottom_secs),
-                    dur(join_secs),
-                    r.score
-                ),
-            })
+        let Mode::Flip { top, replace } = std::mem::replace(&mut self.mode, Mode::Idle) else { return };
+        self.mode = Mode::Busy("Scanning bottom half, then joining".into(), Instant::now(), Some(top.path.clone()));
+        let (scanner, settings, dir) = (self.scanner.clone(), self.settings, self.session.dir.clone());
+        job(self.tx.clone(), move || {
+            let c = capture::scan_bottom(&scanner, settings, &dir, &top)?;
+            Ok(Msg::Page { page: c.page, replace, note: c.note })
         });
     }
 
@@ -417,8 +347,8 @@ impl App {
                     self.thumbs.insert(key, img);
                 }
             }
-            Msg::Top { top, stem, replace, top_secs } => {
-                self.mode = Mode::Flip { top, stem, replace, top_secs };
+            Msg::Top { top, replace } => {
+                self.mode = Mode::Flip { top, replace };
                 bell();
             }
             Msg::Page { page, replace, note } => {
@@ -499,7 +429,7 @@ impl App {
     fn preview_target(&self) -> Option<(String, PathBuf, String)> {
         match &self.mode {
             Mode::Flip { top, .. } => {
-                return Some((top.display().to_string(), top.clone(), " Top half (check before turning) ".into()));
+                return Some((top.path.display().to_string(), top.path.clone(), " Top half (check before turning) ".into()));
             }
             Mode::Busy(_, _, Some(top)) => {
                 return Some((top.display().to_string(), top.clone(), " Top half (joining…) ".into()));
@@ -651,28 +581,6 @@ impl App {
             .collect();
         f.render_widget(Paragraph::new(vec![Line::from(row1), Line::from(row2)]), keys);
     }
-}
-
-/// 42s, 3m 05s, 1h 02m
-fn dur(secs: f32) -> String {
-    let s = secs.round() as u64;
-    match s {
-        0..60 => format!("{s}s"),
-        60..3600 => format!("{}m {:02}s", s / 60, s % 60),
-        _ => format!("{}h {:02}m", s / 3600, s % 3600 / 60),
-    }
-}
-
-/// Fill holes in a scanner JPEG; re-encode only if something was painted.
-fn apply_fill(data: Vec<u8>, mode: Fill) -> Result<Vec<u8>> {
-    if mode == Fill::Off {
-        return Ok(data);
-    }
-    let mut img = image::load_from_memory(&data)?.to_rgb8();
-    if fill::fill_holes(&mut img, mode) == 0 {
-        return Ok(data);
-    }
-    session::encode_rgb(&img, 92)
 }
 
 /// Print PDF if exported, else share, else colour, else the first file.

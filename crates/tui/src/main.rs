@@ -1,11 +1,12 @@
 mod app;
 
+use scan_core::capture::Settings;
+use scan_core::device::{self, connect, default_name, expand};
 use scan_core::{escl, fill, ipp, pdf, session, stitch};
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::PathBuf;
-use std::time::Duration;
 
 /// Scan pages (including longer-than-A4 ones) from an AirScan scanner.
 #[derive(Parser)]
@@ -58,7 +59,7 @@ fn main() -> Result<()> {
     }
 
     if let Some(out) = cli.scan_to {
-        let s = connect(cli.host.as_deref())?;
+        let s = connect_noisy(cli.host.as_deref())?;
         let t = std::time::Instant::now();
         let opts = escl::ScanOpts { dpi: cli.dpi, color: !cli.gray, width: escl::GLASS_W, height: escl::GLASS_H };
         let data = s.scan(opts)?;
@@ -77,7 +78,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if cli.status || cli.print.is_some() {
-        let s = connect(cli.host.as_deref())?;
+        let s = connect_noisy(cli.host.as_deref())?;
         let printer = ipp::Printer::for_host(s.host());
         if let Some(files) = cli.print {
             let pages: Vec<Vec<u8>> = files.iter().map(std::fs::read).collect::<std::io::Result<_>>()?;
@@ -100,34 +101,9 @@ fn main() -> Result<()> {
     let name = cli.name.unwrap_or_else(default_name);
     let dir = expand(&cli.dir).join(&name);
     let session = session::Session::open(dir)?;
-    let scanner = connect(cli.host.as_deref())?;
-    let settings = app::Settings { dpi: cli.dpi, color: !cli.gray, fill: cli.fill };
+    let scanner = connect_noisy(cli.host.as_deref())?;
+    let settings = Settings { dpi: cli.dpi, color: !cli.gray, fill: cli.fill };
     app::run(scanner, session, settings)
-}
-
-fn connect(host: Option<&str>) -> Result<escl::Scanner> {
-    let cache = dirs::config_dir().unwrap_or_default().join("scan").join("host");
-    if let Some(h) = host {
-        return Ok(escl::Scanner::at(h));
-    }
-    if let Ok(c) = std::fs::read_to_string(&cache) {
-        let mut lines = c.lines();
-        let mut s = escl::Scanner::at(lines.next().unwrap_or("").trim());
-        if let Some(n) = lines.next() {
-            s.name = n.to_string();
-        }
-        if s.state().is_ok() {
-            return Ok(s);
-        }
-    }
-    eprintln!("Looking for the scanner on Wi-Fi…");
-    let s = escl::Scanner::discover(Duration::from_secs(8)).context(
-        "scanner not found. Is it on and on the same Wi-Fi? If macOS blocks it, allow your terminal in \
-         System Settings → Privacy & Security → Local Network",
-    )?;
-    let _ = std::fs::create_dir_all(cache.parent().unwrap());
-    let _ = std::fs::write(&cache, format!("{}\n{}", s.base, s.name));
-    Ok(s)
 }
 
 fn stitch_files(top: &PathBuf, bottom: &PathBuf, out: &PathBuf) -> Result<()> {
@@ -148,37 +124,19 @@ fn stitch_files(top: &PathBuf, bottom: &PathBuf, out: &PathBuf) -> Result<()> {
 }
 
 fn list_drafts(root: &std::path::Path) -> Result<()> {
-    let mut found = 0;
-    let mut dirs: Vec<_> = std::fs::read_dir(root).map(|r| r.flatten().collect()).unwrap_or_default();
-    dirs.sort_by_key(|e| std::cmp::Reverse(e.metadata().and_then(|m| m.modified()).ok()));
-    for e in dirs {
-        let Ok(b) = std::fs::read(e.path().join("session.json")) else { continue };
-        let pages: Vec<session::Page> = serde_json::from_slice(&b).unwrap_or_default();
-        println!("  {:<28} {:>3} pages", e.file_name().to_string_lossy(), pages.len());
-        found += 1;
-    }
-    if found == 0 {
+    let drafts = device::drafts(root);
+    if drafts.is_empty() {
         println!("No drafts in {}", root.display());
-    } else {
-        println!("\nResume with:  scan <name>");
+        return Ok(());
     }
+    for d in drafts {
+        println!("  {:<28} {:>3} pages", d.name, d.pages);
+    }
+    println!("\nResume with:  scan <name>");
     Ok(())
 }
 
-fn default_name() -> String {
-    std::process::Command::new("date")
-        .arg("+%Y-%m-%d_%H%M")
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "session".into())
-}
-
-fn expand(p: &str) -> PathBuf {
-    match p.strip_prefix("~/") {
-        Some(rest) => dirs::home_dir().unwrap_or_default().join(rest),
-        None => PathBuf::from(p),
-    }
+fn connect_noisy(host: Option<&str>) -> Result<escl::Scanner> {
+    eprintln!("Connecting to the scanner…");
+    connect(host)
 }
