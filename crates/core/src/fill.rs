@@ -9,11 +9,23 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, clap::ValueEnum)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 pub enum Fill {
     Off,
     White,
     Paper,
+}
+
+impl std::str::FromStr for Fill {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Fill, String> {
+        match s {
+            "off" => Ok(Fill::Off),
+            "white" => Ok(Fill::White),
+            "paper" => Ok(Fill::Paper),
+            _ => Err(format!("expected off, white or paper, got {s:?}")),
+        }
+    }
 }
 
 impl Fill {

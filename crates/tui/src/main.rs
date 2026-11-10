@@ -1,9 +1,6 @@
 mod app;
-mod escl;
-mod fill;
-mod pdf;
-mod session;
-mod stitch;
+
+use scan_core::{escl, fill, ipp, pdf, session, stitch};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -32,11 +29,20 @@ struct Cli {
     #[arg(long, num_args = 3, value_names = ["TOP", "BOTTOM", "OUT"])]
     stitch: Option<Vec<PathBuf>>,
     /// Paint torn/cut-away areas: off, white or paper.
-    #[arg(long, value_enum, default_value_t = fill::Fill::White)]
+    #[arg(long, default_value = "white")]
     fill: fill::Fill,
     /// Apply hole filling to an image offline: IN OUT.jpg
     #[arg(long, num_args = 2, value_names = ["IN", "OUT"])]
     fill_file: Option<Vec<PathBuf>>,
+    /// Show printer status and ink levels.
+    #[arg(long)]
+    status: bool,
+    /// Print JPEG files (pages, in order).
+    #[arg(long, num_args = 1.., value_name = "FILE")]
+    print: Option<Vec<PathBuf>>,
+    /// Copies when printing.
+    #[arg(long, default_value_t = 1)]
+    copies: u32,
     /// List saved drafts (sessions that can be resumed).
     #[arg(long)]
     list: bool,
@@ -68,6 +74,23 @@ fn main() -> Result<()> {
         let n = fill::fill_holes(&mut img, cli.fill);
         std::fs::write(&f[1], session::encode_rgb(&img, 92)?)?;
         println!("filled {n} px in {:.1}s", t.elapsed().as_secs_f32());
+        return Ok(());
+    }
+    if cli.status || cli.print.is_some() {
+        let s = connect(cli.host.as_deref())?;
+        let printer = ipp::Printer::for_host(s.host());
+        if let Some(files) = cli.print {
+            let pages: Vec<Vec<u8>> = files.iter().map(std::fs::read).collect::<std::io::Result<_>>()?;
+            let opts = ipp::PrintOpts { copies: cli.copies, color: !cli.gray, ..Default::default() };
+            let jobs = printer.print_pages(&pages, &opts, "scan")?;
+            println!("sent {} job(s): {jobs:?}", jobs.len());
+            return Ok(());
+        }
+        let st = printer.status()?;
+        println!("{} — {}{}", st.model, st.state, if st.reasons.is_empty() { String::new() } else { format!(" ({})", st.reasons.join(", ")) });
+        for i in st.ink {
+            println!("  {:<8} {:>3}%", i.name, i.level);
+        }
         return Ok(());
     }
     if cli.list {

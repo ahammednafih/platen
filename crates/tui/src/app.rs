@@ -1,9 +1,9 @@
 //! The TUI: page list, key handling, and background scan jobs.
-use crate::escl::{self, ScanOpts, Scanner};
-use crate::fill::{self, Fill};
-use crate::pdf::jpeg_info;
-use crate::session::{self, ExportOpts, Kind, Page, Session};
-use crate::stitch;
+use scan_core::escl::{self, ScanOpts, Scanner};
+use scan_core::fill::{self, Fill};
+use scan_core::pdf::jpeg_info;
+use scan_core::session::{self, ExportOpts, Kind, Page, Session};
+use scan_core::stitch;
 use anyhow::{Context, Result};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout};
@@ -36,6 +36,7 @@ enum Mode {
 
 enum Msg {
     State(String),
+    Ink(String),
     Page { page: Page, replace: Option<usize>, note: String },
     Top { top: PathBuf, stem: String, replace: Option<usize>, top_secs: f32 },
     Exported { files: Vec<PathBuf>, quit: bool },
@@ -50,6 +51,7 @@ struct App {
     mode: Mode,
     list: ListState,
     state: String,
+    ink: String,
     log: Vec<(Color, String)>,
     tx: Sender<Msg>,
     quit_after_export: bool,
@@ -69,6 +71,7 @@ pub fn run(scanner: Scanner, session: Session, settings: Settings) -> Result<()>
     let mut app = App {
         list: ListState::default(),
         state: "…".into(),
+        ink: String::new(),
         log: vec![(Color::DarkGray, format!("Saving to {}", session.dir.display()))],
         mode: Mode::Idle,
         quit_after_export: false,
@@ -100,6 +103,17 @@ pub fn run(scanner: Scanner, session: Session, settings: Settings) -> Result<()>
 }
 
 fn spawn_status(scanner: Scanner, tx: Sender<Msg>) {
+    let printer = scan_core::ipp::Printer::for_host(scanner.host());
+    let tx2 = tx.clone();
+    std::thread::spawn(move || loop {
+        if let Ok(st) = printer.status() {
+            let ink = st.ink.iter().map(|i| format!("{}{}%", &i.name[..1], i.level)).collect::<Vec<_>>().join(" ");
+            if tx2.send(Msg::Ink(ink)).is_err() {
+                return;
+            }
+        }
+        std::thread::sleep(Duration::from_secs(60));
+    });
     std::thread::spawn(move || loop {
         let s = scanner.state().unwrap_or_else(|_| "Offline".into());
         if tx.send(Msg::State(s)).is_err() {
@@ -396,6 +410,7 @@ impl App {
     fn on_msg(&mut self, m: Msg) -> bool {
         match m {
             Msg::State(s) => self.state = s,
+            Msg::Ink(s) => self.ink = s,
             Msg::Thumb(key, img) => {
                 self.loading.remove(&key);
                 if let Some(img) = img {
@@ -577,7 +592,8 @@ impl App {
             Span::styled(self.settings.fill.label(), Style::new().bold()),
             Span::raw(format!("   session: {}", self.session.name)),
             Span::raw(format!(
-                "   ⏱ {} open · {} scanning",
+                "   ink {}   ⏱ {} open · {} scanning",
+                self.ink,
                 dur(self.started.elapsed().as_secs_f32()),
                 dur(self.session.pages.iter().map(|p| p.secs).sum())
             )),

@@ -1,0 +1,14 @@
+[package]
+name = "scan-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dirs.workspace = true
+mdns-sd = "0.21.7"
+ureq = "3.5.1"
