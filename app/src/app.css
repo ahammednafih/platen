@@ -1,0 +1,63 @@
+:root {
+  --bg: #f6f4ef;
+  --panel: #ffffff;
+  --sunken: #eeebe4;
+  --line: #ddd8cd;
+  --text: #22201c;
+  --muted: #6f695e;
+  --accent: #2f6f5e;
+  --accent-text: #ffffff;
+  --warn: #b7791f;
+  --danger: #b4443a;
+  --ok: #2f7d4f;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 5%);
+  color-scheme: light dark;
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1a18;
+    --panel: #252421;
+    --sunken: #161513;
+    --line: #3a3833;
+    --text: #ece8df;
+    --muted: #9c968a;
+    --accent: #5fae96;
+    --accent-text: #0f1a16;
+    --warn: #e0a84a;
+    --danger: #e0786d;
+    --ok: #6cc28c;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); user-select: none; -webkit-user-select: none; }
+
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 20px; }
+h2 { font-size: 15px; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+button {
+  font: inherit; color: var(--text); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; font-weight: 600; }
+button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button.danger { color: var(--danger); }
+button.ghost { background: none; border-color: transparent; }
+
+input[type="text"] {
+  font: inherit; color: var(--text); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; width: 100%;
+}
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.muted { color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
