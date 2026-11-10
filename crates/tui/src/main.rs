@@ -47,6 +47,9 @@ struct Cli {
     /// Copies when printing.
     #[arg(long, default_value_t = 1)]
     copies: u32,
+    /// Shrink any PDF to fit under a size limit: IN OUT MB
+    #[arg(long, num_args = 3, value_names = ["IN", "OUT", "MB"])]
+    shrink: Option<Vec<String>>,
     /// List saved drafts (sessions that can be resumed).
     #[arg(long)]
     list: bool,
@@ -73,6 +76,23 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Some(a) = cli.shrink {
+        let t = std::time::Instant::now();
+        let mb: f32 = a[2].parse().context("MB must be a number, e.g. 1 or 0.5")?;
+        let input = std::fs::read(&a[0])?;
+        let r = scan_core::pdfedit::shrink(&input, (mb * 1_000_000.0) as u64)?;
+        std::fs::write(&a[1], &r.data)?;
+        println!(
+            "{:.2} MB → {:.2} MB ({}; images at {:.0}% size, quality {}) in {:.1}s",
+            input.len() as f32 / 1e6,
+            r.data.len() as f32 / 1e6,
+            if r.fits { "fits" } else { "still over the limit" },
+            r.scale * 100.0,
+            r.quality,
+            t.elapsed().as_secs_f32()
+        );
+        return Ok(());
+    }
     if let Some(f) = cli.fill_file {
         let t = std::time::Instant::now();
         let mut img = session::load_rgb(&f[0])?;

@@ -85,6 +85,42 @@ pub fn drafts(root: &Path) -> Vec<Draft> {
     out
 }
 
+/// An exported file in a session folder.
+#[derive(Serialize, Debug)]
+pub struct Saved {
+    pub session: String,
+    pub name: String,
+    pub path: PathBuf,
+    pub bytes: u64,
+    pub modified: u64,
+}
+
+/// Exported PDFs and images under `root` (top level of each session folder), newest first.
+pub fn library(root: &Path) -> Vec<Saved> {
+    let mut out: Vec<Saved> = std::fs::read_dir(root)
+        .map(|r| r.flatten().collect::<Vec<_>>())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|e| e.path().is_dir())
+        .flat_map(|dir| {
+            let session = dir.file_name().to_string_lossy().into_owned();
+            std::fs::read_dir(dir.path()).into_iter().flatten().flatten().filter_map(move |f| {
+                let path = f.path();
+                let ext = path.extension()?.to_str()?.to_ascii_lowercase();
+                if !matches!(ext.as_str(), "pdf" | "jpg" | "jpeg" | "png") {
+                    return None;
+                }
+                let meta = f.metadata().ok()?;
+                let modified = meta.modified().ok()?.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                let name = f.file_name().to_string_lossy().into_owned();
+                Some(Saved { session: session.clone(), name, path, bytes: meta.len(), modified })
+            })
+        })
+        .collect();
+    out.sort_by_key(|s| std::cmp::Reverse(s.modified));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,6 +137,19 @@ mod tests {
         let d = drafts(&root);
 
         assert_eq!(d.iter().map(|d| (d.name.as_str(), d.pages)).collect::<Vec<_>>(), [("letters", 1)]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn library_lists_exports_but_not_working_scans() {
+        let root = std::env::temp_dir().join(format!("scan-library-{}", Session::new_stem()));
+        let s = Session::open(root.join("tax")).unwrap();
+        std::fs::write(s.dir.join("pages/1.jpg"), b"x").unwrap();
+        std::fs::write(s.dir.join("tax_color.pdf"), b"pdf").unwrap();
+
+        let l = library(&root);
+
+        assert_eq!(l.iter().map(|s| (s.session.as_str(), s.name.as_str(), s.bytes)).collect::<Vec<_>>(), [("tax", "tax_color.pdf", 3)]);
         std::fs::remove_dir_all(root).unwrap();
     }
 }

@@ -6,5 +6,6 @@ pub mod fill;
 pub mod ipp;
 pub mod native;
 pub mod pdf;
+pub mod pdfedit;
 pub mod session;
 pub mod stitch;
