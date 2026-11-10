@@ -1,5 +1,5 @@
 //! Scan pipelines shared by the TUI and the app: A4 page, two-pass long page, hole fill.
-use crate::escl::{self, ScanOpts, Scanner};
+use crate::escl::{self, ColorMode, ScanOpts, Scanner};
 use crate::fill::{self, Fill};
 use crate::pdf::jpeg_info;
 use crate::session::{self, Kind, Page, Session};
@@ -12,7 +12,7 @@ use std::time::Instant;
 #[derive(Clone, Copy, Serialize, serde::Deserialize, Debug)]
 pub struct Settings {
     pub dpi: u32,
-    pub color: bool,
+    pub mode: ColorMode,
     pub fill: Fill,
 }
 
@@ -22,7 +22,7 @@ impl Settings {
             Kind::A4 => (escl::A4_W, escl::A4_H),
             Kind::Long => (escl::GLASS_W, escl::GLASS_H),
         };
-        ScanOpts { dpi: self.dpi, color: self.color, width, height }
+        ScanOpts { dpi: self.dpi, mode: self.mode, width, height }
     }
 }
 
@@ -46,7 +46,7 @@ pub fn scan_a4(scanner: &Scanner, s: Settings, dir: &Path) -> Result<Captured> {
     let t0 = Instant::now();
     let data = scanner.scan(opts)?;
     let secs = t0.elapsed().as_secs_f32();
-    let data = apply_fill(data, s.fill)?;
+    let data = finish(data, s)?;
     let (w, h, _) = jpeg_info(&data).context("scanner sent a bad image")?;
     let file = format!("{}.jpg", Session::new_stem());
     std::fs::write(dir.join("pages").join(&file), &data)?;
@@ -75,7 +75,11 @@ pub fn scan_bottom(scanner: &Scanner, s: Settings, dir: &Path, top: &TopHalf) ->
         fill::fill_holes(&mut r.image, s.fill);
     }
     let file = format!("{}.jpg", top.stem);
-    std::fs::write(dir.join("pages").join(&file), session::encode_rgb(&r.image, 92)?)?;
+    let jpeg = match s.mode {
+        ColorMode::BlackWhite => session::encode_gray(&black_and_white(&r.image), 90)?,
+        _ => session::encode_rgb(&r.image, 92)?,
+    };
+    std::fs::write(dir.join("pages").join(&file), jpeg)?;
     let join_secs = t1.elapsed().as_secs_f32();
     let secs = top.secs + bottom_secs + join_secs;
     let page = Page { file, kind: Kind::Long, dpi: opts.dpi, w: r.image.width(), h: r.image.height(), secs };
@@ -107,16 +111,48 @@ pub fn fill_page(dir: &Path, page: &Page, mode: Fill) -> Result<Captured> {
     Ok(Captured { page, note: format!("filled torn areas {} ({pct:.1}% of page)", mode.label()) })
 }
 
-/// Fill holes in a scanner JPEG; re-encode only if something was painted.
-fn apply_fill(data: Vec<u8>, mode: Fill) -> Result<Vec<u8>> {
-    if mode == Fill::Off {
+/// Fill holes in a scanner JPEG and apply local B&W; re-encode only if something changed.
+fn finish(data: Vec<u8>, s: Settings) -> Result<Vec<u8>> {
+    if s.fill == Fill::Off && s.mode != ColorMode::BlackWhite {
         return Ok(data);
     }
     let mut img = image::load_from_memory(&data)?.to_rgb8();
-    if fill::fill_holes(&mut img, mode) == 0 {
-        return Ok(data);
+    let painted = s.fill != Fill::Off && fill::fill_holes(&mut img, s.fill) > 0;
+    match s.mode {
+        ColorMode::BlackWhite => session::encode_gray(&black_and_white(&img), 90),
+        _ if painted => session::encode_rgb(&img, 92),
+        _ => Ok(data),
     }
-    session::encode_rgb(&img, 92)
+}
+
+/// Pure black/white at the Otsu threshold of the page's gray histogram.
+pub fn black_and_white(img: &image::RgbImage) -> image::GrayImage {
+    let mut gray = image::imageops::grayscale(img);
+    let t = otsu(&gray);
+    gray.pixels_mut().for_each(|p| p[0] = if p[0] > t { 255 } else { 0 });
+    gray
+}
+
+fn otsu(img: &image::GrayImage) -> u8 {
+    let mut hist = [0u64; 256];
+    img.pixels().for_each(|p| hist[p[0] as usize] += 1);
+    let total = img.pixels().len() as f64;
+    let sum: f64 = hist.iter().enumerate().map(|(i, &c)| i as f64 * c as f64).sum();
+    let (mut w0, mut sum0, mut best, mut t) = (0.0, 0.0, 0.0, 127u8);
+    for (i, &c) in hist.iter().enumerate() {
+        w0 += c as f64;
+        sum0 += i as f64 * c as f64;
+        let w1 = total - w0;
+        if w0 == 0.0 || w1 == 0.0 {
+            continue;
+        }
+        let between = w0 * w1 * (sum0 / w0 - (sum - sum0) / w1).powi(2);
+        if between > best {
+            best = between;
+            t = i as u8;
+        }
+    }
+    t
 }
 
 pub fn dur(secs: f32) -> String {
@@ -125,5 +161,22 @@ pub fn dur(secs: f32) -> String {
         0..60 => format!("{s}s"),
         60..3600 => format!("{}m {:02}s", s / 60, s % 60),
         _ => format!("{}h {:02}m", s / 3600, s % 3600 / 60),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn black_and_white_splits_ink_from_cream_paper() {
+        let mut img = image::RgbImage::from_pixel(40, 40, image::Rgb([225, 215, 190]));
+        for x in 0..40 {
+            img.put_pixel(x, 20, image::Rgb([60, 55, 70]));
+        }
+        let bw = black_and_white(&img);
+        assert_eq!(bw.get_pixel(5, 5)[0], 255);
+        assert_eq!(bw.get_pixel(5, 20)[0], 0);
+        assert!(bw.pixels().all(|p| p[0] == 0 || p[0] == 255));
     }
 }

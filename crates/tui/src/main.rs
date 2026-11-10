@@ -26,6 +26,9 @@ struct Cli {
     /// Scan in grayscale instead of colour.
     #[arg(long)]
     gray: bool,
+    /// Scan in pure black and white.
+    #[arg(long, conflicts_with = "gray")]
+    bw: bool,
     /// Join two existing scans offline: TOP BOTTOM OUT.jpg
     #[arg(long, num_args = 3, value_names = ["TOP", "BOTTOM", "OUT"])]
     stitch: Option<Vec<PathBuf>>,
@@ -54,6 +57,7 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let mode = color_mode(&cli);
     if let Some(files) = cli.stitch {
         return stitch_files(&files[0], &files[1], &files[2]);
     }
@@ -61,7 +65,7 @@ fn main() -> Result<()> {
     if let Some(out) = cli.scan_to {
         let s = connect_noisy(cli.host.as_deref())?;
         let t = std::time::Instant::now();
-        let opts = escl::ScanOpts { dpi: cli.dpi, color: !cli.gray, width: escl::GLASS_W, height: escl::GLASS_H };
+        let opts = escl::ScanOpts { dpi: cli.dpi, mode, width: escl::GLASS_W, height: escl::GLASS_H };
         let data = s.scan(opts)?;
         std::fs::write(&out, &data)?;
         let (w, h, _) = pdf::jpeg_info(&data).context("bad JPEG")?;
@@ -102,7 +106,7 @@ fn main() -> Result<()> {
     let dir = expand(&cli.dir).join(&name);
     let session = session::Session::open(dir)?;
     let scanner = connect_noisy(cli.host.as_deref())?;
-    let settings = Settings { dpi: cli.dpi, color: !cli.gray, fill: cli.fill };
+    let settings = Settings { dpi: cli.dpi, mode, fill: cli.fill };
     app::run(scanner, session, settings)
 }
 
@@ -139,4 +143,12 @@ fn list_drafts(root: &std::path::Path) -> Result<()> {
 fn connect_noisy(host: Option<&str>) -> Result<escl::Scanner> {
     eprintln!("Connecting to the scanner…");
     connect(host)
+}
+
+fn color_mode(cli: &Cli) -> escl::ColorMode {
+    match (cli.gray, cli.bw) {
+        (_, true) => escl::ColorMode::BlackWhite,
+        (true, _) => escl::ColorMode::Gray,
+        _ => escl::ColorMode::Color,
+    }
 }

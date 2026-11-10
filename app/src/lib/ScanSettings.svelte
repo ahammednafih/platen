@@ -1,37 +1,63 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type Fill, type Settings } from "./api";
+  import { api, type Caps, type ColorMode, type Fill, type Settings } from "./api";
 
-  let s = $state<Settings>({ dpi: 300, color: true, fill: "White" });
+  let { connected }: { connected: boolean } = $props();
+
+  let s = $state<Settings>({ dpi: 300, mode: "Color", fill: "White" });
+  // Shown until the device reports its own list.
+  let caps = $state<Caps>({ resolutions: [100, 200, 300, 600], modes: ["Color", "Gray", "BlackWhite"] });
 
   onMount(async () => {
     s = await api.getSettings();
   });
+
+  $effect(() => {
+    if (!connected) return;
+    api.capabilities().then((c) => {
+      if (c.resolutions.length) caps.resolutions = c.resolutions;
+      if (c.modes.length) caps.modes = c.modes;
+      if (!c.resolutions.includes(s.dpi)) set("dpi", nearest(c.resolutions, s.dpi));
+      if (c.modes.length && !c.modes.includes(s.mode)) set("mode", c.modes[0]);
+    }).catch(() => {});
+  });
+
+  function nearest(list: number[], v: number) {
+    return list.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a), list[0] ?? v);
+  }
 
   function set<K extends keyof Settings>(k: K, v: Settings[K]) {
     s[k] = v;
     api.setSettings($state.snapshot(s));
   }
 
-  const dpis = [100, 200, 300, 600];
+  const modeLabel: Record<ColorMode, string> = { Color: "Colour", Gray: "Gray", BlackWhite: "B&W" };
+  const modeHint: Record<ColorMode, string> = {
+    Color: "24-bit colour",
+    Gray: "8-bit grayscale",
+    BlackWhite: "Pure black and white — smallest files, best for text",
+  };
   const fills: [Fill, string][] = [["Off", "Off"], ["White", "White"], ["Paper", "Paper"]];
+  const hint = (dpi: number) =>
+    dpi <= 100 ? "Draft" : dpi <= 200 ? "Screen" : dpi <= 300 ? "Documents" : dpi <= 600 ? "Photos, small text" : "Archival";
 </script>
 
 <section class="settings">
   <h3>Scan settings</h3>
   <div class="field">
-    <span class="label">Resolution</span>
+    <span class="label">Resolution <span class="muted">· {hint(s.dpi)}</span></span>
     <div class="seg">
-      {#each dpis as d (d)}
-        <button class:on={s.dpi === d} onclick={() => set("dpi", d)}>{d}</button>
+      {#each caps.resolutions as d (d)}
+        <button class:on={s.dpi === d} onclick={() => set("dpi", d)} title="{d} dpi">{d}</button>
       {/each}
     </div>
   </div>
   <div class="field">
     <span class="label">Colour</span>
     <div class="seg">
-      <button class:on={s.color} onclick={() => set("color", true)}>Colour</button>
-      <button class:on={!s.color} onclick={() => set("color", false)}>Gray</button>
+      {#each caps.modes as m (m)}
+        <button class:on={s.mode === m} onclick={() => set("mode", m)} title={modeHint[m]}>{modeLabel[m]}</button>
+      {/each}
     </div>
   </div>
   <div class="field">

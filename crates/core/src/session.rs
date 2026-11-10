@@ -213,7 +213,7 @@ pub fn encode_rgb(img: &image::RgbImage, q: u8) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-fn encode_gray(img: &GrayImage, q: u8) -> Result<Vec<u8>> {
+pub fn encode_gray(img: &GrayImage, q: u8) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, q).encode_image(img)?;
     Ok(out)

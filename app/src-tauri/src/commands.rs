@@ -2,7 +2,7 @@
 use crate::{AppState, Res, err};
 use scan_core::capture::{self, Captured, Settings, TopHalf};
 use scan_core::device::{self, Draft};
-use scan_core::escl::Scanner;
+use scan_core::escl::{Caps, Scanner};
 use scan_core::ipp::{Printer, Status};
 use scan_core::session::{ExportOpts, Page, Session};
 use serde::Serialize;
@@ -103,6 +103,12 @@ pub async fn status(st: State<'_, AppState>) -> Res<DeviceStatus> {
         Ok(DeviceStatus { scanner, printer })
     })
     .await
+}
+
+#[tauri::command]
+pub async fn capabilities(st: State<'_, AppState>) -> Res<Caps> {
+    let s = scanner(&st)?;
+    blocking(move || s.capabilities()).await
 }
 
 #[tauri::command]

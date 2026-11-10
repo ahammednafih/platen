@@ -3,8 +3,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type Fill = "Off" | "White" | "Paper";
 export type Kind = "A4" | "Long";
+export type ColorMode = "Color" | "Gray" | "BlackWhite";
 
-export interface Settings { dpi: number; color: boolean; fill: Fill }
+export interface Settings { dpi: number; mode: ColorMode; fill: Fill }
+export interface Caps { resolutions: number[]; modes: ColorMode[] }
 export interface Page { file: string; kind: Kind; dpi: number; w: number; h: number; secs: number }
 export interface SessionView { name: string; dir: string; pages: Page[] }
 export interface PageResult { session: SessionView; index: number; note: string }
@@ -25,6 +27,7 @@ type Slot = { replace?: number; at?: number };
 export const api = {
   connect: (host?: string) => invoke<Device>("connect", { host }),
   status: () => invoke<DeviceStatus>("status"),
+  capabilities: () => invoke<Caps>("capabilities"),
   drafts: () => invoke<Draft[]>("drafts"),
   openSession: (name?: string) => invoke<SessionView>("open_session", { name }),
   closeSession: () => invoke<void>("close_session"),

@@ -16,10 +16,69 @@ pub struct Scanner {
     agent: ureq::Agent,
 }
 
+/// Colour modes offered to the user. The device rejects 1-bit B&W as JPEG,
+/// so `BlackWhite` scans in gray and is thresholded locally (see `capture`).
+#[derive(Clone, Copy, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum ColorMode {
+    Color,
+    Gray,
+    BlackWhite,
+}
+
+impl ColorMode {
+    pub fn next(self) -> ColorMode {
+        match self {
+            ColorMode::Color => ColorMode::Gray,
+            ColorMode::Gray => ColorMode::BlackWhite,
+            ColorMode::BlackWhite => ColorMode::Color,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            ColorMode::Color => "Colour",
+            ColorMode::Gray => "Gray",
+            ColorMode::BlackWhite => "B&W",
+        }
+    }
+}
+
+/// What the device says it can do (from ScannerCapabilities).
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct Caps {
+    pub resolutions: Vec<u32>,
+    pub modes: Vec<ColorMode>,
+}
+
+impl Caps {
+    pub fn parse(xml: &str) -> Caps {
+        let mut resolutions: Vec<u32> = all(xml, "scan:XResolution").filter_map(|v| v.parse().ok()).collect();
+        resolutions.sort_unstable();
+        resolutions.dedup();
+        let mut modes = Vec::new();
+        for m in all(xml, "scan:ColorMode") {
+            let m = match m {
+                "RGB24" => ColorMode::Color,
+                "Grayscale8" => ColorMode::Gray,
+                "BlackAndWhite1" => ColorMode::BlackWhite,
+                _ => continue,
+            };
+            if !modes.contains(&m) {
+                modes.push(m);
+            }
+        }
+        // Local B&W only needs gray.
+        if modes.contains(&ColorMode::Gray) && !modes.contains(&ColorMode::BlackWhite) {
+            modes.push(ColorMode::BlackWhite);
+        }
+        Caps { resolutions, modes }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct ScanOpts {
     pub dpi: u32,
-    pub color: bool,
+    pub mode: ColorMode,
     pub width: u32,
     pub height: u32,
 }
@@ -78,6 +137,11 @@ impl Scanner {
         let mut r = self.agent.get(format!("{}/ScannerStatus", self.base)).call()?;
         let body = r.body_mut().read_to_string()?;
         Ok(tag(&body, "pwg:State").unwrap_or("Unknown").to_string())
+    }
+
+    pub fn capabilities(&self) -> Result<Caps> {
+        let mut r = self.agent.get(format!("{}/ScannerCapabilities", self.base)).call()?;
+        Ok(Caps::parse(&r.body_mut().read_to_string()?))
     }
 
     /// Run one platen scan and return the JPEG bytes.
@@ -139,7 +203,7 @@ impl Scanner {
 }
 
 fn settings_xml(o: ScanOpts) -> String {
-    let mode = if o.color { "RGB24" } else { "Grayscale8" };
+    let mode = if o.mode == ColorMode::Color { "RGB24" } else { "Grayscale8" };
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?><scan:ScanSettings xmlns:scan="http://schemas.hp.com/imaging/escl/2011/05/03" xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm"><pwg:Version>2.93</pwg:Version><scan:Intent>Document</scan:Intent><pwg:ScanRegions><pwg:ScanRegion><pwg:Height>{h}</pwg:Height><pwg:Width>{w}</pwg:Width><pwg:XOffset>0</pwg:XOffset><pwg:YOffset>0</pwg:YOffset><pwg:ContentRegionUnits>escl:ThreeHundredthsOfInches</pwg:ContentRegionUnits></pwg:ScanRegion></pwg:ScanRegions><pwg:InputSource>Platen</pwg:InputSource><scan:ColorMode>{mode}</scan:ColorMode><scan:XResolution>{d}</scan:XResolution><scan:YResolution>{d}</scan:YResolution><pwg:DocumentFormat>image/jpeg</pwg:DocumentFormat><scan:DocumentFormatExt>image/jpeg</scan:DocumentFormatExt></scan:ScanSettings>"#,
         h = o.height,
@@ -148,9 +212,34 @@ fn settings_xml(o: ScanOpts) -> String {
     )
 }
 
+/// Text of every `<name>` element, in order.
+fn all<'a>(xml: &'a str, name: &str) -> impl Iterator<Item = &'a str> {
+    let open = format!("<{name}>");
+    let len = open.len();
+    let starts: Vec<usize> = xml.match_indices(open.as_str()).map(|(i, _)| i + len).collect();
+    starts.into_iter().filter_map(move |start| xml[start..].find('<').map(|end| &xml[start..start + end]))
+}
+
 fn tag<'a>(xml: &'a str, name: &str) -> Option<&'a str> {
     let open = format!("<{name}>");
     let start = xml.find(&open)? + open.len();
     let end = xml[start..].find('<')? + start;
     Some(&xml[start..end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn caps_lists_resolutions_and_adds_local_black_and_white() {
+        let xml = "<scan:ColorModes><scan:ColorMode>BlackAndWhite1</scan:ColorMode><scan:ColorMode>Grayscale8</scan:ColorMode>\
+            <scan:ColorMode>RGB24</scan:ColorMode></scan:ColorModes><scan:DiscreteResolution><scan:XResolution>300</scan:XResolution>\
+            </scan:DiscreteResolution><scan:DiscreteResolution><scan:XResolution>100</scan:XResolution></scan:DiscreteResolution>\
+            <scan:ColorMode>RGB24</scan:ColorMode><scan:XResolution>300</scan:XResolution>";
+        let c = Caps::parse(xml);
+        assert_eq!(c.resolutions, [100, 300]);
+        assert_eq!(c.modes, [ColorMode::BlackWhite, ColorMode::Gray, ColorMode::Color]);
+        assert_eq!(Caps::parse("<scan:ColorMode>Grayscale8</scan:ColorMode>").modes, [ColorMode::Gray, ColorMode::BlackWhite]);
+    }
 }

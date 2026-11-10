@@ -176,7 +176,7 @@ impl App {
             KeyCode::Char('d') => {
                 self.settings.dpi = if self.settings.dpi == 600 { 300 } else { 600 };
             }
-            KeyCode::Char('c') => self.settings.color = !self.settings.color,
+            KeyCode::Char('c') => self.settings.mode = self.settings.mode.next(),
             KeyCode::Char('f') => self.settings.fill = self.settings.fill.next(),
             KeyCode::Char('v') => self.preview(),
             KeyCode::Char('o') => open(&self.session.dir),
@@ -517,7 +517,7 @@ impl App {
             Span::raw("   "),
             Span::styled(format!("{} dpi", self.settings.dpi), Style::new().bold()),
             Span::raw(" · "),
-            Span::styled(if self.settings.color { "Colour" } else { "Gray" }, Style::new().bold()),
+            Span::styled(self.settings.mode.label(), Style::new().bold()),
             Span::raw(" · fill "),
             Span::styled(self.settings.fill.label(), Style::new().bold()),
             Span::raw(format!("   session: {}", self.session.name)),

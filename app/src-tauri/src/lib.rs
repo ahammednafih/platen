@@ -3,7 +3,7 @@ mod commands;
 mod thumbs;
 
 use scan_core::capture::Settings;
-use scan_core::escl::Scanner;
+use scan_core::escl::{ColorMode, Scanner};
 use scan_core::fill::Fill;
 use scan_core::session::Session;
 use std::sync::Mutex;
@@ -24,7 +24,7 @@ pub fn run() {
     let state = AppState {
         scanner: Mutex::new(None),
         session: Mutex::new(None),
-        settings: Mutex::new(Settings { dpi: 300, color: true, fill: Fill::White }),
+        settings: Mutex::new(Settings { dpi: 300, mode: ColorMode::Color, fill: Fill::White }),
     };
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -33,6 +33,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::connect,
             commands::status,
+            commands::capabilities,
             commands::drafts,
             commands::open_session,
             commands::close_session,
