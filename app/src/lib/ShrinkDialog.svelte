@@ -56,17 +56,16 @@
 </div>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 35%); display: grid; place-items: center; z-index: 10; }
-  .dialog { width: min(460px, 92vw); padding: 22px; display: grid; gap: 14px; }
+  .dialog { width: min(460px, 92vw); padding: 20px 22px; display: grid; gap: 14px; }
   .file { font-size: 12px; word-break: break-all; margin: 0; }
   .row { display: flex; align-items: center; gap: 8px; }
-  input[type="number"] { width: 90px; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+  input[type="number"] { width: 90px; }
   .presets { display: flex; gap: 6px; flex-wrap: wrap; }
-  .presets button { font-size: 12px; padding: 3px 10px; }
-  .presets button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .presets button { font-size: 12px; height: 24px; padding: 0 10px; }
+  .presets button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .small { font-size: 12px; }
   p { margin: 0; }
-  .link { color: var(--accent); padding: 2px 0; justify-self: start; }
+  .link { color: var(--accent); padding: 0; height: auto; border: none; background: none; justify-self: start; }
   footer { display: flex; gap: 8px; }
   .grow { flex: 1; }
   .error { color: var(--danger); }

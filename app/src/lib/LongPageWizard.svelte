@@ -45,8 +45,8 @@
     <header>
       <h2>{replace === undefined ? "Long page" : `Retake page ${replace + 1} (long)`}</h2>
       <ol class="steps">
-        <li class:on={step === "top" || step === "scanning-top"}>1 · Top half</li>
-        <li class:on={step === "flip" || step === "joining"}>2 · Bottom half</li>
+        <li class:on={step === "top" || step === "scanning-top"}>1. Top half</li>
+        <li class:on={step === "flip" || step === "joining"}>2. Bottom half</li>
       </ol>
     </header>
 
@@ -65,7 +65,7 @@
           {#if top}
             <figure>
               <img src={img("raw", topFile, 280)} alt="Top half" />
-              <figcaption class="muted">Top half — check it before turning</figcaption>
+              <figcaption class="muted">Top half. Check it before turning the page.</figcaption>
             </figure>
           {/if}
         {/if}
@@ -89,8 +89,7 @@
 </div>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 35%); display: grid; place-items: center; z-index: 10; }
-  .dialog { width: min(640px, 92vw); padding: 22px; display: grid; gap: 18px; }
+  .dialog { width: min(640px, 92vw); padding: 20px 22px; display: grid; gap: 18px; }
   header { display: flex; justify-content: space-between; align-items: baseline; }
   .steps { display: flex; gap: 14px; list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--muted); }
   .steps .on { color: var(--accent); font-weight: 600; }

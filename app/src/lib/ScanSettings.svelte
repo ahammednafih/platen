@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type Caps, type ColorMode, type Fill, type Settings } from "./api";
+  import { api, DEFAULT_SIZES, type Caps, type ColorMode, type Fill, type Settings } from "./api";
 
   let { connected }: { connected: boolean } = $props();
 
-  let s = $state<Settings>({ dpi: 300, mode: "Color", fill: "White" });
+  let s = $state<Settings>({ dpi: 300, mode: "Color", fill: "White", size: "A4" });
   // Shown until the device reports its own list.
-  let caps = $state<Caps>({ resolutions: [100, 200, 300, 600], modes: ["Color", "Gray", "BlackWhite"] });
+  let caps = $state<Caps>({ resolutions: [100, 200, 300, 600], modes: ["Color", "Gray", "BlackWhite"], sizes: DEFAULT_SIZES });
 
   onMount(async () => {
     s = await api.getSettings();
@@ -17,6 +17,8 @@
     api.capabilities().then((c) => {
       if (c.resolutions.length) caps.resolutions = c.resolutions;
       if (c.modes.length) caps.modes = c.modes;
+      if (c.sizes.length) caps.sizes = c.sizes;
+      if (c.sizes.length && !c.sizes.some((z) => z.id === s.size)) set("size", c.sizes[0].id);
       if (!c.resolutions.includes(s.dpi)) set("dpi", nearest(c.resolutions, s.dpi));
       if (c.modes.length && !c.modes.includes(s.mode)) set("mode", c.modes[0]);
     }).catch(() => {});
@@ -43,9 +45,18 @@
 </script>
 
 <section class="settings">
-  <h3>Scan settings</h3>
+  <div class="group-title">Scan settings</div>
   <div class="field">
-    <span class="label">Resolution <span class="muted">· {hint(s.dpi)}</span></span>
+    <span class="label">Original size</span>
+    <select value={s.size} onchange={(e) => set("size", e.currentTarget.value as Settings["size"])}>
+      {#each caps.sizes as z (z.id)}
+        <option value={z.id}>{z.name}, {Math.round(z.w_mm)} × {Math.round(z.h_mm)} mm</option>
+      {/each}
+    </select>
+    <span class="faint small">Longer than the glass? Use Long page.</span>
+  </div>
+  <div class="field">
+    <span class="label">Resolution <span class="faint">{hint(s.dpi)}</span></span>
     <div class="seg">
       {#each caps.resolutions as d (d)}
         <button class:on={s.dpi === d} onclick={() => set("dpi", d)} title="{d} dpi">{d}</button>
@@ -71,10 +82,7 @@
 </section>
 
 <style>
-  .settings { display: grid; gap: 12px; }
-  .field { display: grid; gap: 5px; }
-  .label { font-size: 12px; color: var(--muted); }
-  .seg { display: flex; background: var(--sunken); border-radius: 8px; padding: 2px; }
-  .seg button { flex: 1; border: none; background: none; padding: 4px 0; font-size: 12px; border-radius: 6px; }
-  .seg button.on { background: var(--panel); box-shadow: var(--shadow); font-weight: 600; }
+  .settings { display: grid; gap: 14px; }
+  .field { display: grid; gap: 6px; }
+  .label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
 </style>

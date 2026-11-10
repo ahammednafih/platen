@@ -9,6 +9,56 @@ pub const GLASS_H: u32 = 3507;
 pub const A4_W: u32 = 2480;
 pub const A4_H: u32 = 3507;
 
+/// A standard original size. Anything taller than the glass goes through the long-page scan.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum SizeId {
+    #[default]
+    A4,
+    Letter,
+    B5,
+    Executive,
+    A5,
+    HalfLetter,
+    A6,
+    Photo5x7,
+    Photo4x6,
+    Glass,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct Size {
+    pub id: SizeId,
+    pub name: &'static str,
+    pub w_mm: f32,
+    pub h_mm: f32,
+}
+
+pub const SIZES: [Size; 10] = [
+    Size { id: SizeId::A4, name: "A4", w_mm: 210.0, h_mm: 297.0 },
+    Size { id: SizeId::Letter, name: "Letter", w_mm: 215.9, h_mm: 279.4 },
+    Size { id: SizeId::B5, name: "B5", w_mm: 176.0, h_mm: 250.0 },
+    Size { id: SizeId::Executive, name: "Executive", w_mm: 184.2, h_mm: 266.7 },
+    Size { id: SizeId::A5, name: "A5", w_mm: 148.0, h_mm: 210.0 },
+    Size { id: SizeId::HalfLetter, name: "Half letter", w_mm: 139.7, h_mm: 215.9 },
+    Size { id: SizeId::A6, name: "A6", w_mm: 105.0, h_mm: 148.0 },
+    Size { id: SizeId::Photo5x7, name: "Photo 5×7 in", w_mm: 127.0, h_mm: 177.8 },
+    Size { id: SizeId::Photo4x6, name: "Photo 4×6 in", w_mm: 101.6, h_mm: 152.4 },
+    Size { id: SizeId::Glass, name: "Whole glass", w_mm: GLASS_W as f32 * 25.4 / 300.0, h_mm: GLASS_H as f32 * 25.4 / 300.0 },
+];
+
+impl Size {
+    /// Size by id, A4 when unknown.
+    pub fn get(id: SizeId) -> Size {
+        SIZES.into_iter().find(|s| s.id == id).unwrap_or(SIZES[0])
+    }
+
+    /// Scan region in 1/300 inch, clamped to the glass.
+    pub fn region(&self) -> (u32, u32) {
+        let px = |mm: f32| (mm * 300.0 / 25.4).round() as u32;
+        (px(self.w_mm).min(GLASS_W), px(self.h_mm).min(GLASS_H))
+    }
+}
+
 #[derive(Clone)]
 pub struct Scanner {
     pub name: String,
@@ -48,6 +98,8 @@ impl ColorMode {
 pub struct Caps {
     pub resolutions: Vec<u32>,
     pub modes: Vec<ColorMode>,
+    /// Standard sizes that fit on the glass (within 1 mm).
+    pub sizes: Vec<Size>,
 }
 
 impl Caps {
@@ -71,7 +123,10 @@ impl Caps {
         if modes.contains(&ColorMode::Gray) && !modes.contains(&ColorMode::BlackWhite) {
             modes.push(ColorMode::BlackWhite);
         }
-        Caps { resolutions, modes }
+        let max = |tag: &str, default: u32| all(xml, tag).filter_map(|v| v.parse::<u32>().ok()).max().unwrap_or(default) as f32 * 25.4 / 300.0;
+        let (mw, mh) = (max("scan:MaxWidth", GLASS_W) + 1.0, max("scan:MaxHeight", GLASS_H) + 1.0);
+        let sizes = SIZES.into_iter().filter(|s| s.w_mm <= mw && s.h_mm <= mh).collect();
+        Caps { resolutions, modes, sizes }
     }
 }
 
@@ -249,7 +304,18 @@ mod tests {
             <scan:ColorMode>RGB24</scan:ColorMode><scan:XResolution>300</scan:XResolution>";
         let c = Caps::parse(xml);
         assert_eq!(c.resolutions, [100, 300]);
+        assert_eq!(c.sizes.len(), SIZES.len());
         assert_eq!(c.modes, [ColorMode::BlackWhite, ColorMode::Gray, ColorMode::Color]);
         assert_eq!(Caps::parse("<scan:ColorMode>Grayscale8</scan:ColorMode>").modes, [ColorMode::Gray, ColorMode::BlackWhite]);
+    }
+
+    #[test]
+    fn sizes_taller_than_the_glass_are_left_out() {
+        // A5-sized glass: 148 x 210 mm.
+        let c = Caps::parse("<scan:MaxWidth>1748</scan:MaxWidth><scan:MaxHeight>2480</scan:MaxHeight>");
+        let ids: Vec<SizeId> = c.sizes.iter().map(|s| s.id).collect();
+        assert!(ids.contains(&SizeId::A5) && ids.contains(&SizeId::A6));
+        assert!(!ids.contains(&SizeId::A4) && !ids.contains(&SizeId::Letter));
+        assert_eq!(Size::get(SizeId::A4).region(), (2480, 3507));
     }
 }

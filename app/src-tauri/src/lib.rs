@@ -1,5 +1,6 @@
 //! Tauri shell over scan-core: shared state, commands, and the `scanimg://` thumbnail protocol.
 mod commands;
+mod printing;
 mod thumbs;
 
 use scan_core::capture::Settings;
@@ -16,6 +17,8 @@ pub struct AppState {
     settings: Mutex<Settings>,
     /// Files outside the scans folder the user picked (e.g. a PDF to shrink) and may preview.
     picked: Mutex<HashSet<PathBuf>>,
+    /// Scratch folder for the copy in progress.
+    copy_dir: Mutex<Option<PathBuf>>,
 }
 
 type Res<T> = Result<T, String>;
@@ -28,8 +31,9 @@ pub fn run() {
     let state = AppState {
         scanner: Mutex::new(None),
         session: Mutex::new(None),
-        settings: Mutex::new(Settings { dpi: 300, mode: ColorMode::Color, fill: Fill::White }),
+        settings: Mutex::new(Settings { dpi: 300, mode: ColorMode::Color, fill: Fill::White, size: Default::default() }),
         picked: Mutex::new(HashSet::new()),
+        copy_dir: Mutex::new(None),
     };
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -58,6 +62,15 @@ pub fn run() {
             commands::delete_draft,
             commands::file_pages,
             commands::shrink_pdf,
+            printing::print_caps,
+            printing::print_plan,
+            printing::print_preview,
+            printing::print,
+            printing::copy_reset,
+            printing::copy_scan,
+            printing::copy_long_top,
+            printing::copy_long_bottom,
+            printing::copy_id_card,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

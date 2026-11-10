@@ -1,9 +1,9 @@
 //! Copying: scan to a scratch folder, then print the scans as a `PrintJob`.
 //!
-//! Normal = one A4 scan; 2-in-1 = two A4 scans on one sheet; ID card = front and back, each on
+//! Normal = one scan of the original's size; 2-in-1 = two scans on one sheet; ID card = front and back, each on
 //! the top half of the glass, stacked at actual size; long = the two-pass stitched page.
 use crate::capture::{self, Settings, TopHalf};
-use crate::escl::{self, ColorMode, ScanOpts, Scanner};
+use crate::escl::{self, ColorMode, ScanOpts, Scanner, Size, SizeId};
 use crate::fill::Fill;
 use crate::session::{self, Session};
 use anyhow::{Context, Result};
@@ -15,7 +15,7 @@ pub const COPY_DPI: u32 = 300;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Area {
-    A4,
+    Size(SizeId),
     /// Top half of an A4 area, for ID cards.
     HalfTop,
 }
@@ -30,16 +30,16 @@ pub fn scratch() -> Result<PathBuf> {
 
 fn settings(color: bool) -> Settings {
     let mode = if color { ColorMode::Color } else { ColorMode::Gray };
-    Settings { dpi: COPY_DPI, mode, fill: Fill::Off }
+    Settings { dpi: COPY_DPI, mode, fill: Fill::Off, size: SizeId::A4 }
 }
 
 /// Scan one area into `dir`, returning the JPEG path.
 pub fn scan(scanner: &Scanner, area: Area, color: bool, dir: &Path) -> Result<PathBuf> {
-    let height = match area {
-        Area::A4 => escl::A4_H,
-        Area::HalfTop => escl::A4_H / 2,
+    let (width, height) = match area {
+        Area::Size(id) => Size::get(id).region(),
+        Area::HalfTop => (escl::A4_W, escl::A4_H / 2),
     };
-    let opts = ScanOpts { dpi: COPY_DPI, mode: settings(color).mode, width: escl::A4_W, height };
+    let opts = ScanOpts { dpi: COPY_DPI, mode: settings(color).mode, width, height };
     let path = dir.join(format!("{}.jpg", Session::new_stem()));
     std::fs::write(&path, scanner.scan(opts)?)?;
     Ok(path)

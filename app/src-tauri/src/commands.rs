@@ -38,11 +38,11 @@ fn view(s: &Session) -> SessionView {
     SessionView { name: s.name.clone(), dir: s.dir.clone(), pages: s.pages.clone() }
 }
 
-async fn blocking<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Send + 'static) -> Res<T> {
+pub(crate) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Send + 'static) -> Res<T> {
     tauri::async_runtime::spawn_blocking(f).await.map_err(err)?.map_err(err)
 }
 
-fn scanner(st: &AppState) -> Res<Scanner> {
+pub(crate) fn scanner(st: &AppState) -> Res<Scanner> {
     st.scanner.lock().unwrap().clone().ok_or_else(|| "Not connected to a scanner".into())
 }
 

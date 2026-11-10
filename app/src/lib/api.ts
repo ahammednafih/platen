@@ -5,8 +5,10 @@ export type Fill = "Off" | "White" | "Paper";
 export type Kind = "A4" | "Long";
 export type ColorMode = "Color" | "Gray" | "BlackWhite";
 
-export interface Settings { dpi: number; mode: ColorMode; fill: Fill }
-export interface Caps { resolutions: number[]; modes: ColorMode[] }
+export type SizeId = "A4" | "Letter" | "B5" | "Executive" | "A5" | "HalfLetter" | "A6" | "Photo5x7" | "Photo4x6" | "Glass";
+export interface Size { id: SizeId; name: string; w_mm: number; h_mm: number }
+export interface Settings { dpi: number; mode: ColorMode; fill: Fill; size: SizeId }
+export interface Caps { resolutions: number[]; modes: ColorMode[]; sizes: Size[] }
 export interface Page { file: string; kind: Kind; dpi: number; w: number; h: number; secs: number }
 export interface SessionView { name: string; dir: string; pages: Page[] }
 export interface PageResult { session: SessionView; index: number; note: string }
@@ -24,6 +26,19 @@ export interface ExportOpts {
 export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }
 export interface ShrinkResult { out: string; before: number; after: number }
 export interface Exported { files: string[]; closed: boolean }
+
+export type Quality = "Draft" | "Normal" | "High";
+export type Scale = "Fit" | "Actual" | { Percent: number };
+export type Subset = "All" | "Odd" | "Even";
+export type Area = { Size: SizeId } | "HalfTop";
+export interface PrintOpts { copies: number; color: boolean; media: string; scaling: string; quality: Quality }
+export interface PrintJob {
+  files: string[]; ranges: string; subset: Subset; reverse: boolean;
+  nup: number; scale: Scale; collate: boolean; opts: PrintOpts;
+}
+export interface PrintCaps { media: string[]; media_default: string; color: boolean; qualities: Quality[]; max_copies: number; duplex: boolean }
+export interface Plan { pages: number; picked: number; sheets: number; order: (number | null)[] }
+export interface Progress { done: number; total: number }
 
 type Slot = { replace?: number; at?: number };
 
@@ -48,7 +63,33 @@ export const api = {
   deleteDraft: (name: string) => invoke<Draft[]>("delete_draft", { name }),
   filePages: (path: string) => invoke<number>("file_pages", { path }),
   shrinkPdf: (path: string, maxMb: number) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb }),
+  printCaps: () => invoke<PrintCaps>("print_caps"),
+  printPlan: (job: PrintJob) => invoke<Plan>("print_plan", { job }),
+  printPreview: async (job: PrintJob, slot: number) =>
+    URL.createObjectURL(new Blob([await invoke<ArrayBuffer>("print_preview", { job, slot })], { type: "image/jpeg" })),
+  print: (job: PrintJob) => invoke<number>("print", { job }),
+  copyReset: () => invoke<void>("copy_reset"),
+  copyScan: (area: Area, color: boolean) => invoke<string>("copy_scan", { area, color }),
+  copyLongTop: (color: boolean) => invoke<TopHalf>("copy_long_top", { color }),
+  copyLongBottom: (top: TopHalf, color: boolean) => invoke<string>("copy_long_bottom", { top, color }),
+  copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
 };
+
+/** Readable name for an IPP media keyword, e.g. `iso_a4_210x297mm` → `A4`. */
+/** Sizes offered before the scanner reports which fit its glass. */
+export const DEFAULT_SIZES: Size[] = [
+  { id: "A4", name: "A4", w_mm: 210, h_mm: 297 },
+  { id: "Letter", name: "Letter", w_mm: 215.9, h_mm: 279.4 },
+  { id: "A5", name: "A5", w_mm: 148, h_mm: 210 },
+  { id: "A6", name: "A6", w_mm: 105, h_mm: 148 },
+];
+
+export function paperName(kw: string): string {
+  const named: Record<string, string> = { iso_a4: "A4", iso_a5: "A5", iso_a6: "A6", na_letter: "Letter", na_legal: "Legal", jis_b5: "B5", na_index: "Index card", na_5x7: "5×7 in", om_photo: "Photo" };
+  const key = kw.split("_").slice(0, 2).join("_");
+  const dims = kw.split("_").pop() ?? kw;
+  return named[key] ? `${named[key]}` : dims.replace("x", " × ").replace(/(mm|in)$/, " $1");
+}
 
 /** Thumbnail URL for a session image. Edits write new files, so URLs never go stale. */
 export function img(sub: "pages" | "raw", file: string, w = 360): string {

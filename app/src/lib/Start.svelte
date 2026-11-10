@@ -36,8 +36,10 @@
     new Date(secs * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 </script>
 
+<div class="screen">
+<header class="topbar"><h1>Scan</h1></header>
 <div class="start">
-  <div class="card new">
+  <div class="new">
     <h1>New scan</h1>
     <p class="muted">Pages are saved as you go, so you can close the app and come back to a draft.</p>
     <form onsubmit={(e) => { e.preventDefault(); open(name); }}>
@@ -55,8 +57,8 @@
           <li class="row">
             <button class="draft" onclick={() => open(d.name)}>
               <span class="dname">{d.name}</span>
-              <span class="muted">{d.pages} {d.pages === 1 ? "page" : "pages"} · {when(d.modified)}</span>
-              <span class="resume">Resume →</span>
+              <span class="muted">{d.pages} {d.pages === 1 ? "page" : "pages"}, {when(d.modified)}</span>
+              <span class="resume">Resume</span>
             </button>
             {#if confirming === d.name}
               <span class="confirm">
@@ -75,25 +77,25 @@
     {/if}
   </div>
 </div>
+</div>
 
 <style>
-  .start { max-width: 640px; margin: 48px auto; padding: 0 24px; display: grid; gap: 32px; }
-  .new { padding: 24px; display: grid; gap: 12px; }
-  .new p { margin: 0; }
-  form { display: flex; gap: 8px; }
-  .error { color: var(--danger); }
-  .drafts { display: grid; gap: 10px; }
-  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .start { max-width: 600px; width: 100%; margin: 56px auto; padding: 0 24px; display: grid; gap: 36px; }
+  .new { display: grid; gap: 10px; }
+  .new h1 { font-size: 20px; }
+  form { display: flex; gap: 8px; margin-top: 6px; }
+  .drafts { display: grid; gap: 8px; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
+  .row { display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--line); }
   .draft {
-    width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 16px;
-    align-items: center; text-align: left; padding: 10px 14px;
+    flex: 1; height: 40px; display: grid; grid-template-columns: 1fr auto auto; gap: 16px;
+    align-items: center; text-align: left; padding: 0 8px; border: none; background: none; border-radius: 0;
   }
-  .row { display: flex; gap: 6px; align-items: center; }
-  .row .draft { flex: 1; }
-  .del { color: var(--muted); font-size: 12px; }
-  .del:hover { color: var(--danger); }
+  .draft:hover .resume { opacity: 1; }
+  .del { font-size: 12px; height: 24px; }
+  .del:hover:not(:disabled) { color: var(--danger); }
   .confirm { display: flex; gap: 4px; align-items: center; }
-  .small { font-size: 12px; padding: 4px 8px; }
-  .dname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .resume { color: var(--accent); font-weight: 600; }
+  .small { font-size: 12px; }
+  .dname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .resume { color: var(--accent); opacity: 0; transition: opacity 0.12s; }
 </style>

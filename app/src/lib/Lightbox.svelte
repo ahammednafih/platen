@@ -19,7 +19,7 @@
 {#if page}
   <div class="backdrop" role="presentation" onclick={onclose}>
     <img src={img("pages", page.file, 1800)} alt="Page {index + 1}" />
-    <div class="caption">Page {index + 1} of {pages.length} · {mm(page).join(" × ")} mm · {page.dpi} dpi</div>
+    <div class="caption">Page {index + 1} of {pages.length}, {mm(page).join(" × ")} mm, {page.dpi} dpi</div>
   </div>
 {/if}
 

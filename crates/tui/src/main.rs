@@ -125,6 +125,9 @@ fn main() -> Result<()> {
         for i in st.ink {
             println!("  {:<8} {:>3}%", i.name, i.level);
         }
+        if let Ok(c) = printer.caps() {
+            println!("paper: {}\ncolour: {}, quality: {:?}, copies up to {}, two-sided: {}", c.media.join(" "), c.color, c.qualities, c.max_copies, c.duplex);
+        }
         return Ok(());
     }
     if cli.list {
@@ -135,7 +138,7 @@ fn main() -> Result<()> {
     let dir = expand(&cli.dir).join(&name);
     let session = session::Session::open(dir)?;
     let scanner = connect_noisy(cli.host.as_deref())?;
-    let settings = Settings { dpi: cli.dpi, mode, fill: cli.fill };
+    let settings = Settings { dpi: cli.dpi, mode, fill: cli.fill, size: Default::default() };
     app::run(scanner, session, settings)
 }
 

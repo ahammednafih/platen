@@ -104,16 +104,15 @@
 </div>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 35%); display: grid; place-items: center; z-index: 10; }
-  .dialog { width: min(520px, 92vw); padding: 22px; display: grid; gap: 16px; }
+  .dialog { width: min(520px, 92vw); padding: 20px 22px; display: grid; gap: 16px; }
   fieldset { border: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   legend { padding: 0; margin-bottom: 6px; }
   .opt { display: flex; gap: 10px; align-items: baseline; cursor: pointer; }
-  .mb { width: 70px; font: inherit; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); }
+  .mb { width: 70px; height: 24px; }
   .opt.danger { color: var(--danger); }
   input[type="checkbox"] { accent-color: var(--accent); }
   .files { list-style: none; margin: 0; padding: 0; }
-  .files button { padding: 3px 6px; color: var(--accent); text-align: left; }
+  .files button { height: 24px; padding: 0 6px; color: var(--accent); justify-content: flex-start; }
   footer { display: flex; gap: 8px; }
   .grow { flex: 1; }
   .error { color: var(--danger); margin: 0; }

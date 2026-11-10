@@ -49,35 +49,32 @@
 </script>
 
 <section class="device">
-  <h3>Device</h3>
   {#if device}
-    <div class="row">
+    <button class="who" onclick={() => (editing = !editing)} title="Change device">
       <span class="dot" class:ok={idle} class:off={!status || status.scanner === "Offline"}></span>
-      <div class="grow">
-        <div class="name">{status?.printer?.model || device.name}</div>
-        <div class="muted small">{device.host} · {status?.scanner ?? "…"}</div>
-      </div>
-    </div>
+      <span class="grow">
+        <span class="name">{status?.printer?.model || device.name}</span>
+        <span class="sub">{status?.scanner ?? "Checking…"}, {device.host.split(":")[0]}</span>
+      </span>
+    </button>
     {#if status?.printer}
       {#if status.printer.reasons.length}
         <div class="reasons small">{status.printer.reasons.join(", ")}</div>
       {/if}
-      <ul class="ink">
+      <ul class="ink" title="Ink levels">
         {#each status.printer.ink as i (i.name)}
-          <li>
-            <span class="small">{i.name}</span>
-            <span class="bar"><span style="width:{Math.max(0, i.level)}%; background:{swatch(i.name)}"></span></span>
-            <span class="small muted pct">{i.level < 0 ? "?" : `${i.level}%`}</span>
+          <li title="{i.name} {i.level < 0 ? "unknown" : `${i.level}%`}">
+            <span class="bar"><span style="height:{Math.max(0, i.level)}%; background:{swatch(i.name)}"></span></span>
+            <span class="pct">{i.level < 0 ? "?" : i.level}</span>
           </li>
         {/each}
       </ul>
     {/if}
-    <div class="actions">
-      <button class="ghost small" onclick={() => openUrl(`http://${device!.host.split(":")[0]}/`)}>Web settings</button>
-      <button class="ghost small" onclick={() => (editing = !editing)}>Change…</button>
-    </div>
+    {#if editing}
+      <button class="ghost small web" onclick={() => openUrl(`http://${device!.host.split(":")[0]}/`)}>Open device web page</button>
+    {/if}
   {:else if busy}
-    <p class="muted">Looking for the scanner on Wi‑Fi…</p>
+    <p class="muted small searching"><span class="spinner"></span>Looking for a scanner on Wi‑Fi</p>
   {/if}
 
   {#if error}
@@ -85,30 +82,29 @@
   {/if}
   {#if editing || (error && !device)}
     <form class="host" onsubmit={(e) => { e.preventDefault(); connect(host); }}>
-      <input type="text" placeholder="IP address (blank = search)" bind:value={host} />
+      <input type="text" placeholder="IP address, blank to search" bind:value={host} />
       <button disabled={busy}>{busy ? "…" : "Connect"}</button>
     </form>
   {/if}
 </section>
 
 <style>
-  .device { display: grid; gap: 10px; }
-  .row { display: flex; gap: 10px; align-items: center; }
-  .grow { flex: 1; min-width: 0; }
-  .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .small { font-size: 12px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); flex: none; }
-  .dot.ok { background: var(--ok); }
-  .dot.off { background: var(--danger); }
-  .reasons { color: var(--warn); }
-  .ink { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .ink li { display: grid; grid-template-columns: 64px 1fr 34px; align-items: center; gap: 8px; text-transform: capitalize; }
-  .bar { height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; }
-  .bar span { display: block; height: 100%; border-radius: 3px; }
-  .pct { text-align: right; }
-  .actions { display: flex; gap: 4px; margin-left: -8px; }
-  .actions button { padding: 3px 8px; color: var(--accent); }
+  .device { display: grid; gap: 10px; padding: 0 4px; }
+  .who { height: auto; justify-content: flex-start; text-align: left; border: none; background: none; padding: 6px; gap: 10px; margin: 0 -2px; }
+  .who:hover { background: var(--hover); }
+  .grow { flex: 1; min-width: 0; display: grid; }
+  .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+  .dot.off { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+  .reasons { color: var(--warn); padding: 0 6px; }
+  .ink { list-style: none; margin: 0; padding: 0 6px; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+  .ink li { display: grid; gap: 4px; justify-items: center; }
+  .bar { width: 100%; height: 34px; background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; display: flex; align-items: flex-end; }
+  .bar span { display: block; width: 100%; }
+  .pct { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .web { justify-self: start; }
+  .searching { display: flex; gap: 8px; align-items: center; padding: 6px; }
   .host { display: flex; gap: 6px; }
-  .error { color: var(--danger); margin: 0; }
-  p { margin: 0; }
 </style>

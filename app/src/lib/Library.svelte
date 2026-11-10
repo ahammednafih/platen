@@ -35,12 +35,14 @@
   const isPdf = (p: string) => p.toLowerCase().endsWith(".pdf");
 </script>
 
-<div class="library">
-  <header>
+<div class="screen">
+  <header class="topbar">
     <h1>Saved scans</h1>
-    <input type="text" placeholder="Search" bind:value={filter} />
+    <span class="grow"></span>
+    <input class="search" type="text" placeholder="Search" bind:value={filter} />
     <button onclick={pickPdf}>Shrink a PDF…</button>
   </header>
+  <div class="library">
 
   {#if !items.length}
     <p class="muted">Nothing exported yet. Exported PDFs and images show up here.</p>
@@ -60,7 +62,7 @@
             </button>
             <div class="info">
               <div class="name" title={f.name}>{f.name}</div>
-              <div class="muted small">{size(f.bytes)} · {when(f.modified)}</div>
+              <div class="muted small">{size(f.bytes)}, {when(f.modified)}</div>
               <div class="tools">
                 <button class="ghost" onclick={() => (viewing = f.path)}>Preview</button>
                 <button class="ghost" onclick={() => openPath(f.path)}>Open</button>
@@ -75,6 +77,7 @@
       </ul>
     </section>
   {/each}
+  </div>
 </div>
 
 {#if viewing}
@@ -85,19 +88,17 @@
 {/if}
 
 <style>
-  .library { padding: 20px 28px 40px; display: grid; gap: 22px; align-content: start; }
-  header { display: flex; gap: 12px; align-items: center; }
-  header h1 { flex: 1; }
-  header input { width: 220px; }
+  .library { padding: 16px 20px 40px; display: grid; gap: 22px; align-content: start; overflow: auto; }
+  .search { width: 200px; }
   .group { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
   .small { font-size: 12px; }
-  .link { color: var(--accent); padding: 0; }
+  .link { color: var(--accent); padding: 0; height: auto; border: none; background: none; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
-  li { display: grid; grid-template-columns: 72px 1fr; gap: 12px; padding: 10px; }
-  .thumb { padding: 0; aspect-ratio: 210 / 297; background: #fff; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  li { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 10px; }
+  .thumb { height: auto; padding: 0; aspect-ratio: 210 / 297; background: var(--paper); border: none; box-shadow: 0 0 0 1px var(--line-strong); border-radius: 2px; overflow: hidden; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
   .info { min-width: 0; display: grid; align-content: start; gap: 2px; }
   .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tools { display: flex; flex-wrap: wrap; margin: 4px -6px 0; }
-  .tools button { padding: 2px 6px; font-size: 12px; color: var(--accent); }
+  .tools button { height: 22px; padding: 0 6px; font-size: 12px; }
 </style>

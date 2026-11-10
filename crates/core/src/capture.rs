@@ -1,5 +1,5 @@
 //! Scan pipelines shared by the TUI and the app: A4 page, two-pass long page, hole fill.
-use crate::escl::{self, ColorMode, ScanOpts, Scanner};
+use crate::escl::{self, ColorMode, ScanOpts, Scanner, Size, SizeId};
 use crate::fill::{self, Fill};
 use crate::pdf::jpeg_info;
 use crate::session::{self, Kind, Page, Session};
@@ -14,12 +14,15 @@ pub struct Settings {
     pub dpi: u32,
     pub mode: ColorMode,
     pub fill: Fill,
+    /// Original size for single-pass scans; long pages always use the whole glass.
+    #[serde(default)]
+    pub size: SizeId,
 }
 
 impl Settings {
     pub fn opts(&self, kind: Kind) -> ScanOpts {
         let (width, height) = match kind {
-            Kind::A4 => (escl::A4_W, escl::A4_H),
+            Kind::A4 => Size::get(self.size).region(),
             Kind::Long => (escl::GLASS_W, escl::GLASS_H),
         };
         ScanOpts { dpi: self.dpi, mode: self.mode, width, height }
@@ -52,7 +55,8 @@ pub fn scan_a4(scanner: &Scanner, s: Settings, dir: &Path) -> Result<Captured> {
     std::fs::write(dir.join("pages").join(&file), &data)?;
     let page = Page { file, kind: Kind::A4, dpi: opts.dpi, w, h, secs };
     let (mw, mh) = page.mm();
-    Ok(Captured { note: format!("A4 page {mw}×{mh} mm in {}", dur(secs)), page })
+    let name = Size::get(s.size).name;
+    Ok(Captured { note: format!("{name} page {mw}×{mh} mm in {}", dur(secs)), page })
 }
 
 pub fn scan_top(scanner: &Scanner, s: Settings, dir: &Path) -> Result<TopHalf> {
