@@ -9,7 +9,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "Scan", "width": 1200, "height": 800, "minWidth": 900, "minHeight": 600 }],
+    "windows": [{ "title": "Scan", "width": 1200, "height": 800, "minWidth": 900, "minHeight": 600, "dragDropEnabled": false }],
     "security": { "csp": "default-src 'self'; img-src 'self' scanimg: http://scanimg.localhost; style-src 'self' 'unsafe-inline'" }
   },
   "bundle": {
