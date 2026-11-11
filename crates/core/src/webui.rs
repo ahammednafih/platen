@@ -156,21 +156,41 @@ fn decode(s: &str) -> String {
 
 /// Device password from the login Keychain, if saved.
 pub fn saved_password(host: &str) -> Option<String> {
-    let find = |service| keychain(&["find-generic-password", "-s", service, "-a", host, "-w"]).ok();
-    let out = find(KEYCHAIN_SERVICE).or_else(|| find(OLD_KEYCHAIN_SERVICE))?;
-    Some(out.trim_end_matches('\n').to_string()).filter(|p| !p.is_empty())
+    let find = |service| keychain::get(service, host);
+    find(KEYCHAIN_SERVICE).or_else(|| find(OLD_KEYCHAIN_SERVICE)).filter(|p| !p.is_empty())
 }
 
 pub fn save_password(host: &str, password: &str) -> Result<()> {
-    keychain(&["add-generic-password", "-U", "-s", KEYCHAIN_SERVICE, "-a", host, "-w", password]).map(drop)
+    keychain::set(KEYCHAIN_SERVICE, host, password)
 }
 
-fn keychain(args: &[&str]) -> Result<String> {
-    let out = std::process::Command::new("security").args(args).output().context("can't run security")?;
-    if !out.status.success() {
-        bail!("keychain: {}", String::from_utf8_lossy(&out.stderr).trim());
+/// The Keychain API, not the `security` tool: a password on a command line shows up in the
+/// process list for every program on the machine.
+#[cfg(target_os = "macos")]
+mod keychain {
+    use anyhow::{Context, Result};
+    use security_framework::passwords::{get_generic_password, set_generic_password};
+
+    pub fn get(service: &str, account: &str) -> Option<String> {
+        String::from_utf8(get_generic_password(service, account).ok()?).ok()
     }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+
+    pub fn set(service: &str, account: &str, password: &str) -> Result<()> {
+        set_generic_password(service, account, password.as_bytes()).context("can't save to the Keychain")
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+mod keychain {
+    use anyhow::{Result, bail};
+
+    pub fn get(_: &str, _: &str) -> Option<String> {
+        None
+    }
+
+    pub fn set(_: &str, _: &str, _: &str) -> Result<()> {
+        bail!("saving the device password isn't supported on this system yet")
+    }
 }
 
 #[cfg(test)]

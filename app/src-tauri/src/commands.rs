@@ -170,6 +170,7 @@ pub fn open_session(st: State<'_, AppState>, name: Option<String>) -> Res<Sessio
 #[tauri::command]
 pub fn keep_shrunk(st: State<'_, AppState>, original: PathBuf, draft: PathBuf) -> Res<PathBuf> {
     let draft = draft_path(&draft)?;
+    let original = crate::thumbs::allowed(&st, &original).ok_or("That file can't be changed here")?;
     let out = original.with_file_name(draft.file_name().ok_or("bad draft")?);
     if std::fs::rename(&draft, &out).is_err() {
         std::fs::copy(&draft, &out).map_err(err)?;

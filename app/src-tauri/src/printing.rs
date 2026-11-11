@@ -38,7 +38,7 @@ pub fn stage_file(st: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> 
     let name = request.headers().get("name").and_then(|v| v.to_str().ok()).map(decode).unwrap_or_default();
     let name = std::path::Path::new(&name).file_name().ok_or("dropped file has no name")?.to_owned();
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(err)?.as_nanos();
-    let dir = std::env::temp_dir().join("scan-dropped").join(nanos.to_string());
+    let dir = std::env::temp_dir().join("platen-dropped").join(nanos.to_string());
     std::fs::create_dir_all(&dir).map_err(err)?;
     let path = dir.join(name);
     std::fs::write(&path, bytes).map_err(err)?;

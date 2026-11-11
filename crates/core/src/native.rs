@@ -14,6 +14,9 @@ use std::time::Duration;
 
 const PORT: u16 = 54921;
 
+/// A full page at 1200 dpi is ~40 MB; anything far past that is a broken or hostile device.
+const MAX_SCAN_BYTES: usize = 400_000_000;
+
 /// What the device grants for a requested resolution.
 #[derive(Debug, PartialEq)]
 pub struct Grant {
@@ -101,6 +104,9 @@ fn read_blocks(r: &mut impl Read) -> Result<Vec<u8>> {
                 r.read_exact(&mut h)?;
                 let n = u16::from_le_bytes([h[9], h[10]]) as usize;
                 let at = out.len();
+                if at + n > MAX_SCAN_BYTES {
+                    bail!("scanner sent more than {} MB for one page", MAX_SCAN_BYTES / 1_000_000);
+                }
                 out.resize(at + n, 0);
                 r.read_exact(&mut out[at..])?;
             }

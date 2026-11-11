@@ -70,6 +70,7 @@ pub fn register(host: &str, community: &str, name: &str) -> Result<()> {
 pub fn listen(host: &str, community: &str, name: &str, stop: Arc<AtomicBool>, on_press: impl Fn(Press)) -> Result<()> {
     let sock = bind()?;
     sock.set_read_timeout(Some(Duration::from_secs(1)))?;
+    let device = device_ip(host)?;
     register(host, community, name)?;
     let (mut registered, mut last_seq) = (Instant::now(), None);
     let mut buf = [0u8; 2048];
@@ -80,7 +81,11 @@ pub fn listen(host: &str, community: &str, name: &str, stop: Arc<AtomicBool>, on
                 registered = Instant::now();
             }
         }
-        let Ok((n, _)) = sock.recv_from(&mut buf) else { continue };
+        let Ok((n, from)) = sock.recv_from(&mut buf) else { continue };
+        // Only the device may start a scan, not any host that can reach this port.
+        if from.ip() != device {
+            continue;
+        }
         match parse(&buf[..n], name) {
             Some(p) if last_seq != Some(p.seq) => {
                 last_seq = Some(p.seq);
@@ -101,6 +106,11 @@ fn bind() -> Result<UdpSocket> {
         std::thread::sleep(Duration::from_millis(600));
     }
     UdpSocket::bind(("0.0.0.0", PORT)).with_context(|| format!("port {PORT} is taken (is the vendor's scan app running?)"))
+}
+
+fn device_ip(host: &str) -> Result<IpAddr> {
+    use std::net::ToSocketAddrs;
+    Ok((host, 161).to_socket_addrs().context("can't resolve the device address")?.next().context("device has no address")?.ip())
 }
 
 /// The address the device sees this PC at.
