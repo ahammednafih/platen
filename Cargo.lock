@@ -4306,6 +4306,7 @@ name = "scan-app"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "dirs",
  "image",
  "scan-core",
  "serde",

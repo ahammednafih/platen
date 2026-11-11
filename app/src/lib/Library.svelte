@@ -58,7 +58,8 @@
         {#each files as f (f.path)}
           <li class="card">
             <button class="thumb" onclick={() => (viewing = f.path)} title="Preview">
-              <img src={fileImg(f.path, 0, 240)} alt="" loading="lazy" />
+              <span class="spinner" aria-hidden="true"></span>
+              <img src={fileImg(f.path, 0, 240)} alt="" loading="lazy" onload={(e) => e.currentTarget.classList.add("loaded")} />
             </button>
             <div class="info">
               <div class="name" title={f.name}>{f.name}</div>
@@ -96,7 +97,11 @@
   ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
   li { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 10px; }
   .thumb { height: auto; padding: 0; aspect-ratio: 210 / 297; background: var(--paper); border: none; box-shadow: 0 0 0 1px var(--line-strong); border-radius: 2px; overflow: hidden; }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .thumb { position: relative; display: grid; place-items: center; }
+  .thumb > * { grid-area: 1 / 1; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; opacity: 0; transition: opacity 0.2s var(--ease); }
+  .thumb img:global(.loaded) { opacity: 1; }
+  .thumb:has(img:global(.loaded)) .spinner { display: none; }
   .info { min-width: 0; display: grid; align-content: start; gap: 2px; }
   .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tools { display: flex; flex-wrap: wrap; margin: 4px -6px 0; }

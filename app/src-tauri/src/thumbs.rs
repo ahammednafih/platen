@@ -22,7 +22,8 @@ pub fn serve<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>>, re
 }
 
 /// `scanfile://localhost/?path=<abs>&page=<n>&w=<px>` — a preview JPEG of one page of an exported
-/// PDF or image. Only files under the scans folder, or ones the user picked, are served.
+/// PDF or image. Only files under the scans folder, or ones the user picked, are served. Rendering a
+/// big PDF's page takes seconds, so results are cached by file, modification time, page and width.
 pub fn serve_file<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let q = query(req.uri().query().unwrap_or(""));
     let path = q.iter().find(|(k, _)| k == "path").map(|(_, v)| PathBuf::from(v));
@@ -31,14 +32,31 @@ pub fn serve_file<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>
     let w = width(req.uri().query()).unwrap_or(1600);
     std::thread::spawn(move || {
         let res = path.and_then(|p| {
+            let cache = cache_path(&p, page, w);
+            if let Some(hit) = cache.as_ref().and_then(|c| std::fs::read(c).ok()) {
+                return Some(hit);
+            }
             let is_pdf = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
-            if is_pdf { scan_core::pdfedit::page_preview(&std::fs::read(&p).ok()?, page, w).ok() } else { resized(&p, w).ok() }
+            let bytes = if is_pdf { scan_core::pdfedit::page_preview(&std::fs::read(&p).ok()?, page, w).ok() } else { resized(&p, w).ok() }?;
+            if let Some(c) = cache {
+                let _ = std::fs::create_dir_all(c.parent()?).and_then(|_| std::fs::write(&c, &bytes));
+            }
+            Some(bytes)
         });
         responder.respond(match res {
             Some(bytes) => Response::builder().header("Content-Type", "image/jpeg").body(bytes).unwrap(),
             None => Response::builder().status(StatusCode::NOT_FOUND).body(Vec::new()).unwrap(),
         });
     });
+}
+
+/// `<cache>/scan/previews/<hash>.jpg`; a changed file gets a new name, so stale entries are never served.
+fn cache_path(path: &Path, page: usize, w: u32) -> Option<PathBuf> {
+    use std::hash::{Hash, Hasher};
+    let meta = std::fs::metadata(path).ok()?;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    (path, meta.len(), meta.modified().ok(), page, w).hash(&mut h);
+    Some(dirs::cache_dir()?.join("scan").join("previews").join(format!("{:016x}.jpg", h.finish())))
 }
 
 /// The canonical path if it's inside the scans folder or was picked by the user.
