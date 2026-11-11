@@ -22,7 +22,10 @@
   type Theme = "system" | "light" | "dark";
   const stored = (): Theme => { try { return (localStorage.getItem("theme") as Theme) || "system"; } catch { return "system"; } };
   let theme = $state<Theme>(stored());
-  const accents = [["ink", "Ink black", "#1c1d1f"], ["magenta", "Magenta", "#c2185b"], ["orange", "Toner orange", "#d9480f"], ["teal", "Teal", "#0f766e"], ["coffee", "Coffee", "#7a4a2a"]] as const;
+  const accents = [
+    ["ink", "Ink black", "#1c1d1f", "#e8e6e1"], ["magenta", "Magenta", "#c2185b", "#e0457f"], ["orange", "Toner orange", "#d9480f", "#f2703a"],
+    ["teal", "Teal", "#0f766e", "#2bb3a3"], ["coffee", "Coffee", "#7a4a2a", "#8b5a3c"],
+  ] as const;
   type Accent = (typeof accents)[number][0];
   let accent = $state<Accent>((() => { try { return (localStorage.getItem("accent") as Accent) || "ink"; } catch { return "ink"; } })());
   $effect(() => {
@@ -90,8 +93,8 @@
       {/each}
     </div>
     <div class="accents" role="radiogroup" aria-label="Accent colour">
-      {#each accents as [v, label, swatch] (v)}
-        <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--swatch={swatch} onclick={() => (accent = v)}></button>
+      {#each accents as [v, label, light, dark] (v)}
+        <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--light={light} style:--dark={dark} onclick={() => (accent = v)}></button>
       {/each}
     </div>
     <button class="ghost keys" onclick={() => (help = true)}>Keyboard shortcuts <span class="faint">⌘/</span></button>
@@ -146,7 +149,8 @@
   .grow { flex: 1; }
   .theme { margin: 0 4px 4px; }
   .accents { display: flex; gap: 8px; padding: 2px 8px 6px; }
-  .accents button { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: none; background: var(--swatch); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; }
+  .accents button { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
+  .accents button:hover:not(:disabled) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); transform: scale(1.15); }
   .accents button.on { box-shadow: 0 0 0 2px var(--side), 0 0 0 3.5px var(--text); }
   .accents button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
   .keys { justify-content: space-between; height: 28px; padding: 0 8px; border: none; font-size: 12px; }
