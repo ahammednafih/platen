@@ -1,14 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type DetailGroup } from "./api";
+  import { api, type DetailGroup, type SnmpAccess } from "./api";
 
-  let { onclose }: { onclose: () => void } = $props();
+  let { host, onclose }: { host: string; onclose: () => void } = $props();
 
   let groups = $state<DetailGroup[]>([]);
   let asking = $state(false);
   let password = $state("");
   let error = $state("");
   let busy = $state(false);
+  let snmp = $state<SnmpAccess | null>(null);
+  let switching = $state(false);
+  let switchError = $state("");
 
   async function load(pw?: string) {
     busy = true;
@@ -17,12 +20,32 @@
       groups = await api.deviceDetails(pw);
       asking = false;
       password = "";
+      snmp = await api.snmpAccess().catch(() => null);
     } catch (e) {
       const msg = String(e);
       asking = msg === "needs-password" || msg === "wrong-password";
       error = msg === "wrong-password" ? "That password didn't work." : asking ? "" : msg;
     } finally {
       busy = false;
+    }
+  }
+
+  // The device restarts after the change, so wait before reading it back.
+  async function allowWrite() {
+    switching = true;
+    switchError = "";
+    try {
+      await api.enableSnmpWrite();
+      for (let i = 0; i < 24; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const a = await api.snmpAccess().catch(() => null);
+        if (a) { snmp = a; break; }
+      }
+      if (snmp?.mode !== "ReadWrite") switchError = "The device didn't take the change. Try the steps above.";
+    } catch (e) {
+      switchError = String(e);
+    } finally {
+      switching = false;
     }
   }
 
@@ -71,6 +94,31 @@
         </dl>
       </section>
     {/each}
+
+    {#if snmp}
+      <section class="snmp">
+        <div class="group-title">Scan button</div>
+        {#if snmp.mode === "ReadWrite"}
+          <p class="small">Network settings access is on, so the device's Scan button can send scans to this Mac.</p>
+        {:else}
+          <p class="small">
+            To use the device's own Scan button, the device has to let this Mac register on the network.
+            It's off by default ({snmp.mode === "Off" ? "SNMP is disabled" : "SNMP is read-only"}).
+          </p>
+          <ol class="small steps">
+            <li>Open <code>https://{host}</code> in a browser and log in with the device password.</li>
+            <li>Go to <strong>Network → Network → Protocol</strong>, then <strong>SNMP</strong>.</li>
+            <li>Choose <strong>SNMP v1/v2c read-write access</strong> and press <strong>Submit</strong>.</li>
+          </ol>
+          <p class="faint small">
+            Any device on your network can then change printer settings over SNMP. The device restarts to apply it,
+            so it's away for about a minute.
+          </p>
+          <div><button onclick={allowWrite} disabled={switching}>{switching ? "Turning on…" : "Turn it on for me"}</button></div>
+          {#if switchError}<p class="error small">{switchError}</p>{/if}
+        {/if}
+      </section>
+    {/if}
   </div>
 </div>
 
@@ -84,5 +132,8 @@
   dt, dd { margin: 0; }
   dt { color: var(--muted); }
   dt.sub { padding-left: 14px; }
+  .snmp { display: grid; gap: 8px; }
+  .snmp p { margin: 0; }
+  .steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   dd { font-variant-numeric: tabular-nums; text-align: right; }
 </style>

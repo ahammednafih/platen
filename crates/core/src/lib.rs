@@ -11,6 +11,7 @@ pub mod ocr;
 pub mod pdf;
 pub mod pdfedit;
 pub mod presets;
+pub mod pushscan;
 pub mod printjob;
 pub mod render;
 pub mod session;

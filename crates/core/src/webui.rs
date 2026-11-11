@@ -45,13 +45,13 @@ pub fn details(host: &str, password: &str) -> Result<Vec<Group>> {
     PAGES.iter().map(|p| fetch(&agent, &base, p, &cookie).map(|html| parse(&html))).collect::<Result<Vec<_>>>().map(|v| v.into_iter().flatten().collect())
 }
 
-fn agent() -> ureq::Agent {
+pub(crate) fn agent() -> ureq::Agent {
     let tls = ureq::tls::TlsConfig::builder().disable_verification(true).build();
     let config = ureq::Agent::config_builder().tls_config(tls).max_redirects(0).http_status_as_error(false);
     config.timeout_global(Some(Duration::from_secs(15))).build().into()
 }
 
-fn login(agent: &ureq::Agent, base: &str, password: &str) -> Result<String> {
+pub(crate) fn login(agent: &ureq::Agent, base: &str, password: &str) -> Result<String> {
     let page = fetch(agent, base, "/home/status.html", "")?;
     let field = password_field(&page).context("no login form on the device page")?;
     let form = [(field.as_str(), password), ("loginurl", "/home/status.html")];
@@ -59,7 +59,7 @@ fn login(agent: &ureq::Agent, base: &str, password: &str) -> Result<String> {
     auth_cookie(res.headers().get_all("set-cookie").iter().filter_map(|v| v.to_str().ok())).ok_or_else(|| WrongPassword.into())
 }
 
-fn fetch(agent: &ureq::Agent, base: &str, path: &str, cookie: &str) -> Result<String> {
+pub(crate) fn fetch(agent: &ureq::Agent, base: &str, path: &str, cookie: &str) -> Result<String> {
     let mut res = agent.get(format!("{base}{path}")).header("Cookie", cookie).call().context("device didn't answer")?;
     if res.status().is_redirection() {
         bail!(WrongPassword);
@@ -134,7 +134,7 @@ fn drop_units(html: &str) -> String {
 }
 
 /// Visible text: tags stripped, entities decoded, whitespace collapsed.
-fn text(html: &str) -> String {
+pub(crate) fn text(html: &str) -> String {
     let mut out = String::new();
     let mut in_tag = false;
     for c in html.chars() {

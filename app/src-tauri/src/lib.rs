@@ -82,6 +82,8 @@ pub fn run() {
             printing::copy_tone,
             printing::stop_job,
             commands::device_details,
+            commands::snmp_access,
+            commands::enable_snmp_write,
             commands::page_text,
         ])
         .run(tauri::generate_context!())

@@ -91,7 +91,7 @@
   {/if}
 </section>
 
-{#if details}<DeviceDetails onclose={() => (details = false)} />{/if}
+{#if details && device}<DeviceDetails host={device.host.split(":")[0]} onclose={() => (details = false)} />{/if}
 
 <style>
   .device { display: grid; gap: 10px; padding: 0 4px; }

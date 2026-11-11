@@ -7,7 +7,7 @@ use scan_core::escl::{Caps, Scanner};
 use scan_core::ipp::{Printer, Status};
 use scan_core::presets::{self, Preset};
 use scan_core::session::{ExportOpts, Page, Session};
-use scan_core::webui;
+use scan_core::{pushscan, webui};
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::State;
@@ -335,16 +335,32 @@ fn web_host(st: &AppState) -> Res<String> {
 #[tauri::command]
 pub async fn device_details(st: State<'_, AppState>, password: Option<String>) -> Res<Vec<webui::Group>> {
     let host = web_host(&st)?;
-    blocking(move || {
-        let typed = password.is_some();
-        let pw = password.or_else(|| webui::saved_password(&host)).ok_or_else(|| anyhow::anyhow!("needs-password"))?;
-        match webui::details(&host, &pw) {
-            Err(e) if e.is::<webui::WrongPassword>() => Err(anyhow::anyhow!("wrong-password")),
-            Ok(groups) if typed => webui::save_password(&host, &pw).map(|_| groups),
-            other => other,
-        }
-    })
-    .await
+    blocking(move || with_password(&host, password, |pw| webui::details(&host, pw))).await
+}
+
+/// Runs `f` with the device password: the typed one (saved to the Keychain once it works) or the saved one.
+fn with_password<T>(host: &str, password: Option<String>, f: impl FnOnce(&str) -> anyhow::Result<T>) -> anyhow::Result<T> {
+    let typed = password.is_some();
+    let pw = password.or_else(|| webui::saved_password(host)).ok_or_else(|| anyhow::anyhow!("needs-password"))?;
+    match f(&pw) {
+        Err(e) if e.is::<webui::WrongPassword>() => Err(anyhow::anyhow!("wrong-password")),
+        Ok(v) if typed => webui::save_password(host, &pw).map(|_| v),
+        other => other,
+    }
+}
+
+/// SNMP access on the device; the Scan button needs read-write.
+#[tauri::command]
+pub async fn snmp_access(st: State<'_, AppState>, password: Option<String>) -> Res<pushscan::SnmpAccess> {
+    let host = web_host(&st)?;
+    blocking(move || with_password(&host, password, |pw| pushscan::snmp_access(&host, pw))).await
+}
+
+/// Switch the device's SNMP v1/v2c to read-write through its web UI.
+#[tauri::command]
+pub async fn enable_snmp_write(st: State<'_, AppState>, password: Option<String>) -> Res<()> {
+    let host = web_host(&st)?;
+    blocking(move || with_password(&host, password, |pw| pushscan::enable_snmp_write(&host, pw))).await
 }
 
 /// Words on a session page for selecting and copying text; cached per page file (edits make new files).
