@@ -50,6 +50,7 @@
     if (accent === "ink") delete document.documentElement.dataset.accent;
     else document.documentElement.dataset.accent = accent;
     try { localStorage.setItem("accent", accent); } catch {}
+    api.setDockIcon(accent).catch(() => {});
   });
   $effect(() => {
     if (theme === "system") delete document.documentElement.dataset.theme;

@@ -1,6 +1,7 @@
 //! Tauri shell over scan-core: shared state, commands, and the `scanimg://` thumbnail protocol.
 mod button;
 mod commands;
+mod dock;
 mod files;
 mod history;
 mod printing;
@@ -83,6 +84,7 @@ pub fn run() {
             commands::shrink_pdf,
             commands::keep_shrunk,
             commands::discard_shrunk,
+            dock::set_dock_icon,
             files::share_file,
             files::trash_file,
             files::rename_file,

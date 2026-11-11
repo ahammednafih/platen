@@ -82,6 +82,7 @@ export const api = {
   filePages: (path: string) => invoke<number>("file_pages", { path }),
   shrinkPdf: (path: string, maxMb: number) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb }),
   shareFile: (path: string, anchor: { x: number; y: number; w: number; h: number }) => invoke<void>("share_file", { path, anchor }),
+  setDockIcon: (accent: string) => invoke<void>("set_dock_icon", { accent }),
   trashFile: (path: string) => invoke<void>("trash_file", { path }),
   renameFile: (path: string, name: string) => invoke<string>("rename_file", { path, name }),
   keepShrunk: (original: string, draft: string) => invoke<string>("keep_shrunk", { original, draft }),
