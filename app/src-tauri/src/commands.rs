@@ -5,6 +5,7 @@ use scan_core::capture::{self, Captured, Settings, TopHalf};
 use scan_core::device::{self, Draft};
 use scan_core::escl::{Caps, Scanner};
 use scan_core::ipp::{Printer, Status};
+use scan_core::presets::{self, Preset};
 use scan_core::session::{ExportOpts, Page, Session};
 use serde::Serialize;
 use std::path::PathBuf;
@@ -143,6 +144,23 @@ pub fn get_settings(st: State<'_, AppState>) -> Settings {
 #[tauri::command]
 pub fn set_settings(st: State<'_, AppState>, settings: Settings) {
     *st.settings.lock().unwrap() = settings;
+    presets::remember(&settings);
+}
+
+#[tauri::command]
+pub fn presets() -> Vec<Preset> {
+    presets::all()
+}
+
+#[tauri::command]
+pub fn save_preset(st: State<'_, AppState>, name: String) -> Res<Vec<Preset>> {
+    let s = *st.settings.lock().unwrap();
+    presets::save(&name, s).map_err(err)
+}
+
+#[tauri::command]
+pub fn delete_preset(name: String) -> Vec<Preset> {
+    presets::delete(&name)
 }
 
 #[tauri::command]

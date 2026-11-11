@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, DEFAULT_SIZES, type Caps, type ColorMode, type Fill, type Settings } from "./api";
+  import { api, DEFAULT_SIZES, type Caps, type ColorMode, type Fill, type Preset, type Settings } from "./api";
 
   let { connected }: { connected: boolean } = $props();
 
@@ -8,9 +8,47 @@
   // Shown until the device reports its own list.
   let caps = $state<Caps>({ resolutions: [100, 200, 300, 600], modes: ["Color", "Gray", "BlackWhite"], sizes: DEFAULT_SIZES });
 
+  let presets = $state<Preset[]>([]);
+  let naming = $state<string | null>(null);
+  let presetError = $state("");
+
   onMount(async () => {
-    s = await api.getSettings();
+    [s, presets] = await Promise.all([api.getSettings(), api.presets()]);
   });
+
+  const same = (a: Settings, b: Settings) => a.dpi === b.dpi && a.mode === b.mode && a.fill === b.fill && a.size === b.size;
+  const active = $derived(presets.find((p) => same(p.settings, s))?.name);
+
+  // Values the device doesn't offer fall back to the closest it does.
+  function fit(v: Settings): Settings {
+    return {
+      dpi: caps.resolutions.includes(v.dpi) ? v.dpi : nearest(caps.resolutions, v.dpi),
+      mode: caps.modes.includes(v.mode) ? v.mode : caps.modes[0],
+      fill: v.fill,
+      size: caps.sizes.some((z) => z.id === v.size) ? v.size : caps.sizes[0].id,
+    };
+  }
+
+  function apply(p: Preset) {
+    s = fit(p.settings);
+    api.setSettings($state.snapshot(s));
+  }
+
+  async function savePreset(e: SubmitEvent) {
+    e.preventDefault();
+    try {
+      presets = await api.savePreset(naming ?? "");
+      naming = null;
+      presetError = "";
+    } catch (err) {
+      presetError = String(err);
+    }
+  }
+
+  async function deletePreset(p: Preset, e: MouseEvent) {
+    e.stopPropagation();
+    presets = await api.deletePreset(p.name);
+  }
 
   $effect(() => {
     if (!connected) return;
@@ -46,6 +84,30 @@
 
 <section class="settings">
   <div class="group-title">Scan settings</div>
+  <div class="field">
+    <span class="label">Preset</span>
+    <div class="chips">
+      {#each presets as p (p.name)}
+        <button class="chip" class:on={active === p.name} onclick={() => apply(p)}
+          title="{p.settings.dpi} dpi, {modeLabel[p.settings.mode]}, fill {p.settings.fill.toLowerCase()}">
+          {p.name}
+          {#if !p.builtin}<span class="x" role="presentation" title="Delete preset" onclick={(e) => deletePreset(p, e)}>×</span>{/if}
+        </button>
+      {/each}
+      {#if naming === null}
+        <button class="chip ghost" onclick={() => (naming = active && !presets.find((p) => p.name === active)?.builtin ? active : "")}
+          title="Save the current settings as a preset">+ Save</button>
+      {/if}
+    </div>
+    {#if naming !== null}
+      <form class="name" onsubmit={savePreset}>
+        <!-- svelte-ignore a11y_autofocus -->
+        <input bind:value={naming} placeholder="Preset name" autofocus onkeydown={(e) => e.key === "Escape" && (naming = null)} />
+        <button type="submit">Save</button>
+      </form>
+    {/if}
+    {#if presetError}<span class="error small">{presetError}</span>{/if}
+  </div>
   <div class="field">
     <span class="label">Original size</span>
     <select value={s.size} onchange={(e) => set("size", e.currentTarget.value as Settings["size"])}>
@@ -84,5 +146,12 @@
 <style>
   .settings { display: grid; gap: 14px; }
   .field { display: grid; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { height: 24px; padding: 0 8px; font-size: 12px; gap: 6px; }
+  .chip.on { background: var(--hover); border-color: var(--text); }
+  .chip .x { color: var(--faint); margin-right: -2px; }
+  .chip .x:hover { color: var(--text); }
+  .name { display: flex; gap: 6px; }
+  .name input { flex: 1; min-width: 0; }
   .label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
 </style>

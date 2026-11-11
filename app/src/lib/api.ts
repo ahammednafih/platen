@@ -8,6 +8,7 @@ export type ColorMode = "Color" | "Gray" | "BlackWhite";
 export type SizeId = "A4" | "Letter" | "B5" | "Executive" | "A5" | "HalfLetter" | "A6" | "Photo5x7" | "Photo4x6" | "Glass";
 export interface Size { id: SizeId; name: string; w_mm: number; h_mm: number }
 export interface Settings { dpi: number; mode: ColorMode; fill: Fill; size: SizeId }
+export interface Preset { name: string; settings: Settings; builtin: boolean }
 export interface Caps { resolutions: number[]; modes: ColorMode[]; sizes: Size[] }
 export interface Page { file: string; kind: Kind; dpi: number; w: number; h: number; secs: number }
 export interface SessionView { name: string; dir: string; pages: Page[] }
@@ -53,6 +54,9 @@ export const api = {
   closeSession: () => invoke<void>("close_session"),
   getSettings: () => invoke<Settings>("get_settings"),
   setSettings: (settings: Settings) => invoke<void>("set_settings", { settings }),
+  presets: () => invoke<Preset[]>("presets"),
+  savePreset: (name: string) => invoke<Preset[]>("save_preset", { name }),
+  deletePreset: (name: string) => invoke<Preset[]>("delete_preset", { name }),
   scanA4: (slot: Slot = {}) => invoke<PageResult>("scan_a4", slot),
   scanTop: () => invoke<TopHalf>("scan_top"),
   scanBottom: (top: TopHalf, slot: Slot = {}) => invoke<PageResult>("scan_bottom", { top, ...slot }),

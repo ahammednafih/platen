@@ -4,8 +4,7 @@ mod printing;
 mod thumbs;
 
 use scan_core::capture::Settings;
-use scan_core::escl::{ColorMode, Scanner};
-use scan_core::fill::Fill;
+use scan_core::escl::Scanner;
 use scan_core::session::Session;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -31,7 +30,7 @@ pub fn run() {
     let state = AppState {
         scanner: Mutex::new(None),
         session: Mutex::new(None),
-        settings: Mutex::new(Settings { dpi: 300, mode: ColorMode::Color, fill: Fill::White, size: Default::default() }),
+        settings: Mutex::new(scan_core::presets::last()),
         picked: Mutex::new(HashSet::new()),
         copy_dir: Mutex::new(None),
     };
@@ -50,6 +49,9 @@ pub fn run() {
             commands::close_session,
             commands::get_settings,
             commands::set_settings,
+            commands::presets,
+            commands::save_preset,
+            commands::delete_preset,
             commands::scan_a4,
             commands::scan_top,
             commands::scan_bottom,
