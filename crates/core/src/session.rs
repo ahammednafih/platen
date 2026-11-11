@@ -101,6 +101,16 @@ impl Session {
         format!("{}", t.as_millis())
     }
 
+    /// The pages as they are now, in one PDF at `out`, for printing without exporting first.
+    pub fn write_pdf(&self, out: &Path) -> Result<()> {
+        let pages: Vec<JpegPage> = self.pages.iter().map(|p| Ok(JpegPage { data: std::fs::read(self.page_path(p))?, dpi: p.dpi as f32 })).collect::<Result<_>>()?;
+        if pages.is_empty() {
+            bail!("Nothing to print yet");
+        }
+        std::fs::create_dir_all(out.parent().context("bad output path")?)?;
+        pdf::write(out, &pages)
+    }
+
     /// Write the selected outputs; optionally delete the working scans.
     /// Returns the files written.
     pub fn export(&mut self, o: ExportOpts) -> Result<Vec<PathBuf>> {

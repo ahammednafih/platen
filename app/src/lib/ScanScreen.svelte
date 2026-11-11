@@ -6,12 +6,14 @@
   import LongPageWizard from "./LongPageWizard.svelte";
   import Lightbox from "./Lightbox.svelte";
 
-  let { session = $bindable(), connected, press = null, onpressed = () => {}, onexport, onclose }: {
+  let { session = $bindable(), connected, press = null, onpressed = () => {}, onprint = () => {}, onexport, onclose }: {
     session: SessionView;
     connected: boolean;
     /// A press of the device's Scan button, cleared with `onpressed` once taken.
     press?: number | null;
     onpressed?: () => void;
+    /// Hand a PDF of this scan to the Print screen.
+    onprint?: (path: string) => void;
     onexport: () => void;
     onclose: () => void;
   } = $props();
@@ -185,11 +187,17 @@
     }
   }
 
+  async function print() {
+    const path = await run("Preparing to print", () => api.scanToPrint());
+    if (path) onprint(path);
+  }
+
   function command(e: KeyboardEvent) {
     if (e.key.toLowerCase() === "z" && !(e.target instanceof HTMLInputElement)) step(e.shiftKey);
     else if (e.key === "Enter" && connected) scanA4();
     else if (e.key === "l" && connected) wizard = {};
     else if (e.key === "e" && session.pages.length) onexport();
+    else if (e.key === "p" && session.pages.length) print();
     else return;
     e.preventDefault();
   }
@@ -221,6 +229,7 @@
       <button class="ghost square" title="Undo (⌘Z)" aria-label="Undo" onclick={() => step(false)} disabled={!!busy || !session.can_undo}>{@html icon.undo}</button>
       <button class="ghost square" title="Redo (⇧⌘Z)" aria-label="Redo" onclick={() => step(true)} disabled={!!busy || !session.can_redo}>{@html icon.redo}</button>
     </div>
+    <button onclick={print} disabled={!!busy || !session.pages.length} title="Open these pages in Print (⌘P)">Print</button>
     <button onclick={onexport} disabled={!!busy || !session.pages.length}>Export…</button>
     <button onclick={() => (wizard = {})} disabled={!connected || !!busy} title="For pages taller than the glass, like Legal or receipts">Long page…</button>
     <button class="primary" onclick={() => scanA4()} disabled={!connected || !!busy} title="Scan one page at the size set on the right">Scan page</button>

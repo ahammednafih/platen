@@ -192,6 +192,21 @@ fn draft_path(p: &std::path::Path) -> Res<PathBuf> {
     real.starts_with(&dir).then_some(real).ok_or_else(|| "Not a shrink draft".into())
 }
 
+/// A PDF of the open scan in the cache, for the Print screen. Returns its path.
+#[tauri::command]
+pub async fn scan_to_print(st: State<'_, AppState>) -> Res<PathBuf> {
+    let s = {
+        let g = st.session.lock().unwrap();
+        let s = g.as_ref().ok_or("No session open")?;
+        Session { name: s.name.clone(), dir: s.dir.clone(), pages: s.pages.clone(), dirty: s.dirty }
+    };
+    let out = platen_core::device::cache_dir().join("print").join(format!("{}.pdf", s.name));
+    let path = out.clone();
+    blocking(move || s.write_pdf(&path)).await?;
+    st.picked.lock().unwrap().insert(out.clone());
+    Ok(out)
+}
+
 /// The paper's rectangle on a page (fractions), for the crop tool's Auto.
 #[tauri::command]
 pub async fn paper_bounds(st: State<'_, AppState>, index: usize) -> Res<Option<(f32, f32, f32, f32)>> {

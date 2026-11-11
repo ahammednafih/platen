@@ -70,6 +70,7 @@ export const api = {
   scanTop: () => invoke<TopHalf>("scan_top"),
   scanBottom: (top: TopHalf, slot: Slot = {}) => invoke<PageResult>("scan_bottom", { top, ...slot }),
   fillPage: (index: number) => invoke<PageResult>("fill_page", { index }),
+  scanToPrint: () => invoke<string>("scan_to_print"),
   paperBounds: (index: number) => invoke<[number, number, number, number] | null>("paper_bounds", { index }),
   editPage: (index: number, edit: Edit) => invoke<PageResult>("edit_page", { index, edit }),
   ocrLanguages: () => invoke<string[]>("ocr_languages"),

@@ -97,7 +97,7 @@
 
 <div class="shell">
   <aside class="side">
-    <div class="brand"><span class="mark" aria-hidden="true"></span>Platen</div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span>Platen{#if import.meta.env.DEV}<span class="dev">Dev</span>{/if}</div>
     <nav>
       {#each nav as [v, label, key] (v)}
         <button class:on={view === v} onclick={() => (view = v)} title="{label} (⌘{key})">
@@ -146,7 +146,7 @@
       <div class="with-pane">
         <div class="col">
           {#if session}
-            <ScanScreen bind:session {connected} {press} onpressed={() => (press = null)} onexport={() => (exporting = true)} onclose={close} />
+            <ScanScreen bind:session {connected} {press} onpressed={() => (press = null)} onprint={(p) => { toPrint = [p]; view = "print"; }} onexport={() => (exporting = true)} onclose={close} />
           {:else}
             <Start onopen={(s) => (session = s)} />
           {/if}
@@ -176,6 +176,7 @@
   .side { background: var(--side); border-right: 1px solid var(--line); padding: 10px 8px 12px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
   .brand { font-weight: 600; padding: 4px 8px; height: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
   .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); position: relative; transition: background-color 0.25s var(--ease); }
+  .dev { font-size: 10px; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; line-height: 14px; }
   .mark::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 2px; border-radius: 1px; background: var(--accent-text); opacity: 0.9; }
   .foot { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
   .foot button.open { background: var(--hover); color: var(--text); }

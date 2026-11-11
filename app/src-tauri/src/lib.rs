@@ -51,6 +51,16 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(state)
+        // Dev runs say so in the title bar, so they aren't mistaken for the installed app.
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                use tauri::Manager;
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.set_title("Platen (Dev)");
+                }
+            }
+            Ok(())
+        })
         .register_asynchronous_uri_scheme_protocol("scanimg", thumbs::serve)
         .register_asynchronous_uri_scheme_protocol("scanfile", thumbs::serve_file)
         .invoke_handler(tauri::generate_handler![
@@ -72,6 +82,7 @@ pub fn run() {
             commands::fill_page,
             commands::edit_page,
             commands::paper_bounds,
+            commands::scan_to_print,
             commands::ocr_languages,
             commands::delete_page,
             commands::undo,
