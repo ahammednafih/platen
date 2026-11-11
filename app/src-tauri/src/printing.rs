@@ -28,6 +28,44 @@ fn allow(st: &AppState, files: &[PathBuf]) {
     st.picked.lock().unwrap().extend(files.iter().cloned());
 }
 
+/// Write a file dropped onto the window (the webview sees bytes, not paths) to a temp folder.
+/// The body is the file; the `name` header is its URI-encoded file name.
+#[tauri::command]
+pub fn stage_file(st: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> Res<PathBuf> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("expected file bytes".into());
+    };
+    let name = request.headers().get("name").and_then(|v| v.to_str().ok()).map(decode).unwrap_or_default();
+    let name = std::path::Path::new(&name).file_name().ok_or("dropped file has no name")?.to_owned();
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(err)?.as_nanos();
+    let dir = std::env::temp_dir().join("scan-dropped").join(nanos.to_string());
+    std::fs::create_dir_all(&dir).map_err(err)?;
+    let path = dir.join(name);
+    std::fs::write(&path, bytes).map_err(err)?;
+    allow(&st, std::slice::from_ref(&path));
+    Ok(path)
+}
+
+/// Undo `encodeURIComponent`.
+fn decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let (mut out, mut i) = (Vec::with_capacity(b.len()), 0);
+    while i < b.len() {
+        let hex = (b[i] == b'%').then(|| s.get(i + 1..i + 3)).flatten().and_then(|h| u8::from_str_radix(h, 16).ok());
+        match hex {
+            Some(v) => {
+                out.push(v);
+                i += 3;
+            }
+            None => {
+                out.push(b[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 #[tauri::command]
 pub async fn print_caps(st: State<'_, AppState>) -> Res<PrintCaps> {
     let p = printer(&st)?;

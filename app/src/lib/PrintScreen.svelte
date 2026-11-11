@@ -89,6 +89,35 @@
     if (r) add(Array.isArray(r) ? r : [r]);
   }
 
+  // Window drag-drop is off (it breaks page reordering), so files arrive as bytes and get staged.
+  let dragging = $state(false);
+  const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes("Files");
+
+  function dragover(e: DragEvent) {
+    if (!hasFiles(e) || busy) return;
+    e.preventDefault();
+    dragging = true;
+  }
+
+  function dragleave(e: DragEvent) {
+    if (!(e.currentTarget as Node).contains(e.relatedTarget as Node | null)) dragging = false;
+  }
+
+  async function drop(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragging = false;
+    const all = [...(e.dataTransfer?.files ?? [])];
+    const ok = all.filter((f) => printable.includes(f.name.split(".").pop()?.toLowerCase() ?? ""));
+    if (!ok.length) return void (log = { ok: false, text: "Only PDFs, JPEGs and PNGs can be printed." });
+    try {
+      add(await Promise.all(ok.map(api.stageFile)));
+      if (ok.length < all.length) log = { ok: false, text: "Only PDFs, JPEGs and PNGs can be printed." };
+    } catch (err) {
+      log = { ok: false, text: String(err) };
+    }
+  }
+
   function move(i: number, d: number) {
     const j = i + d;
     if (j < 0 || j >= files.length) return;
@@ -140,7 +169,7 @@
   });
 </script>
 
-<div class="screen">
+<div class="screen" class:dragging role="region" aria-label="Print" ondragover={dragover} ondragleave={dragleave} ondrop={drop}>
   <header class="topbar">
     <h1>Print</h1>
     {#if plan}
@@ -192,7 +221,7 @@
 
       {#if !files.length}
         <button class="drop" onclick={pick}>
-          <strong>Choose PDFs or images to print</strong>
+          <strong>Choose or drop PDFs and images to print</strong>
           <span class="muted">Pick pages, put several on a sheet, or print both sides by hand</span>
         </button>
       {:else if plan}
@@ -300,6 +329,12 @@
   .drop {
     height: 260px; display: grid; place-content: center; gap: 4px; text-align: center;
     border: 1px dashed var(--line-strong); border-radius: 10px; background: none;
+  }
+  .screen { position: relative; }
+  .dragging::after {
+    content: "Drop to add"; position: absolute; inset: 8px; display: grid; place-content: center; pointer-events: none;
+    border: 2px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--bg) 80%, transparent);
+    font-weight: 600; z-index: 5;
   }
   .drop:hover:not(:disabled) { background: var(--panel); border-color: var(--accent); }
   .sheets { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px 16px; }

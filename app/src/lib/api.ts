@@ -71,6 +71,8 @@ export const api = {
   deleteDraft: (name: string) => invoke<Draft[]>("delete_draft", { name }),
   filePages: (path: string) => invoke<number>("file_pages", { path }),
   shrinkPdf: (path: string, maxMb: number) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb }),
+  stageFile: async (f: File) =>
+    invoke<string>("stage_file", new Uint8Array(await f.arrayBuffer()), { headers: { name: encodeURIComponent(f.name) } }),
   printCaps: () => invoke<PrintCaps>("print_caps"),
   printPlan: (job: PrintJob) => invoke<Plan>("print_plan", { job }),
   printPreview: async (job: PrintJob, slot: number) =>

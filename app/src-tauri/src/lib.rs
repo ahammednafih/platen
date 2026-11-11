@@ -66,6 +66,7 @@ pub fn run() {
             commands::delete_draft,
             commands::file_pages,
             commands::shrink_pdf,
+            printing::stage_file,
             printing::print_caps,
             printing::print_plan,
             printing::print_preview,

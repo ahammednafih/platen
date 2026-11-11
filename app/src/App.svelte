@@ -44,7 +44,8 @@
   }
 </script>
 
-<svelte:window onkeydown={onkey} />
+<!-- Stop files dropped outside a drop target from replacing the app with the file. -->
+<svelte:window onkeydown={onkey} ondragover={(e) => e.preventDefault()} ondrop={(e) => e.preventDefault()} />
 
 <div class="shell">
   <aside class="side">
