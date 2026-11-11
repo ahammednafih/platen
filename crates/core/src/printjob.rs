@@ -30,6 +30,15 @@ pub struct PrintJob {
     pub opts: PrintOpts,
 }
 
+/// True when the image has real colour: enough pixels whose channels differ by more than JPEG noise.
+fn has_colour(img: &image::RgbImage) -> bool {
+    const NOISE: u8 = 18;
+    let sampled = img.pixels().step_by(7);
+    let total = sampled.clone().count().max(1);
+    let tinted = sampled.filter(|p| p.0.iter().max().unwrap() - p.0.iter().min().unwrap() > NOISE).count();
+    tinted * 1000 > total
+}
+
 /// What a job will print, before sending it.
 #[derive(Debug, Serialize)]
 pub struct Plan {
@@ -71,19 +80,25 @@ impl PrintJob {
 
     /// One sheet as a JPEG (gray when printing in black and white).
     pub fn sheet(&self, plan: &Plan, sheet: Option<usize>, dpi: u32) -> Result<Vec<u8>> {
+        self.render_sheet(plan, sheet, dpi).map(|(jpeg, _)| jpeg)
+    }
+
+    /// The sheet as a JPEG, and whether it should print in colour. A sheet with no colour on it is
+    /// sent gray even when colour is selected, so the printer doesn't mix colour inks to make black.
+    fn render_sheet(&self, plan: &Plan, sheet: Option<usize>, dpi: u32) -> Result<(Vec<u8>, bool)> {
         let pages = match sheet {
             Some(i) => plan.groups.get(i).context("no such sheet")?.iter().map(|p| render::load(p, dpi)).collect::<Result<Vec<_>>>()?,
             None => Vec::new(),
         };
         let img = sheet::compose(&pages, self.nup, self.scale, self.paper(), dpi);
-        if self.opts.color {
-            return session::encode_rgb(&img, 90);
+        if self.opts.color && has_colour(&img) {
+            return Ok((session::encode_rgb(&img, 90)?, true));
         }
         let mut gray = image::imageops::grayscale(&img);
-        if self.clean {
+        if self.clean && !self.opts.color {
             session::whiten(&mut gray);
         }
-        session::encode_gray(&gray, 90)
+        Ok((session::encode_gray(&gray, 90)?, false))
     }
 
     /// Render and send every sheet; `progress(done, total)` runs after each job is accepted.
@@ -97,16 +112,15 @@ impl PrintJob {
         if plan.order.is_empty() {
             bail!("nothing to print with these settings");
         }
-        let sheets: Vec<Vec<u8>> = plan.order.par_iter().map(|s| self.sheet(&plan, *s, PRINT_DPI)).collect::<Result<_>>()?;
+        let sheets: Vec<(Vec<u8>, bool)> = plan.order.par_iter().map(|s| self.render_sheet(&plan, *s, PRINT_DPI)).collect::<Result<_>>()?;
         let copies = self.opts.copies.max(1);
         // Fit leaves white margins; other scales must keep their size, so let the printer crop.
         let scaling = if self.scale == Scale::Fit { "fit" } else { "fill" };
-        let one = PrintOpts { copies: 1, scaling: scaling.into(), ..self.opts.clone() };
-        let many = PrintOpts { copies, ..one.clone() };
-        let sends: Vec<(&[u8], &PrintOpts)> = if self.collate && copies > 1 && sheets.len() > 1 {
-            (0..copies).flat_map(|_| sheets.iter().map(|s| (s.as_slice(), &one))).collect()
+        let opts = |color: bool, copies: u32| PrintOpts { copies, color, scaling: scaling.into(), ..self.opts.clone() };
+        let sends: Vec<(&[u8], PrintOpts)> = if self.collate && copies > 1 && sheets.len() > 1 {
+            (0..copies).flat_map(|_| sheets.iter().map(|(s, color)| (s.as_slice(), opts(*color, 1)))).collect()
         } else {
-            sheets.iter().map(|s| (s.as_slice(), &many)).collect()
+            sheets.iter().map(|(s, color)| (s.as_slice(), opts(*color, copies))).collect()
         };
         let mut jobs = Vec::new();
         for (i, (jpeg, opts)) in sends.iter().enumerate() {
@@ -123,6 +137,18 @@ impl PrintJob {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gray_sheets_are_not_colour_but_a_coloured_stamp_is() {
+        let mut img = image::RgbImage::from_fn(200, 200, |x, _| image::Rgb([(x % 256) as u8; 3]));
+        assert!(!has_colour(&img));
+        for y in 0..20 {
+            for x in 0..20 {
+                img.put_pixel(x, y, image::Rgb([30, 60, 200]));
+            }
+        }
+        assert!(has_colour(&img));
+    }
     use crate::ipp::Quality;
 
     #[test]

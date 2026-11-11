@@ -457,7 +457,7 @@
           </select>
           <span class="label">Colour</span>
           <div class="seg">
-            <button class:on={tone === "Colour"} onclick={() => (tone = "Colour")} disabled={caps ? !caps.color : false}>Colour</button>
+            <button class:on={tone === "Colour"} onclick={() => (tone = "Colour")} disabled={caps ? !caps.color : false} title="Sheets with no colour on them still print with black ink only">Colour</button>
             <button class:on={tone === "Gray"} onclick={() => (tone = "Gray")} title="Shades of gray, as the printer renders them">Gray</button>
             <button class:on={tone === "B&W"} onclick={() => (tone = "B&W")} title="Clean black on white: paper pushed to white, ink kept dark. Best for scanned documents">B&W</button>
           </div>
