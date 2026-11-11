@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import CopyScreen from "./lib/CopyScreen.svelte";
   import DevicePanel from "./lib/DevicePanel.svelte";
   import ExportDialog from "./lib/ExportDialog.svelte";
@@ -17,6 +18,16 @@
   let exporting = $state(false);
   let view = $state<View>("scan");
   let help = $state(false);
+
+  type Theme = "system" | "light" | "dark";
+  const stored = (): Theme => { try { return (localStorage.getItem("theme") as Theme) || "system"; } catch { return "system"; } };
+  let theme = $state<Theme>(stored());
+  $effect(() => {
+    if (theme === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("theme", theme); } catch {}
+    getCurrentWindow().setTheme(theme === "system" ? null : theme).catch(() => {});
+  });
 
   // 16px line icons, stroke drawn in currentColor.
   const icons: Record<View, string> = {
@@ -65,6 +76,11 @@
       {/each}
     </nav>
     <div class="grow"></div>
+    <div class="seg theme" title="Appearance">
+      {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
+        <button class:on={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
+      {/each}
+    </div>
     <button class="ghost keys" onclick={() => (help = true)}>Keyboard shortcuts <span class="faint">⌘/</span></button>
     <DevicePanel bind:connected />
   </aside>
@@ -115,6 +131,7 @@
   nav button.on { background: var(--hover); color: var(--text); }
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
+  .theme { margin: 0 4px 4px; }
   .keys { justify-content: space-between; height: 28px; padding: 0 8px; border: none; font-size: 12px; }
   main { min-width: 0; min-height: 0; overflow: hidden; }
   .with-pane { display: flex; height: 100%; }

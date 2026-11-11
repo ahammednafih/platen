@@ -29,7 +29,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #101113;
     --side: #0c0d0e;
     --panel: #151618;
@@ -51,6 +51,31 @@
     --shadow-pop: 0 0 0 1px rgb(255 255 255 / 6%), 0 8px 24px rgb(0 0 0 / 45%), 0 24px 64px rgb(0 0 0 / 40%);
   }
 }
+
+:root[data-theme="dark"] {
+  --bg: #101113;
+  --side: #0c0d0e;
+  --panel: #151618;
+  --raised: #1c1d21;
+  --sunken: #0c0d0e;
+  --hover: #1f2024;
+  --line: #23252a;
+  --line-strong: #31333a;
+  --text: #e3e4e6;
+  --muted: #8a8f98;
+  --faint: #5d6169;
+  --accent: #5e6ad2;
+  --accent-hover: #6e79d9;
+  --accent-soft: rgb(94 106 210 / 18%);
+  --warn: #e2a23b;
+  --danger: #eb5757;
+  --ok: #4cb782;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-pop: 0 0 0 1px rgb(255 255 255 / 6%), 0 8px 24px rgb(0 0 0 / 45%), 0 24px 64px rgb(0 0 0 / 40%);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
