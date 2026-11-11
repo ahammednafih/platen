@@ -6,6 +6,7 @@
   import PrintScreen from "./lib/PrintScreen.svelte";
   import ScanScreen from "./lib/ScanScreen.svelte";
   import ScanSettings from "./lib/ScanSettings.svelte";
+  import Shortcuts from "./lib/Shortcuts.svelte";
   import Start from "./lib/Start.svelte";
   import { api, type SessionView } from "./lib/api";
 
@@ -15,6 +16,7 @@
   let session = $state<SessionView | null>(null);
   let exporting = $state(false);
   let view = $state<View>("scan");
+  let help = $state(false);
 
   // 16px line icons, stroke drawn in currentColor.
   const icons: Record<View, string> = {
@@ -37,6 +39,10 @@
 
   function onkey(e: KeyboardEvent) {
     if (!e.metaKey || exporting) return;
+    if (e.key === "/") {
+      help = !help;
+      return e.preventDefault();
+    }
     const hit = nav.find(([, , k]) => k === e.key);
     if (!hit) return;
     view = hit[0];
@@ -59,6 +65,7 @@
       {/each}
     </nav>
     <div class="grow"></div>
+    <button class="ghost keys" onclick={() => (help = true)}>Keyboard shortcuts <span class="faint">⌘/</span></button>
     <DevicePanel bind:connected />
   </aside>
 
@@ -86,6 +93,10 @@
   </main>
 </div>
 
+{#if help}
+  <Shortcuts onclose={() => (help = false)} />
+{/if}
+
 {#if exporting && session}
   <ExportDialog
     pages={session.pages.length}
@@ -104,6 +115,7 @@
   nav button.on { background: var(--hover); color: var(--text); }
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
+  .keys { justify-content: space-between; height: 28px; padding: 0 8px; border: none; font-size: 12px; }
   main { min-width: 0; min-height: 0; overflow: hidden; }
   .with-pane { display: flex; height: 100%; }
   .col { flex: 1; min-width: 0; overflow: auto; }

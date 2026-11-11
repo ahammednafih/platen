@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { api, paperName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
+  import { api, covered, paperName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
 
   let { connected }: { connected: boolean } = $props();
 
@@ -151,6 +151,14 @@
     await send(job({ subset: "Even", reverse: !reverse }), "Printing backs");
   }
 
+  function onkey(e: KeyboardEvent) {
+    if (!e.metaKey || busy || covered()) return;
+    if (e.key === "o") pick();
+    else if ((e.key === "p" || e.key === "Enter") && connected && plan && !flip) print();
+    else return;
+    e.preventDefault();
+  }
+
   onMount(() => {
     const un = listen<{ done: number; total: number }>("print-progress", (e) => {
       if (busy) busy = busy.replace(/ \d+\/\d+$/, "") + ` ${e.payload.done}/${e.payload.total}`;
@@ -168,6 +176,8 @@
     return m ? `${m[1]} / ${m[2]}` : "210 / 297";
   });
 </script>
+
+<svelte:window onkeydown={onkey} />
 
 <div class="screen" class:dragging role="region" aria-label="Print" ondragover={dragover} ondragleave={dragleave} ondrop={drop}>
   <header class="topbar">

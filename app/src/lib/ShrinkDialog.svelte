@@ -23,7 +23,14 @@
       busy = false;
     }
   }
+  function onkey(e: KeyboardEvent) {
+    if (e.key !== "Escape" || busy) return;
+    e.preventDefault();
+    onclose();
+  }
 </script>
+
+<svelte:window onkeydown={onkey} />
 
 <div class="backdrop">
   <div class="card dialog" role="dialog" aria-label="Shrink PDF">

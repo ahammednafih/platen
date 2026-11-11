@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { listen } from "@tauri-apps/api/event";
-  import { api, DEFAULT_SIZES, fileImg, paperName, type PrintCaps, type PrintJob, type Quality, type Scale, type Size, type SizeId, type TopHalf } from "./api";
+  import { api, covered, DEFAULT_SIZES, fileImg, paperName, type PrintCaps, type PrintJob, type Quality, type Scale, type Size, type SizeId, type TopHalf } from "./api";
 
   let { connected }: { connected: boolean } = $props();
 
@@ -132,7 +132,14 @@
       busy = "";
     }
   }
+  function onkey(e: KeyboardEvent) {
+    if (!e.metaKey || e.key !== "Enter" || !connected || busy || covered()) return;
+    e.preventDefault();
+    go();
+  }
 </script>
+
+<svelte:window onkeydown={onkey} />
 
 <div class="screen">
   <header class="topbar">

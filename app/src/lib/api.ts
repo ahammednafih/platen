@@ -85,7 +85,9 @@ export const api = {
   copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
 };
 
-/** Readable name for an IPP media keyword, e.g. `iso_a4_210x297mm` → `A4`. */
+/** True while a dialog or lightbox covers the screen, so screen shortcuts stay quiet. */
+export const covered = () => !!document.querySelector(".backdrop");
+
 /** Sizes offered before the scanner reports which fit its glass. */
 export const DEFAULT_SIZES: Size[] = [
   { id: "A4", name: "A4", w_mm: 210, h_mm: 297 },
@@ -94,6 +96,7 @@ export const DEFAULT_SIZES: Size[] = [
   { id: "A6", name: "A6", w_mm: 105, h_mm: 148 },
 ];
 
+/** Readable name for an IPP media keyword, e.g. `iso_a4_210x297mm` → `A4`. */
 export function paperName(kw: string): string {
   const named: Record<string, string> = { iso_a4: "A4", iso_a5: "A5", iso_a6: "A6", na_letter: "Letter", na_legal: "Legal", jis_b5: "B5", na_index: "Index card", na_5x7: "5×7 in", om_photo: "Photo" };
   const key = kw.split("_").slice(0, 2).join("_");

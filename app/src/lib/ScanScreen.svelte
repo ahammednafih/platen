@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
+  import { api, covered, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
   import AdjustDialog from "./AdjustDialog.svelte";
   import LongPageWizard from "./LongPageWizard.svelte";
   import Lightbox from "./Lightbox.svelte";
@@ -92,7 +92,9 @@
   }
 
   function onkey(e: KeyboardEvent) {
-    if (busy || wizard || preview !== null || adjusting !== null || e.target instanceof HTMLInputElement) return;
+    if (busy || covered()) return;
+    if (e.metaKey) return command(e);
+    if (e.target instanceof HTMLInputElement) return;
     const n = session.pages.length;
     if (!n) return;
     const i = selected ?? 0;
@@ -102,6 +104,14 @@
     else if ((e.key === "Backspace" || e.key === "Delete") && selected !== null) remove(selected);
     else if (e.key === "r" && selected !== null) edit(selected, "RotateRight");
     else if (e.key === "R" && selected !== null) edit(selected, "RotateLeft");
+    else return;
+    e.preventDefault();
+  }
+
+  function command(e: KeyboardEvent) {
+    if (e.key === "Enter" && connected) scanA4();
+    else if (e.key === "l" && connected) wizard = {};
+    else if (e.key === "e" && session.pages.length) onexport();
     else return;
     e.preventDefault();
   }

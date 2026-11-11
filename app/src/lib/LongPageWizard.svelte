@@ -38,7 +38,14 @@
 
   const busy = $derived(step === "scanning-top" || step === "joining");
   const topFile = $derived(top ? top.path.split("/").pop()! : "");
+  function onkey(e: KeyboardEvent) {
+    if (e.key !== "Escape" || busy) return;
+    e.preventDefault();
+    oncancel();
+  }
 </script>
+
+<svelte:window onkeydown={onkey} />
 
 <div class="backdrop">
   <div class="card dialog" role="dialog" aria-label="Long page">
