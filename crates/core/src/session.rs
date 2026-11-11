@@ -280,15 +280,62 @@ fn derive(data: &[u8], dpi: u32, want_share: bool, want_print: bool) -> Result<(
     Ok((JpegPage { data: share, dpi: target as f32 }, JpegPage { data: print, dpi: target as f32 }))
 }
 
-/// The print treatment: push cream or gray paper to white, keep ink dark (like `-level 25%,76%,0.9`).
+/// The print treatment: paper to white, ink kept dark.
+///
+/// Fixed cut-offs wash out faded documents, so this adapts to the page: the paper's brightness is
+/// estimated locally (which also flattens stains and shadows), each pixel is taken relative to it, and
+/// only what is close to paper goes white. Mid-tones are darkened so faint strokes survive.
 pub fn whiten(gray: &mut GrayImage) {
+    let (w, h) = gray.dimensions();
+    if w < 16 || h < 16 {
+        return;
+    }
+    let paper = paper_map(gray);
     let lut: Vec<u8> = (0..256)
         .map(|v| {
-            let t = ((v as f32 / 255.0 - 0.25) / (0.76 - 0.25)).clamp(0.0, 1.0);
-            (t.powf(1.0 / 0.9) * 255.0).round() as u8
+            let t = ((v as f32 / 255.0 - WHITEN_BLACK) / (WHITEN_WHITE - WHITEN_BLACK)).clamp(0.0, 1.0);
+            (t.powf(WHITEN_GAMMA) * 255.0).round() as u8
         })
         .collect();
-    gray.pixels_mut().for_each(|p| p[0] = lut[p[0] as usize]);
+    for (p, bg) in gray.pixels_mut().zip(paper.pixels()) {
+        let rel = (p[0] as f32 / bg[0] as f32).min(1.0);
+        p[0] = lut[(rel * 255.0) as usize];
+    }
+}
+
+/// Relative brightness (pixel / local paper) that becomes pure black and pure white, and the curve
+/// between them; a gamma above 1 darkens faint ink.
+const WHITEN_BLACK: f32 = 0.30;
+const WHITEN_WHITE: f32 = 0.90;
+const WHITEN_GAMMA: f32 = 1.5;
+
+/// Brightness of the paper around each pixel: shrink the page, spread the bright values over ink
+/// (a max filter), blur, and scale back up. Large dark areas (stamps, photos) are floored against
+/// the page's overall paper level so they stay dark instead of being "corrected" to white.
+fn paper_map(gray: &GrayImage) -> GrayImage {
+    let (w, h) = gray.dimensions();
+    // ~72 px across whatever the resolution, so the 5-px spread covers about 7% of the page width:
+    // wide enough to see past tape marks and fold shadows, at preview size and at 600 dpi alike.
+    let sw = 72.min(w / 2).max(8);
+    let sh = (h as u64 * sw as u64 / w as u64).max(8) as u32;
+    let small = imageops::resize(gray, sw, sh, imageops::FilterType::Triangle);
+    let mut levels: Vec<u8> = small.pixels().map(|p| p[0]).collect();
+    levels.sort_unstable();
+    let floor = (levels[levels.len() * 9 / 10] as f32 * 0.6).max(40.0) as u8;
+    let mut spread = small.clone();
+    for (x, y, p) in spread.enumerate_pixels_mut() {
+        let mut max = floor;
+        for dy in -2i32..=2 {
+            for dx in -2i32..=2 {
+                let (nx, ny) = (x as i32 + dx, y as i32 + dy);
+                if nx >= 0 && ny >= 0 && (nx as u32) < sw && (ny as u32) < sh {
+                    max = max.max(small.get_pixel(nx as u32, ny as u32)[0]);
+                }
+            }
+        }
+        p[0] = max;
+    }
+    imageops::resize(&imageops::blur(&spread, 1.5), w, h, imageops::FilterType::Triangle)
 }
 
 pub fn encode_rgb(img: &image::RgbImage, q: u8) -> Result<Vec<u8>> {
