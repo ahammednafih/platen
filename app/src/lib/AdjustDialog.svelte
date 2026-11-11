@@ -53,8 +53,9 @@
 <style>
   .dialog { width: min(560px, 92vw); padding: 20px 22px; display: grid; gap: 12px; }
   h2 { margin: 0; }
-  .view { height: min(56vh, 600px); display: grid; place-items: center; background: var(--panel); border-radius: 6px; padding: 10px; }
-  .view img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; box-shadow: 0 0 0 1px var(--line-strong); }
+  /* A percentage max-height doesn't resolve inside the grid cell, so tall scans spilled out; cap it explicitly. */
+  .view { --h: min(56vh, 600px); height: var(--h); box-sizing: border-box; overflow: hidden; display: grid; place-items: center; background: var(--panel); border-radius: 6px; padding: 10px; }
+  .view img { max-width: 100%; max-height: calc(var(--h) - 20px); object-fit: contain; background: #fff; box-shadow: 0 0 0 1px var(--line-strong); }
   .slider { display: grid; grid-template-columns: 80px 1fr 48px; gap: 10px; align-items: center; }
   .slider input { accent-color: var(--accent); }
   .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
