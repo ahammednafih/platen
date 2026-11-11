@@ -22,6 +22,14 @@
   type Theme = "system" | "light" | "dark";
   const stored = (): Theme => { try { return (localStorage.getItem("theme") as Theme) || "system"; } catch { return "system"; } };
   let theme = $state<Theme>(stored());
+  const accents = [["ink", "Ink black", "#1c1d1f"], ["magenta", "Magenta", "#c2185b"], ["orange", "Toner orange", "#d9480f"], ["teal", "Teal", "#0f766e"], ["coffee", "Coffee", "#7a4a2a"]] as const;
+  type Accent = (typeof accents)[number][0];
+  let accent = $state<Accent>((() => { try { return (localStorage.getItem("accent") as Accent) || "ink"; } catch { return "ink"; } })());
+  $effect(() => {
+    if (accent === "ink") delete document.documentElement.dataset.accent;
+    else document.documentElement.dataset.accent = accent;
+    try { localStorage.setItem("accent", accent); } catch {}
+  });
   $effect(() => {
     if (theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
@@ -81,6 +89,11 @@
         <button class:on={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
       {/each}
     </div>
+    <div class="accents" role="radiogroup" aria-label="Accent colour">
+      {#each accents as [v, label, swatch] (v)}
+        <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--swatch={swatch} onclick={() => (accent = v)}></button>
+      {/each}
+    </div>
     <button class="ghost keys" onclick={() => (help = true)}>Keyboard shortcuts <span class="faint">⌘/</span></button>
     <DevicePanel bind:connected />
   </aside>
@@ -132,6 +145,10 @@
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
   .theme { margin: 0 4px 4px; }
+  .accents { display: flex; gap: 8px; padding: 2px 8px 6px; }
+  .accents button { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: none; background: var(--swatch); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; }
+  .accents button.on { box-shadow: 0 0 0 2px var(--side), 0 0 0 3.5px var(--text); }
+  .accents button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
   .keys { justify-content: space-between; height: 28px; padding: 0 8px; border: none; font-size: 12px; }
   main { min-width: 0; min-height: 0; overflow: hidden; }
   .with-pane { display: flex; height: 100%; }
