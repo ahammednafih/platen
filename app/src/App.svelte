@@ -77,7 +77,7 @@
 
 <div class="shell">
   <aside class="side">
-    <div class="brand">Scan</div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span>Scan</div>
     <nav>
       {#each nav as [v, label, key] (v)}
         <button class:on={view === v} onclick={() => (view = v)} title="{label} (⌘{key})">
@@ -87,15 +87,18 @@
       {/each}
     </nav>
     <div class="grow"></div>
+    <div class="appearance">
+    <div class="app-head"><span>Appearance</span>
+    <div class="accents" role="radiogroup" aria-label="Accent colour">
+      {#each accents as [v, label, light, dark] (v)}
+        <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--light={light} style:--dark={dark} onclick={() => (accent = v)}></button>
+      {/each}
+    </div></div>
     <div class="seg theme" title="Appearance">
       {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
         <button class:on={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
       {/each}
     </div>
-    <div class="accents" role="radiogroup" aria-label="Accent colour">
-      {#each accents as [v, label, light, dark] (v)}
-        <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--light={light} style:--dark={dark} onclick={() => (accent = v)}></button>
-      {/each}
     </div>
     <button class="ghost keys" onclick={() => (help = true)}>Keyboard shortcuts <span class="faint">⌘/</span></button>
     <DevicePanel bind:connected />
@@ -140,7 +143,12 @@
 <style>
   .shell { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
   .side { background: var(--side); border-right: 1px solid var(--line); padding: 10px 8px 12px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
-  .brand { font-weight: 600; padding: 4px 8px; height: 28px; display: flex; align-items: center; }
+  .brand { font-weight: 600; padding: 4px 8px; height: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
+  .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); position: relative; transition: background-color 0.25s var(--ease); }
+  .mark::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 2px; border-radius: 1px; background: var(--accent-text); opacity: 0.9; }
+  .appearance { display: grid; gap: 8px; padding: 0 4px; }
+  .app-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; font-size: 12px; color: var(--muted); }
+  .app-head .accents { padding: 0; gap: 6px; }
   nav { display: grid; gap: 1px; }
   nav button { justify-content: flex-start; border: none; background: none; height: 28px; padding: 0 8px; color: var(--muted); gap: 10px; }
   nav button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
@@ -149,9 +157,9 @@
   nav button.on svg { color: var(--accent); }
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
-  .theme { margin: 0 4px 4px; }
+  .theme { margin: 0; }
   .accents { display: flex; gap: 8px; padding: 2px 8px 6px; }
-  .accents button { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
+  .accents button { width: 14px; height: 14px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
   .accents button:hover:not(:disabled) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); transform: scale(1.15); }
   .accents button.on { box-shadow: 0 0 0 2px var(--side), 0 0 0 3.5px var(--text); }
   .accents button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }

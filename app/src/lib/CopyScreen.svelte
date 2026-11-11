@@ -175,7 +175,6 @@
     {#if step > 0}
       <button class="ghost" onclick={reset} disabled={!!busy}>Start over</button>
     {/if}
-    <button class="primary" onclick={go} disabled={!connected || !!busy}>{k.steps[step].button}</button>
   </header>
 
   <div class="screen-body">
@@ -191,6 +190,12 @@
       </div>
 
       <div class="stage">
+        <svg class="glass {kind}" class:second={step > 0} viewBox="0 0 120 150" aria-hidden="true">
+          <rect class="bed" x="4" y="4" width="112" height="142" rx="6" />
+          <rect class="edge" x="4" y="4" width="112" height="6" rx="3" />
+          <rect class="sheet" x="10" y="12" />
+        </svg>
+        <div class="stage-text">
         {#if k.steps.length > 1}
           <ol class="steps">
             {#each k.steps as s, i (i)}
@@ -200,6 +205,9 @@
         {/if}
         <p class="prompt">{k.steps[step].prompt}</p>
         {#if k.steps[step].hint}<p class="muted">{k.steps[step].hint}</p>{/if}
+        <div class="go">
+          <button class="primary big" onclick={go} disabled={!connected || !!busy}>{k.steps[step].button}</button>
+        </div>
 
         {#if busy}
           <p class="status"><span class="spinner"></span>{busy}… <button class="ghost small stop" onclick={stop} disabled={stopping}>Stop</button></p>
@@ -209,6 +217,7 @@
           <p class="status">Waiting for the scanner.</p>
         {/if}
 
+        </div>
         {#if scans.length}
           <div class="scans">
             {#each scans as s, i (s)}
@@ -279,6 +288,19 @@
 </div>
 
 <style>
+  .stage { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .stage-text { display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .stage .prompt { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  .go { display: flex; gap: 8px; margin-top: 4px; }
+  button.big { height: 34px; padding: 0 18px; font-weight: 600; }
+  .glass { width: 120px; height: 150px; }
+  .glass .bed { fill: var(--sunken); stroke: var(--line-strong); }
+  .glass .edge { fill: var(--line-strong); }
+  .glass .sheet { fill: var(--paper); stroke: var(--accent); stroke-width: 1.5; width: 100px; height: 128px; rx: 2; transition: all 0.3s var(--ease); }
+  .glass.idCard .sheet { width: 54px; height: 34px; }
+  .glass.long .sheet { height: 150px; stroke-dasharray: 4 3; }
+  .glass.twoInOne.second .sheet, .glass.idCard.second .sheet { fill: var(--accent-soft); }
+  @media (max-width: 720px) { .stage { grid-template-columns: minmax(0, 1fr); } .glass { display: none; } }
   .screen-main { padding: 16px 20px 40px; display: grid; gap: 28px; align-content: start; }
   .kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
   .kinds button {

@@ -40,6 +40,7 @@
 <header class="topbar"><h1>Scan</h1></header>
 <div class="start">
   <div class="new">
+    <span class="tile" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 2.5h6l3 3v8h-9z M9.5 2.5v3h3 M1.5 9h13" /></svg></span>
     <h1>New scan</h1>
     <p class="muted">Pages are saved as you go, so you can close the app and come back to a draft.</p>
     <form onsubmit={(e) => { e.preventDefault(); open(name); }}>
@@ -50,7 +51,7 @@
   </div>
 
   <div class="drafts">
-    <h3>Drafts</h3>
+    <h3>Drafts{#if drafts.length} <span class="count">{drafts.length}</span>{/if}</h3>
     {#if drafts.length}
       <ul>
         {#each drafts as d (d.name)}
@@ -81,9 +82,13 @@
 
 <style>
   .start { max-width: 600px; width: 100%; margin: 56px auto; padding: 0 24px; display: grid; gap: 36px; }
-  .new { display: grid; gap: 10px; }
+  .new { display: grid; gap: 10px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+  .tile { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 4px; }
+  .tile svg { width: 18px; height: 18px; }
+  .count { font-size: 11px; color: var(--muted); background: var(--sunken); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; margin-left: 4px; font-variant-numeric: tabular-nums; }
   .new h1 { font-size: 20px; }
-  form { display: flex; gap: 8px; margin-top: 6px; }
+  form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  form input { flex: 1 1 180px; }
   .drafts { display: grid; gap: 8px; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
   .row { display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--line); }
