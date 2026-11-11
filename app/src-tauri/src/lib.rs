@@ -78,7 +78,6 @@ pub fn run() {
             printing::copy_id_card,
             printing::copy_tone,
             commands::device_details,
-            commands::device_forget,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

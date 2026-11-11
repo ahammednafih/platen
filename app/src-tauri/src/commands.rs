@@ -346,9 +346,3 @@ pub async fn device_details(st: State<'_, AppState>, password: Option<String>) -
     })
     .await
 }
-
-#[tauri::command]
-pub async fn device_forget(st: State<'_, AppState>) -> Res<()> {
-    let host = web_host(&st)?;
-    blocking(move || webui::forget_password(&host)).await
-}

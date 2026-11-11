@@ -26,12 +26,6 @@
     }
   }
 
-  async function forget() {
-    await api.deviceForget().catch(() => {});
-    groups = [];
-    asking = true;
-  }
-
   function onkey(e: KeyboardEvent) {
     if (e.key !== "Escape") return;
     e.preventDefault();
@@ -77,10 +71,6 @@
         </dl>
       </section>
     {/each}
-
-    {#if groups.length}
-      <button class="ghost small forget" onclick={forget}>Forget saved password</button>
-    {/if}
   </div>
 </div>
 
@@ -95,5 +85,4 @@
   dt { color: var(--muted); }
   dt.sub { padding-left: 14px; }
   dd { font-variant-numeric: tabular-nums; text-align: right; }
-  .forget { justify-self: start; }
 </style>

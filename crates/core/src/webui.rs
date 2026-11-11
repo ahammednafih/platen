@@ -162,10 +162,6 @@ pub fn save_password(host: &str, password: &str) -> Result<()> {
     keychain(&["add-generic-password", "-U", "-s", KEYCHAIN_SERVICE, "-a", host, "-w", password]).map(drop)
 }
 
-pub fn forget_password(host: &str) -> Result<()> {
-    keychain(&["delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", host]).map(drop)
-}
-
 fn keychain(args: &[&str]) -> Result<String> {
     let out = std::process::Command::new("security").args(args).output().context("can't run security")?;
     if !out.status.success() {
