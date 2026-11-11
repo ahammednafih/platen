@@ -114,8 +114,7 @@ Run `platen --help` for the rest.
   network change printer settings. Platen tells you this before it changes anything, and the setting
   can be turned back from the printer's web page.
 
-Found a security problem? Please open a private security advisory on this repository rather than a
-public issue.
+Found a security problem? Please report it privately; see [SECURITY.md](SECURITY.md).
 
 ## Build from source
 

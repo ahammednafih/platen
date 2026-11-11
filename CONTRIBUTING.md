@@ -61,8 +61,8 @@ isn't obvious from the diff.
 
 ## Security
 
-Please don't open a public issue for a security problem. Use a private security advisory on this
-repository instead.
+Please don't open a public issue for a security problem. See [SECURITY.md](SECURITY.md) for how to
+report one privately.
 
 ## Licence
 
