@@ -21,6 +21,8 @@
   let view = $state<View>("scan");
   let help = $state(false);
   let appearing = $state(false);
+  // Files sent from Saved scans to the Print screen.
+  let toPrint = $state<string[] | null>(null);
   // A Scan-button press waiting for the scan screen to pick it up.
   let press = $state<number | null>(null);
 
@@ -134,11 +136,11 @@
 
   <main>
     {#if view === "library"}
-      <Library />
+      <Library onprint={(p) => { toPrint = [p]; view = "print"; }} />
     {:else if view === "copy"}
       <CopyScreen {connected} />
     {:else if view === "print"}
-      <PrintScreen {connected} />
+      <PrintScreen {connected} incoming={toPrint} onreceived={() => (toPrint = null)} />
     {:else}
       <div class="with-pane">
         <div class="col">

@@ -1,6 +1,8 @@
 //! Tauri shell over scan-core: shared state, commands, and the `scanimg://` thumbnail protocol.
 mod button;
 mod commands;
+mod files;
+mod history;
 mod printing;
 mod thumbs;
 
@@ -23,6 +25,8 @@ pub struct AppState {
     stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Stop flag of the Scan-button listener, while one runs.
     button: Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
+    /// Undo/redo steps for the open scan.
+    history: Mutex<history::History>,
 }
 
 type Res<T> = Result<T, String>;
@@ -40,6 +44,7 @@ pub fn run() {
         copy_dir: Mutex::new(None),
         stop: Default::default(),
         button: Mutex::new(None),
+        history: Mutex::new(Default::default()),
     };
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -67,6 +72,8 @@ pub fn run() {
             commands::edit_page,
             commands::ocr_languages,
             commands::delete_page,
+            commands::undo,
+            commands::redo,
             commands::move_page,
             commands::get_export_opts,
             commands::export,
@@ -74,6 +81,11 @@ pub fn run() {
             commands::delete_draft,
             commands::file_pages,
             commands::shrink_pdf,
+            commands::keep_shrunk,
+            commands::discard_shrunk,
+            files::share_file,
+            files::trash_file,
+            files::rename_file,
             printing::stage_file,
             printing::print_caps,
             printing::print_plan,

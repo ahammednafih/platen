@@ -4,7 +4,12 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, covered, paperName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
 
-  let { connected }: { connected: boolean } = $props();
+  let { connected, incoming = null, onreceived = () => {} }: {
+    connected: boolean;
+    /// Files handed over from elsewhere (Saved scans → Print), taken once.
+    incoming?: string[] | null;
+    onreceived?: () => void;
+  } = $props();
 
   const PREVIEWS = 60;
   const printable = ["pdf", "jpg", "jpeg", "png"];
@@ -168,6 +173,12 @@
     anchor = i;
     setSel(s);
   }
+
+  $effect(() => {
+    if (!incoming) return;
+    add(incoming);
+    onreceived();
+  });
 
   function add(paths: string[]) {
     const ok = paths.filter((p) => printable.includes(p.split(".").pop()?.toLowerCase() ?? ""));

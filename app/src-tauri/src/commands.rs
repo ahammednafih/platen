@@ -29,6 +29,8 @@ pub struct SessionView {
     name: String,
     dir: PathBuf,
     pages: Vec<Page>,
+    can_undo: bool,
+    can_redo: bool,
 }
 
 #[derive(Serialize)]
@@ -38,7 +40,7 @@ pub struct Exported {
 }
 
 fn view(s: &Session) -> SessionView {
-    SessionView { name: s.name.clone(), dir: s.dir.clone(), pages: s.pages.clone() }
+    SessionView { name: s.name.clone(), dir: s.dir.clone(), pages: s.pages.clone(), can_undo: false, can_redo: false }
 }
 
 pub(crate) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Send + 'static) -> Res<T> {
@@ -57,9 +59,41 @@ pub(crate) fn session_dir(st: &AppState) -> Res<PathBuf> {
 fn edit(st: &AppState, f: impl FnOnce(&mut Vec<Page>) -> Res<()>) -> Res<SessionView> {
     let mut guard = st.session.lock().unwrap();
     let s = guard.as_mut().ok_or("No session open")?;
+    let before = s.pages.clone();
     f(&mut s.pages)?;
     s.save().map_err(err)?;
-    Ok(view(s))
+    st.history.lock().unwrap().record(before);
+    Ok(with_history(st, view(s)))
+}
+
+fn with_history(st: &AppState, mut v: SessionView) -> SessionView {
+    (v.can_undo, v.can_redo) = st.history.lock().unwrap().can();
+    v
+}
+
+/// Step back (or forward) through changes to the open scan.
+fn step(st: &AppState, forward: bool) -> Res<SessionView> {
+    let mut guard = st.session.lock().unwrap();
+    let s = guard.as_mut().ok_or("No session open")?;
+    let mut h = st.history.lock().unwrap();
+    let now = s.pages.clone();
+    let pages = if forward { h.redo(now) } else { h.undo(now) };
+    drop(h);
+    if let Some(p) = pages {
+        s.pages = p;
+        s.save().map_err(err)?;
+    }
+    Ok(with_history(st, view(s)))
+}
+
+#[tauri::command]
+pub fn undo(st: State<'_, AppState>) -> Res<SessionView> {
+    step(&st, false)
+}
+
+#[tauri::command]
+pub fn redo(st: State<'_, AppState>) -> Res<SessionView> {
+    step(&st, true)
 }
 
 #[derive(Serialize)]
@@ -126,9 +160,35 @@ pub fn open_session(st: State<'_, AppState>, name: Option<String>) -> Res<Sessio
     let name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(device::default_name);
     scan_core::session::check_name(name.trim()).map_err(err)?;
     let s = Session::open(device::default_root().join(name.trim())).map_err(err)?;
+    st.history.lock().unwrap().clear();
     let v = view(&s);
     *st.session.lock().unwrap() = Some(s);
     Ok(v)
+}
+
+/// Keep a shrink draft: move it next to the original. Returns where it went.
+#[tauri::command]
+pub fn keep_shrunk(st: State<'_, AppState>, original: PathBuf, draft: PathBuf) -> Res<PathBuf> {
+    let draft = draft_path(&draft)?;
+    let out = original.with_file_name(draft.file_name().ok_or("bad draft")?);
+    if std::fs::rename(&draft, &out).is_err() {
+        std::fs::copy(&draft, &out).map_err(err)?;
+        let _ = std::fs::remove_file(&draft);
+    }
+    st.picked.lock().unwrap().insert(out.clone());
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn discard_shrunk(draft: PathBuf) -> Res<()> {
+    std::fs::remove_file(draft_path(&draft)?).map_err(err)
+}
+
+/// Only files inside the shrink drafts folder can be kept or discarded.
+fn draft_path(p: &std::path::Path) -> Res<PathBuf> {
+    let real = p.canonicalize().map_err(err)?;
+    let dir = shrink_dir()?.canonicalize().map_err(err)?;
+    real.starts_with(&dir).then_some(real).ok_or_else(|| "Not a shrink draft".into())
 }
 
 /// Rename the open scan (its folder and exports carrying the old name).
@@ -137,12 +197,13 @@ pub fn rename_session(st: State<'_, AppState>, name: String) -> Res<SessionView>
     let mut guard = st.session.lock().unwrap();
     let s = guard.as_mut().ok_or("No session open")?;
     s.rename(&name).map_err(err)?;
-    Ok(view(s))
+    Ok(with_history(&st, view(s)))
 }
 
 #[tauri::command]
 pub fn close_session(st: State<'_, AppState>) {
     *st.session.lock().unwrap() = None;
+    st.history.lock().unwrap().clear();
 }
 
 #[tauri::command]
@@ -305,9 +366,18 @@ pub async fn file_pages(st: State<'_, AppState>, path: PathBuf) -> Res<usize> {
 
 #[derive(Serialize)]
 pub struct ShrinkResult {
+    /// Draft in the cache until the user keeps it.
     out: PathBuf,
     before: u64,
     after: u64,
+    /// False when the target was too small; `out` is then the smallest the PDF gets.
+    fits: bool,
+    pages: usize,
+}
+
+/// Shrink drafts live here until kept or discarded.
+fn shrink_dir() -> Res<PathBuf> {
+    Ok(dirs::cache_dir().ok_or("No cache folder")?.join("scan").join("shrink"))
 }
 
 /// Write `<name>_under<N>MB.pdf` next to `path`. `path` may be any PDF the user picked.
@@ -317,16 +387,16 @@ pub async fn shrink_pdf(st: State<'_, AppState>, path: PathBuf, max_mb: f32) -> 
         return Err("Pick a size between 0.05 and 1000 MB".into());
     }
     st.picked.lock().unwrap().insert(path.clone());
+    let dir = shrink_dir()?;
     let out = blocking(move || {
         let input = std::fs::read(&path)?;
         let r = scan_core::pdfedit::shrink(&input, (max_mb * 1_000_000.0) as u64)?;
-        if !r.fits {
-            anyhow::bail!("Can't get this PDF under {max_mb} MB — the smallest possible is {:.2} MB", r.data.len() as f32 / 1e6);
-        }
         let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-        let out = path.with_file_name(format!("{stem}_under{max_mb}MB.pdf"));
+        std::fs::create_dir_all(&dir)?;
+        let out = dir.join(format!("{stem}_under{max_mb}MB.pdf"));
         std::fs::write(&out, &r.data)?;
-        Ok(ShrinkResult { out, before: input.len() as u64, after: r.data.len() as u64 })
+        let pages = scan_core::pdfedit::page_count(&r.data)?;
+        Ok(ShrinkResult { out, before: input.len() as u64, after: r.data.len() as u64, fits: r.fits, pages })
     })
     .await?;
     st.picked.lock().unwrap().insert(out.out.clone());

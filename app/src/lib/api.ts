@@ -15,7 +15,7 @@ export interface Settings { dpi: number; mode: ColorMode; fill: Fill; size: Size
 export interface Preset { name: string; settings: Settings; builtin: boolean }
 export interface Caps { resolutions: number[]; modes: ColorMode[]; sizes: Size[] }
 export interface Page { file: string; kind: Kind; dpi: number; w: number; h: number; secs: number }
-export interface SessionView { name: string; dir: string; pages: Page[] }
+export interface SessionView { name: string; dir: string; pages: Page[]; can_undo?: boolean; can_redo?: boolean }
 export interface PageResult { session: SessionView; index: number; note: string }
 export interface TopHalf { path: string; stem: string; secs: number }
 export interface Device { name: string; host: string }
@@ -31,7 +31,7 @@ export interface ExportOpts {
 export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop"
   | { Levels: { brightness: number; contrast: number } };
 export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }
-export interface ShrinkResult { out: string; before: number; after: number }
+export interface ShrinkResult { out: string; before: number; after: number; fits: boolean; pages: number }
 export interface Exported { files: string[]; closed: boolean }
 
 export type Quality = "Draft" | "Normal" | "High";
@@ -72,6 +72,8 @@ export const api = {
   editPage: (index: number, edit: Edit) => invoke<PageResult>("edit_page", { index, edit }),
   ocrLanguages: () => invoke<string[]>("ocr_languages"),
   deletePage: (index: number) => invoke<SessionView>("delete_page", { index }),
+  undo: () => invoke<SessionView>("undo"),
+  redo: () => invoke<SessionView>("redo"),
   movePage: (from: number, to: number) => invoke<SessionView>("move_page", { from, to }),
   getExportOpts: () => invoke<ExportOpts>("get_export_opts"),
   export: (opts: ExportOpts) => invoke<Exported>("export", { opts }),
@@ -79,6 +81,11 @@ export const api = {
   deleteDraft: (name: string) => invoke<Draft[]>("delete_draft", { name }),
   filePages: (path: string) => invoke<number>("file_pages", { path }),
   shrinkPdf: (path: string, maxMb: number) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb }),
+  shareFile: (path: string, anchor: { x: number; y: number; w: number; h: number }) => invoke<void>("share_file", { path, anchor }),
+  trashFile: (path: string) => invoke<void>("trash_file", { path }),
+  renameFile: (path: string, name: string) => invoke<string>("rename_file", { path, name }),
+  keepShrunk: (original: string, draft: string) => invoke<string>("keep_shrunk", { original, draft }),
+  discardShrunk: (draft: string) => invoke<void>("discard_shrunk", { draft }),
   stageFile: async (f: File) =>
     invoke<string>("stage_file", new Uint8Array(await f.arrayBuffer()), { headers: { name: encodeURIComponent(f.name) } }),
   printCaps: () => invoke<PrintCaps>("print_caps"),

@@ -3,6 +3,8 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
   import { api, fileImg, size, type Saved } from "./api";
+
+  let { onprint }: { onprint: (path: string) => void } = $props();
   import ShrinkDialog from "./ShrinkDialog.svelte";
   import Viewer from "./Viewer.svelte";
 
@@ -10,6 +12,57 @@
   let filter = $state("");
   let viewing = $state<string | null>(null);
   let shrinking = $state<string | null>(null);
+  // The card whose ⋯ menu is open, and the one being renamed.
+  let menu = $state<string | null>(null);
+  let renaming = $state<string | null>(null);
+  let draft = $state("");
+  let error = $state("");
+
+  async function share(path: string, e: MouseEvent) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    await api.shareFile(path, { x: r.left, y: r.top, w: r.width, h: r.height }).catch((err) => (error = String(err)));
+  }
+
+  async function trash(path: string) {
+    menu = null;
+    try {
+      await api.trashFile(path);
+      await load();
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  function startRename(f: Saved) {
+    menu = null;
+    renaming = f.path;
+    draft = f.name.replace(/\.[^.]+$/, "");
+  }
+
+  async function commitRename() {
+    const path = renaming;
+    renaming = null;
+    if (!path || !draft.trim()) return;
+    try {
+      await api.renameFile(path, draft);
+      await load();
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  function renameKey(e: KeyboardEvent) {
+    if (e.key === "Enter") commitRename();
+    else if (e.key === "Escape") renaming = null;
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function act(f: () => unknown) {
+    menu = null;
+    f();
+  }
 
   async function load() {
     items = await api.library();
@@ -44,6 +97,7 @@
   </header>
   <div class="library">
 
+  {#if error}<p class="error small">{error}</p>{/if}
   {#if !items.length}
     <p class="muted">Nothing exported yet. Exported PDFs and images show up here.</p>
   {/if}
@@ -62,15 +116,34 @@
               <img src={fileImg(f.path, 0, 240)} alt="" loading="lazy" onload={(e) => e.currentTarget.classList.add("loaded")} />
             </button>
             <div class="info">
-              <div class="name" title={f.name}>{f.name}</div>
+              {#if renaming === f.path}
+                <!-- svelte-ignore a11y_autofocus -->
+                <input class="rename" aria-label="File name" bind:value={draft} autofocus onfocus={(e) => e.currentTarget.select()} onkeydown={renameKey} onblur={commitRename} />
+              {:else}
+                <div class="name" title={f.name}>{f.name}</div>
+              {/if}
               <div class="muted small">{size(f.bytes)}, {when(f.modified)}</div>
               <div class="tools">
                 <button class="ghost" onclick={() => (viewing = f.path)}>Preview</button>
-                <button class="ghost" onclick={() => openPath(f.path)}>Open</button>
-                <button class="ghost" onclick={() => revealItemInDir(f.path)}>Show in Finder</button>
-                {#if isPdf(f.path)}
-                  <button class="ghost" onclick={() => (shrinking = f.path)}>Shrink…</button>
-                {/if}
+                <button class="ghost" onclick={() => onprint(f.path)} title="Open in Print">Print</button>
+                <button class="ghost" onclick={(e) => share(f.path, e)} title="AirDrop, Mail, Messages…">Share</button>
+                <div class="more">
+                  <button class="ghost dots" class:open={menu === f.path} aria-label="More" aria-expanded={menu === f.path} onclick={() => (menu = menu === f.path ? null : f.path)}>
+                    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="12.5" cy="8" r="1.3" /></svg>
+                  </button>
+                  {#if menu === f.path}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div class="catch" onclick={() => (menu = null)} onkeydown={() => {}}></div>
+                    <div class="menu card" role="menu">
+                      <button role="menuitem" onclick={() => act(() => openPath(f.path))}>Open</button>
+                      <button role="menuitem" onclick={() => act(() => revealItemInDir(f.path))}>Show in Finder</button>
+                      {#if isPdf(f.path)}<button role="menuitem" onclick={() => act(() => (shrinking = f.path))}>Shrink…</button>{/if}
+                      <button role="menuitem" onclick={() => startRename(f)}>Rename</button>
+                      <hr />
+                      <button role="menuitem" class="danger" onclick={() => trash(f.path)}>Move to Trash</button>
+                    </div>
+                  {/if}
+                </div>
               </div>
             </div>
           </li>
@@ -106,4 +179,20 @@
   .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tools { display: flex; flex-wrap: wrap; margin: 4px -6px 0; }
   .tools button { height: 22px; padding: 0 6px; font-size: 12px; }
+  .tools { align-items: center; }
+  .more { position: relative; }
+  .dots { width: 24px; padding: 0; }
+  .dots.open { background: var(--hover); color: var(--text); }
+  .catch { position: fixed; inset: 0; z-index: 19; }
+  .menu {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 168px; padding: 4px; display: grid;
+    background: var(--raised); border: none; border-radius: 8px; box-shadow: var(--shadow-pop); animation: pop-in 0.14s var(--ease);
+  }
+  .menu button { justify-content: flex-start; height: 26px; font-size: 13px; padding: 0 10px; border: none; background: none; border-radius: 5px; }
+  .menu button:hover:not(:disabled) { background: var(--accent); color: var(--accent-text); }
+  .menu button.danger { color: var(--danger); }
+  .menu button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+  .menu hr { border: none; border-top: 1px solid var(--line); margin: 4px 6px; }
+  .rename { height: 24px; font-weight: 600; }
+  .error { color: var(--danger); }
 </style>

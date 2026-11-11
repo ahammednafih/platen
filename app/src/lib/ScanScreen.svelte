@@ -44,6 +44,8 @@
     crop: svg("M4.5 1.5v10h10 M1.5 4.5h10v10"),
     fill: svg("M2.8 8.6 7.6 3.8l4 4-4.8 4.8a1 1 0 0 1-1.4 0L2.8 10a1 1 0 0 1 0-1.4z M12.8 10.6s1.4 1.6 1.4 2.4a1.4 1.4 0 0 1-2.8 0c0-.8 1.4-2.4 1.4-2.4z"),
     adjust: svg("M2.5 5h11 M2.5 11h11 M5.5 3.3v3.4 M10.5 9.3v3.4"),
+    undo: svg("M5.5 3.5 2.5 6.5l3 3 M2.5 6.5h7a4 4 0 0 1 0 8H7"),
+    redo: svg("M10.5 3.5l3 3-3 3 M13.5 6.5h-7a4 4 0 0 0 0 8H9"),
     trash: svg("M3 4.5h10 M6.5 4.5V3h3v1.5 M4.4 4.5l.6 9h6l.6-9"),
   };
 
@@ -167,8 +169,21 @@
     e.preventDefault();
   }
 
+  // Page changes only; in a text field ⌘Z stays the field's own undo.
+  async function step(forward: boolean) {
+    if (busy || !(forward ? session.can_redo : session.can_undo)) return;
+    try {
+      session = forward ? await api.redo() : await api.undo();
+      if (selected !== null) selected = session.pages.length ? Math.min(selected, session.pages.length - 1) : null;
+      log = { ok: true, text: forward ? "Redone." : "Undone." };
+    } catch (e) {
+      log = { ok: false, text: String(e) };
+    }
+  }
+
   function command(e: KeyboardEvent) {
-    if (e.key === "Enter" && connected) scanA4();
+    if (e.key.toLowerCase() === "z" && !(e.target instanceof HTMLInputElement)) step(e.shiftKey);
+    else if (e.key === "Enter" && connected) scanA4();
     else if (e.key === "l" && connected) wizard = {};
     else if (e.key === "e" && session.pages.length) onexport();
     else return;
@@ -198,6 +213,10 @@
       {session.pages.length} {session.pages.length === 1 ? "page" : "pages"}{totalSecs ? `, ${dur(totalSecs)} scanning` : ""}
     </span>
     <span class="grow"></span>
+    <div class="history">
+      <button class="ghost square" title="Undo (⌘Z)" aria-label="Undo" onclick={() => step(false)} disabled={!!busy || !session.can_undo}>{@html icon.undo}</button>
+      <button class="ghost square" title="Redo (⇧⌘Z)" aria-label="Redo" onclick={() => step(true)} disabled={!!busy || !session.can_redo}>{@html icon.redo}</button>
+    </div>
     <button onclick={onexport} disabled={!!busy || !session.pages.length}>Export…</button>
     <button onclick={() => (wizard = {})} disabled={!connected || !!busy} title="For pages taller than the glass, like Legal or receipts">Long page…</button>
     <button class="primary" onclick={() => scanA4()} disabled={!connected || !!busy} title="Scan one page at the size set on the right">Scan page</button>
@@ -301,6 +320,9 @@
 <style>
   .crumb { padding: 0 6px; margin-left: -6px; }
   .count { margin-left: 4px; }
+  .history { display: flex; gap: 1px; margin-right: 4px; }
+  .history .square { width: 28px; padding: 0; }
+  .history .square :global(svg) { width: 16px; height: 16px; }
   h1 { display: flex; }
   .title { font: inherit; color: var(--text); height: 28px; padding: 0 6px; margin: 0 -2px; gap: 6px; }
   .title svg { opacity: 0; color: var(--muted); transition: opacity 0.14s var(--ease); }

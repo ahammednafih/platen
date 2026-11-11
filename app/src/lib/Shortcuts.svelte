@@ -4,7 +4,7 @@
   const groups: [string, [string, string][]][] = [
     ["Anywhere", [["⌘1 – ⌘4", "Scan, Copy, Print, Saved scans"], ["⌘/", "Show these shortcuts"], ["Esc", "Close a dialog"]]],
     ["Scan", [
-      ["⌘↩", "Scan page"], ["⌘L", "Long page"], ["⌘E", "Export"],
+      ["⌘↩", "Scan page"], ["⌘L", "Long page"], ["⌘E", "Export"], ["⌘Z / ⇧⌘Z", "Undo / redo a page change"],
       ["← →", "Select page"], ["Space", "Preview page"], ["T", "Select text (in preview)"], ["R / ⇧R", "Rotate right / left"], ["⌫", "Delete page"],
     ]],
     ["Copy", [["⌘↩", "Scan / print the next step"]]],
