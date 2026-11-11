@@ -30,6 +30,7 @@ export interface ExportOpts {
 }
 export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop" | "Gray" | "BlackWhite" | "Colour"
   | { CropTo: { x: number; y: number; w: number; h: number } }
+  | { Despeckle: { dpi: number } }
   | { Levels: { brightness: number; contrast: number } };
 export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }
 export interface ShrinkResult { out: string; before: number; after: number; fits: boolean; pages: number }

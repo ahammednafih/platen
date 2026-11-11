@@ -50,6 +50,7 @@
     adjust: svg("M2.5 5h11 M2.5 11h11 M5.5 3.3v3.4 M10.5 9.3v3.4"),
     undo: svg("M5.5 3.5 2.5 6.5l3 3 M2.5 6.5h7a4 4 0 0 1 0 8H7"),
     redo: svg("M10.5 3.5l3 3-3 3 M13.5 6.5h-7a4 4 0 0 0 0 8H9"),
+    specks: svg("M3 3.5h.01 M12.5 5h.01 M5 12.5h.01 M10 11h.01 M7.5 7.5h.01 M13 13h.01 M2.5 8.5h.01"),
     bw: svg("M8 2.5a5.5 5.5 0 1 0 0 11z M8 2.5a5.5 5.5 0 0 1 0 11"),
     trash: svg("M3 4.5h10 M6.5 4.5V3h3v1.5 M4.4 4.5l.6 9h6l.6-9"),
   };
@@ -104,7 +105,7 @@
   const editLabels: Record<string, string> = {
     RotateLeft: "Rotating", RotateRight: "Rotating", Rotate180: "Rotating",
     Straighten: "Straightening", Crop: "Cropping", CropTo: "Cropping", Levels: "Adjusting",
-    Gray: "Converting", BlackWhite: "Converting", Colour: "Converting",
+    Gray: "Converting", BlackWhite: "Converting", Colour: "Converting", Despeckle: "Removing specks",
   };
 
   async function edit(i: number, e: Edit) {
@@ -269,6 +270,7 @@
       <div class="group">
         <button class="ghost small" title="Paint torn or cut-away edges" onclick={() => fill(i)} disabled={!!busy}>{@html icon.fill} Fill</button>
         <button class="ghost small" title="Brightness and contrast" onclick={() => (adjusting = i)} disabled={!!busy}>{@html icon.adjust} Adjust</button>
+        <button class="ghost small" title="Remove small stray marks: dust, toner specks, photocopy noise. Dots that belong to text are kept" onclick={() => edit(i, { Despeckle: { dpi: p.dpi } })} disabled={!!busy}>{@html icon.specks} Clean specks</button>
         <button class="ghost small" title="Make this page black and white" onclick={() => edit(i, "BlackWhite")} disabled={!!busy}>{@html icon.bw} B&W</button>
         <button class="ghost small" title="Make this page gray" onclick={() => edit(i, "Gray")} disabled={!!busy}>Gray</button>
         {#if p.color}

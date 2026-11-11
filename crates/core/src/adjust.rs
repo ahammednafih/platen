@@ -20,6 +20,9 @@ pub enum Edit {
     CropTo { x: f32, y: f32, w: f32, h: f32 },
     Gray,
     BlackWhite,
+    /// Remove small dark marks that stand alone (dust, toner specks, photocopy noise).
+    /// Needs the page's dpi to know how small "small" is.
+    Despeckle { dpi: u32 },
     /// Back to the colour image a gray or black-and-white page was made from.
     Colour,
     /// Same maths as CSS `brightness(b) contrast(c)`, so the UI preview matches.
@@ -99,11 +102,106 @@ pub fn apply(img: RgbImage, edit: Edit) -> Result<(RgbImage, String)> {
             }
             (imageops::crop_imm(&img, x, y, w, h).to_image(), "cropped".into())
         }
+        Edit::Despeckle { dpi } => {
+            let mut img = img;
+            let n = despeckle(&mut img, dpi);
+            if n == 0 {
+                bail!("no stray specks found");
+            }
+            (img, format!("removed {n} {}", if n == 1 { "speck" } else { "specks" }))
+        }
         Edit::Colour => bail!("this page has no colour version"),
         Edit::Gray => (DynamicImage::ImageLuma8(imageops::grayscale(&img)).to_rgb8(), "made gray".into()),
         Edit::BlackWhite => (DynamicImage::ImageLuma8(crate::capture::black_and_white(&img)).to_rgb8(), "made black and white".into()),
         Edit::Levels { brightness, contrast } => (levels(img, brightness, contrast), "adjusted brightness and contrast".into()),
     })
+}
+
+/// A speck is at most this wide, and has nothing else dark within this distance. The second rule is
+/// what keeps full stops, dots on letters and diacritics: those always sit close to other ink.
+const SPECK_MM: f32 = 0.6;
+const SPECK_ALONE_MM: f32 = 1.5;
+
+/// Paint over small isolated dark marks with the paper around them; returns how many.
+/// Marks are found on a copy reduced to at most 300 dpi, which keeps large scans quick.
+pub fn despeckle(img: &mut RgbImage, dpi: u32) -> usize {
+    let k = (dpi / 300).max(1);
+    let (sw, sh) = (img.width() / k, img.height() / k);
+    if sw < 32 || sh < 32 {
+        return 0;
+    }
+    let small = imageops::grayscale(&imageops::resize(img, sw, sh, imageops::FilterType::Triangle));
+    // Same split as the B&W conversion: at or below the Otsu level is ink.
+    let ink_level = crate::capture::otsu(&small);
+    let dark = |x: u32, y: u32| small.get_pixel(x, y)[0] <= ink_level;
+    // Summed-area table of dark pixels, to count ink in a rectangle in constant time.
+    let stride = (sw + 1) as usize;
+    let mut sum = vec![0u32; stride * (sh + 1) as usize];
+    for y in 0..sh {
+        let mut row = 0;
+        for x in 0..sw {
+            row += dark(x, y) as u32;
+            sum[(y + 1) as usize * stride + (x + 1) as usize] = sum[y as usize * stride + (x + 1) as usize] + row;
+        }
+    }
+    let ink = |x0: u32, y0: u32, x1: u32, y1: u32| {
+        let at = |x: u32, y: u32| sum[y as usize * stride + x as usize];
+        at(x1, y1) + at(x0, y0) - at(x1, y0) - at(x0, y1)
+    };
+    let px = |mm: f32| ((dpi / k) as f32 / 25.4 * mm).ceil() as u32;
+    let (max_side, alone) = (px(SPECK_MM), px(SPECK_ALONE_MM));
+    let mut seen = vec![false; (sw * sh) as usize];
+    let mut stack = Vec::new();
+    let mut removed = 0;
+    for y in 0..sh {
+        for x in 0..sw {
+            if seen[(y * sw + x) as usize] || !dark(x, y) {
+                continue;
+            }
+            // Flood the mark, tracking its box and size.
+            let (mut x0, mut y0, mut x1, mut y1, mut count) = (x, y, x, y, 0u32);
+            seen[(y * sw + x) as usize] = true;
+            stack.push((x, y));
+            while let Some((cx, cy)) = stack.pop() {
+                count += 1;
+                (x0, y0, x1, y1) = (x0.min(cx), y0.min(cy), x1.max(cx), y1.max(cy));
+                for (nx, ny) in [(cx.wrapping_sub(1), cy), (cx + 1, cy), (cx, cy.wrapping_sub(1)), (cx, cy + 1), (cx.wrapping_sub(1), cy.wrapping_sub(1)), (cx + 1, cy + 1), (cx.wrapping_sub(1), cy + 1), (cx + 1, cy.wrapping_sub(1))] {
+                    if nx < sw && ny < sh && !seen[(ny * sw + nx) as usize] && dark(nx, ny) {
+                        seen[(ny * sw + nx) as usize] = true;
+                        stack.push((nx, ny));
+                    }
+                }
+            }
+            if x1 - x0 >= max_side || y1 - y0 >= max_side {
+                continue;
+            }
+            let (ax0, ay0) = (x0.saturating_sub(alone), y0.saturating_sub(alone));
+            let (ax1, ay1) = ((x1 + 1 + alone).min(sw), (y1 + 1 + alone).min(sh));
+            if ink(ax0, ay0, ax1, ay1) > count {
+                continue;
+            }
+            paint_over(img, (x0.saturating_sub(1) * k, y0.saturating_sub(1) * k), ((x1 + 2).min(sw) * k, (y1 + 2).min(sh) * k));
+            removed += 1;
+        }
+    }
+    removed
+}
+
+/// Fill a box with the average of the pixels just outside its corners (paper, since the mark is alone).
+fn paint_over(img: &mut RgbImage, (x0, y0): (u32, u32), (x1, y1): (u32, u32)) {
+    let (w, h) = img.dimensions();
+    let corners = [(x0.saturating_sub(2), y0.saturating_sub(2)), ((x1 + 1).min(w - 1), y0.saturating_sub(2)), (x0.saturating_sub(2), (y1 + 1).min(h - 1)), ((x1 + 1).min(w - 1), (y1 + 1).min(h - 1))];
+    let mut mean = [0u32; 3];
+    for (x, y) in corners {
+        let p = img.get_pixel(x, y);
+        (0..3).for_each(|c| mean[c] += p[c] as u32);
+    }
+    let fill = Rgb(mean.map(|v| (v / 4) as u8));
+    for y in y0..y1.min(h) {
+        for x in x0..x1.min(w) {
+            img.put_pixel(x, y, fill);
+        }
+    }
 }
 
 fn levels(mut img: RgbImage, b: f32, c: f32) -> RgbImage {
@@ -222,6 +320,19 @@ mod tests {
     use super::*;
 
     const WHITE: Rgb<u8> = Rgb([250, 248, 240]);
+
+    #[test]
+    fn despeckle_removes_lone_marks_but_keeps_dots_next_to_text() {
+        let mut img = lines();
+        let blob = |img: &mut RgbImage, x: u32, y: u32| (0..3).for_each(|d| (0..3).for_each(|e| img.put_pixel(x + d, y + e, Rgb([10, 10, 10]))));
+        blob(&mut img, 500, 60); // alone in the top margin
+        blob(&mut img, 40, 700); // alone in the left margin
+        blob(&mut img, 905, 101); // a full stop right after a line of text
+        assert_eq!(despeckle(&mut img, 300), 2);
+        assert_eq!(*img.get_pixel(501, 61), WHITE);
+        assert_eq!(*img.get_pixel(906, 102), Rgb([10, 10, 10]));
+        assert_eq!(despeckle(&mut img, 300), 0);
+    }
 
     #[test]
     fn a_black_and_white_page_goes_back_to_colour_with_its_later_edits() {
