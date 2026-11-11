@@ -71,6 +71,7 @@ pub fn run() {
             commands::scan_bottom,
             commands::fill_page,
             commands::edit_page,
+            commands::paper_bounds,
             commands::ocr_languages,
             commands::delete_page,
             commands::undo,

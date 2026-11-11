@@ -14,7 +14,12 @@ pub enum Edit {
     RotateRight,
     Rotate180,
     Straighten,
+    /// Trim to the paper, found from the dark lid around it.
     Crop,
+    /// Keep a rectangle, in fractions of the page (0..=1) from the top-left.
+    CropTo { x: f32, y: f32, w: f32, h: f32 },
+    Gray,
+    BlackWhite,
     /// Same maths as CSS `brightness(b) contrast(c)`, so the UI preview matches.
     Levels { brightness: f32, contrast: f32 },
 }
@@ -22,7 +27,7 @@ pub enum Edit {
 /// Apply `edit` to a page, writing a new file so thumbnail URLs never go stale.
 pub fn edit_page(dir: &Path, page: &Page, edit: Edit) -> Result<Captured> {
     let src = image::open(dir.join("pages").join(&page.file))?;
-    let gray = matches!(src, DynamicImage::ImageLuma8(_));
+    let gray = matches!(src, DynamicImage::ImageLuma8(_)) || matches!(edit, Edit::Gray | Edit::BlackWhite);
     let (img, note) = apply(src.to_rgb8(), edit)?;
     let data = if gray { session::encode_gray(&imageops::grayscale(&img), 90)? } else { session::encode_rgb(&img, 92)? };
     let mut page = page.clone();
@@ -30,6 +35,13 @@ pub fn edit_page(dir: &Path, page: &Page, edit: Edit) -> Result<Captured> {
     (page.w, page.h) = img.dimensions();
     std::fs::write(dir.join("pages").join(&page.file), data)?;
     Ok(Captured { page, note })
+}
+
+/// Where the paper is on a page, as fractions `(x, y, w, h)`; `None` when no dark lid shows.
+pub fn paper_bounds(dir: &Path, page: &Page) -> Result<Option<(f32, f32, f32, f32)>> {
+    let img = image::open(dir.join("pages").join(&page.file))?.to_rgb8();
+    let (iw, ih) = (img.width() as f32, img.height() as f32);
+    Ok(lid_bounds(&img).map(|(x, y, w, h)| (x as f32 / iw, y as f32 / ih, w as f32 / iw, h as f32 / ih)))
 }
 
 pub fn apply(img: RgbImage, edit: Edit) -> Result<(RgbImage, String)> {
@@ -49,6 +61,18 @@ pub fn apply(img: RgbImage, edit: Edit) -> Result<(RgbImage, String)> {
             let (x, y, w, h) = lid_bounds(&img).ok_or_else(|| anyhow::anyhow!("no dark border to crop"))?;
             (imageops::crop_imm(&img, x, y, w, h).to_image(), "cropped to the paper".into())
         }
+        Edit::CropTo { x, y, w, h } => {
+            let (iw, ih) = img.dimensions();
+            let px = |v: f32, full: u32| (v.clamp(0.0, 1.0) * full as f32).round() as u32;
+            let (x, y) = (px(x, iw).min(iw - 1), px(y, ih).min(ih - 1));
+            let (w, h) = (px(w, iw).min(iw - x), px(h, ih).min(ih - y));
+            if w < 8 || h < 8 {
+                bail!("that crop is too small");
+            }
+            (imageops::crop_imm(&img, x, y, w, h).to_image(), "cropped".into())
+        }
+        Edit::Gray => (DynamicImage::ImageLuma8(imageops::grayscale(&img)).to_rgb8(), "made gray".into()),
+        Edit::BlackWhite => (DynamicImage::ImageLuma8(crate::capture::black_and_white(&img)).to_rgb8(), "made black and white".into()),
         Edit::Levels { brightness, contrast } => (levels(img, brightness, contrast), "adjusted brightness and contrast".into()),
     })
 }

@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { api, covered, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
   import AdjustDialog from "./AdjustDialog.svelte";
+  import CropDialog from "./CropDialog.svelte";
   import LongPageWizard from "./LongPageWizard.svelte";
   import Lightbox from "./Lightbox.svelte";
 
@@ -23,6 +24,7 @@
   let wizard = $state<{ replace?: number } | null>(null);
   let preview = $state<number | null>(null);
   let adjusting = $state<number | null>(null);
+  let cropping = $state<number | null>(null);
   let dragFrom = $state<number | null>(null);
   let dragOver = $state<number | null>(null);
 
@@ -46,6 +48,7 @@
     adjust: svg("M2.5 5h11 M2.5 11h11 M5.5 3.3v3.4 M10.5 9.3v3.4"),
     undo: svg("M5.5 3.5 2.5 6.5l3 3 M2.5 6.5h7a4 4 0 0 1 0 8H7"),
     redo: svg("M10.5 3.5l3 3-3 3 M13.5 6.5h-7a4 4 0 0 0 0 8H9"),
+    bw: svg("M8 2.5a5.5 5.5 0 1 0 0 11z M8 2.5a5.5 5.5 0 0 1 0 11"),
     trash: svg("M3 4.5h10 M6.5 4.5V3h3v1.5 M4.4 4.5l.6 9h6l.6-9"),
   };
 
@@ -98,11 +101,12 @@
 
   const editLabels: Record<string, string> = {
     RotateLeft: "Rotating", RotateRight: "Rotating", Rotate180: "Rotating",
-    Straighten: "Straightening", Crop: "Cropping", Levels: "Adjusting",
+    Straighten: "Straightening", Crop: "Cropping", CropTo: "Cropping", Levels: "Adjusting",
+    Gray: "Converting", BlackWhite: "Converting",
   };
 
   async function edit(i: number, e: Edit) {
-    const r = await run(editLabels[typeof e === "string" ? e : "Levels"], () => api.editPage(i, e));
+    const r = await run(editLabels[typeof e === "string" ? e : Object.keys(e)[0]], () => api.editPage(i, e));
     if (r) landed(r);
   }
 
@@ -251,11 +255,13 @@
         <button class="ghost small square" title="Rotate left (⇧R)" aria-label="Rotate left" onclick={() => edit(i, "RotateLeft")} disabled={!!busy}>{@html icon.left}</button>
         <button class="ghost small square" title="Rotate right (R)" aria-label="Rotate right" onclick={() => edit(i, "RotateRight")} disabled={!!busy}>{@html icon.right}</button>
         <button class="ghost small" title="Straighten tilted text" onclick={() => edit(i, "Straighten")} disabled={!!busy}>{@html icon.straighten} Straighten</button>
-        <button class="ghost small" title="Trim the dark lid around the paper (straighten first)" onclick={() => edit(i, "Crop")} disabled={!!busy}>{@html icon.crop} Crop</button>
+        <button class="ghost small" title="Crop to the paper, a standard size, or a box you draw" onclick={() => (cropping = i)} disabled={!!busy}>{@html icon.crop} Crop</button>
       </div>
       <div class="group">
         <button class="ghost small" title="Paint torn or cut-away edges" onclick={() => fill(i)} disabled={!!busy}>{@html icon.fill} Fill</button>
         <button class="ghost small" title="Brightness and contrast" onclick={() => (adjusting = i)} disabled={!!busy}>{@html icon.adjust} Adjust</button>
+        <button class="ghost small" title="Make this page black and white (undo with ⌘Z)" onclick={() => edit(i, "BlackWhite")} disabled={!!busy}>{@html icon.bw} B&W</button>
+        <button class="ghost small" title="Make this page gray (undo with ⌘Z)" onclick={() => edit(i, "Gray")} disabled={!!busy}>Gray</button>
       </div>
       <span class="grow"></span>
       <button class="ghost small danger" title="Delete (⌫)" onclick={() => remove(i)} disabled={!!busy}>{@html icon.trash} Delete</button>
@@ -310,6 +316,15 @@
     number={adjusting + 1}
     oncancel={() => (adjusting = null)}
     onapply={(brightness, contrast) => { const i = adjusting!; adjusting = null; edit(i, { Levels: { brightness, contrast } }); }}
+  />
+{/if}
+
+{#if cropping !== null && session.pages[cropping]}
+  <CropDialog
+    page={session.pages[cropping]}
+    index={cropping}
+    onclose={() => (cropping = null)}
+    onapply={(r) => { const i = cropping!; cropping = null; edit(i, { CropTo: r }); }}
   />
 {/if}
 

@@ -15,5 +15,12 @@ serde_json = "1.0.154"
 dirs = "7.0.0"
 platen-core = { path = "crates/core" }
 
+# Image decoding and JPEG encoding are 20-50x slower unoptimised; keep dev builds usable.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
 [profile.release]
 opt-level = 3

@@ -28,7 +28,8 @@ export interface ExportOpts {
   cleanup: boolean; open_pdf: boolean; open_folder: boolean;
   max_mb: number | null; searchable: boolean;
 }
-export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop"
+export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop" | "Gray" | "BlackWhite"
+  | { CropTo: { x: number; y: number; w: number; h: number } }
   | { Levels: { brightness: number; contrast: number } };
 export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }
 export interface ShrinkResult { out: string; before: number; after: number; fits: boolean; pages: number }
@@ -69,6 +70,7 @@ export const api = {
   scanTop: () => invoke<TopHalf>("scan_top"),
   scanBottom: (top: TopHalf, slot: Slot = {}) => invoke<PageResult>("scan_bottom", { top, ...slot }),
   fillPage: (index: number) => invoke<PageResult>("fill_page", { index }),
+  paperBounds: (index: number) => invoke<[number, number, number, number] | null>("paper_bounds", { index }),
   editPage: (index: number, edit: Edit) => invoke<PageResult>("edit_page", { index, edit }),
   ocrLanguages: () => invoke<string[]>("ocr_languages"),
   deletePage: (index: number) => invoke<SessionView>("delete_page", { index }),

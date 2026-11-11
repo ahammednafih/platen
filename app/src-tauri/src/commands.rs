@@ -192,6 +192,14 @@ fn draft_path(p: &std::path::Path) -> Res<PathBuf> {
     real.starts_with(&dir).then_some(real).ok_or_else(|| "Not a shrink draft".into())
 }
 
+/// The paper's rectangle on a page (fractions), for the crop tool's Auto.
+#[tauri::command]
+pub async fn paper_bounds(st: State<'_, AppState>, index: usize) -> Res<Option<(f32, f32, f32, f32)>> {
+    let dir = session_dir(&st)?;
+    let page = st.session.lock().unwrap().as_ref().and_then(|s| s.pages.get(index).cloned()).ok_or("No such page")?;
+    blocking(move || adjust::paper_bounds(&dir, &page)).await
+}
+
 /// Rename the open scan (its folder and exports carrying the old name).
 #[tauri::command]
 pub fn rename_session(st: State<'_, AppState>, name: String) -> Res<SessionView> {
