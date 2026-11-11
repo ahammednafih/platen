@@ -262,7 +262,7 @@
           {/if}
           <span class="label">Density</span>
           <select bind:value={density}>
-            {#each [-3, -2, -1, 0, 1, 2, 3] as d (d)}<option value={d}>{d > 0 ? `+${d} darker` : d < 0 ? `${d} lighter` : "0"}</option>{/each}
+            {#each [-3, -2, -1, 0, 1, 2, 3] as d (d)}<option value={d}>{d > 0 ? `+${d} darker` : d < 0 ? `${d} lighter` : "Normal"}</option>{/each}
           </select>
           <span class="label">Background</span>
           <select bind:value={background} title="Push tinted or grey paper to white">
@@ -288,7 +288,8 @@
 </div>
 
 <style>
-  .stage { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  /* Kinds and stage share one width so their edges line up. */
+  .stage { max-width: 760px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
   .stage-text { display: grid; gap: 10px; align-content: start; min-width: 0; }
   .stage .prompt { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
   .go { display: flex; gap: 8px; margin-top: 4px; }
@@ -302,7 +303,7 @@
   .glass.twoInOne.second .sheet, .glass.idCard.second .sheet { fill: var(--accent-soft); }
   @media (max-width: 720px) { .stage { grid-template-columns: minmax(0, 1fr); } .glass { display: none; } }
   .screen-main { padding: 16px 20px 40px; display: grid; gap: 28px; align-content: start; }
-  .kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .kinds { max-width: 760px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .kinds button {
     height: auto; padding: 12px; display: grid; justify-items: start; align-content: start; gap: 4px; text-align: left;
     white-space: normal; background: var(--panel); border-color: var(--line); border-radius: 8px;
@@ -324,7 +325,6 @@
   .long i:first-child { left: 8px; right: 8px; top: 3px; bottom: 3px; }
   .long i:last-child { display: none; }
 
-  .stage { max-width: 560px; display: grid; gap: 8px; }
   .steps { list-style: none; margin: 0 0 6px; padding: 0; display: flex; gap: 6px; counter-reset: step; }
   .steps li { counter-increment: step; font-size: 12px; color: var(--faint); display: flex; align-items: center; gap: 6px; text-transform: capitalize; }
   .steps li::before { content: counter(step); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-strong); font-size: 11px; }

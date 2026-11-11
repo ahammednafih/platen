@@ -20,6 +20,7 @@
   let exporting = $state(false);
   let view = $state<View>("scan");
   let help = $state(false);
+  let appearing = $state(false);
   // A Scan-button press waiting for the scan screen to pick it up.
   let press = $state<number | null>(null);
 
@@ -75,6 +76,7 @@
   }
 
   function onkey(e: KeyboardEvent) {
+    if (e.key === "Escape" && appearing) return void (appearing = false);
     if (!e.metaKey || exporting) return;
     if (e.key === "/") {
       help = !help;
@@ -102,21 +104,32 @@
       {/each}
     </nav>
     <div class="grow"></div>
-    <div class="appearance">
-    <div class="app-head"><span>Appearance</span>
-    <div class="accents" role="radiogroup" aria-label="Accent colour">
-      {#each accents as [v, label, light, dark] (v)}
-        <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--light={light} style:--dark={dark} onclick={() => (accent = v)}></button>
-      {/each}
-    </div></div>
-    <div class="seg theme" title="Appearance">
-      {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
-        <button class:on={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
-      {/each}
-    </div>
-    </div>
-    <button class="ghost keys" onclick={() => (help = true)}>Keyboard shortcuts <span class="faint">⌘/</span></button>
     <DevicePanel bind:connected />
+    <div class="foot">
+      <div class="pop-anchor">
+        <button class="ghost small" class:open={appearing} onclick={() => (appearing = !appearing)} aria-expanded={appearing}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5v11A5.5 5.5 0 0 0 8 2.5z" fill="currentColor" /></svg>
+          Appearance
+        </button>
+        {#if appearing}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="catch" onclick={() => (appearing = false)} onkeydown={() => {}}></div>
+          <div class="pop card" role="dialog" aria-label="Appearance">
+            <div class="seg theme">
+              {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
+                <button class:on={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
+              {/each}
+            </div>
+            <div class="accents" role="radiogroup" aria-label="Accent colour">
+              {#each accents as [v, label, light, dark] (v)}
+                <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--light={light} style:--dark={dark} onclick={() => (accent = v)}></button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+      <button class="ghost small" onclick={() => (help = true)} title="Keyboard shortcuts (⌘/)">Shortcuts <span class="faint">⌘/</span></button>
+    </div>
   </aside>
 
   <main>
@@ -135,7 +148,7 @@
             <Start onopen={(s) => (session = s)} />
           {/if}
         </div>
-        <aside class="pane">
+        <aside class="pane scan-pane">
           <ScanSettings {connected} />
         </aside>
       </div>
@@ -161,9 +174,14 @@
   .brand { font-weight: 600; padding: 4px 8px; height: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
   .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); position: relative; transition: background-color 0.25s var(--ease); }
   .mark::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 2px; border-radius: 1px; background: var(--accent-text); opacity: 0.9; }
-  .appearance { display: grid; gap: 8px; padding: 0 4px; }
-  .app-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; font-size: 12px; color: var(--muted); }
-  .app-head .accents { padding: 0; gap: 6px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
+  .foot button.open { background: var(--hover); color: var(--text); }
+  .pop-anchor { position: relative; }
+  .catch { position: fixed; inset: 0; z-index: 19; }
+  .pop {
+    position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20; width: 196px; padding: 10px; display: grid; gap: 10px;
+    background: var(--raised); box-shadow: var(--shadow-pop); border: none; border-radius: 10px; animation: pop-in 0.16s var(--ease);
+  }
   nav { display: grid; gap: 1px; }
   nav button { justify-content: flex-start; border: none; background: none; height: 28px; padding: 0 8px; color: var(--muted); gap: 10px; }
   nav button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
@@ -173,13 +191,14 @@
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
   .theme { margin: 0; }
-  .accents { display: flex; gap: 8px; padding: 2px 8px 6px; }
+  .accents { display: flex; justify-content: space-between; padding: 0 4px; }
   .accents button { width: 14px; height: 14px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
   .accents button:hover:not(:disabled) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); transform: scale(1.15); }
-  .accents button.on { box-shadow: 0 0 0 2px var(--side), 0 0 0 3.5px var(--text); }
+  .accents button { width: 18px; height: 18px; }
+  .accents button.on { box-shadow: 0 0 0 2px var(--raised), 0 0 0 3.5px var(--text); }
   .accents button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-  .keys { justify-content: space-between; height: 28px; padding: 0 8px; border: none; font-size: 12px; }
   main { min-width: 0; min-height: 0; overflow: hidden; }
   .with-pane { display: flex; height: 100%; }
   .col { flex: 1; min-width: 0; overflow: auto; }
+  .scan-pane { padding-top: 0; }
 </style>

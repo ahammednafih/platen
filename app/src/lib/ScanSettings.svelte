@@ -83,7 +83,7 @@
 </script>
 
 <section class="settings">
-  <div class="group-title">Scan settings</div>
+  <header class="head">Scan settings</header>
   <div class="field">
     <span class="label">Preset</span>
     <div class="chips">
@@ -145,10 +145,13 @@
 
 <style>
   .settings { display: grid; gap: 14px; }
+  /* Same height and rule as the screen's topbar beside it, so the two lines meet. */
+  .head { height: 44px; display: flex; align-items: center; margin: 0 -16px 2px; padding: 0 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
   .field { display: grid; gap: 6px; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chip { height: 24px; padding: 0 8px; font-size: 12px; gap: 6px; }
-  .chip.on { background: var(--hover); border-color: var(--text); }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); }
+  .chip.on:hover:not(:disabled) { background: var(--accent-soft); }
   .chip .x { color: var(--faint); margin-right: -2px; }
   .chip .x:hover { color: var(--text); }
   .name { display: flex; gap: 6px; }

@@ -58,7 +58,7 @@
           <li class="row">
             <button class="draft" onclick={() => open(d.name)}>
               <span class="dname">{d.name}</span>
-              <span class="muted">{d.pages} {d.pages === 1 ? "page" : "pages"}, {when(d.modified)}</span>
+              <span class="muted meta">{d.pages} {d.pages === 1 ? "page" : "pages"}, {when(d.modified)}</span>
               <span class="resume">Resume</span>
             </button>
             {#if confirming === d.name}
@@ -101,6 +101,7 @@
   .del:hover:not(:disabled) { color: var(--danger); }
   .confirm { display: flex; gap: 4px; align-items: center; }
   .small { font-size: 12px; }
+  .meta { text-align: right; font-variant-numeric: tabular-nums; }
   .dname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .resume { color: var(--accent); opacity: 0; transition: opacity 0.12s; }
 </style>

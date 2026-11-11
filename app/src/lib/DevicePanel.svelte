@@ -111,6 +111,7 @@
   .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
   .dot.off { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
   .reasons { color: var(--warn); padding: 0 6px; }
+  .device > .error { padding: 0 6px; }
   .ink { list-style: none; margin: 0; padding: 0 6px; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
   .ink li { display: grid; gap: 4px; justify-items: center; }
   .bar { width: 100%; height: 34px; background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; display: flex; align-items: flex-end; }

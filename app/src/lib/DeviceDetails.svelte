@@ -94,18 +94,6 @@
     {/if}
     {#if error}<p class="error small">{error}</p>{/if}
 
-    {#each groups as g, i (i)}
-      <section>
-        {#if g.title && g.title !== groups[i - 1]?.title}<div class="group-title">{g.title}</div>{/if}
-        <dl>
-          {#each g.rows as r, j (j)}
-            <dt class:sub={r.sub}>{r.label}</dt>
-            <dd>{r.value}</dd>
-          {/each}
-        </dl>
-      </section>
-    {/each}
-
     {#if button}
       <section class="snmp">
         <div class="group-title">Scan button</div>
@@ -145,6 +133,19 @@
         {#if switchError}<p class="error small">{switchError}</p>{/if}
       </section>
     {/if}
+
+    {#each groups as g, i (i)}
+      <section>
+        {#if g.title && g.title !== groups[i - 1]?.title}<div class="group-title">{g.title}</div>{/if}
+        <dl>
+          {#each g.rows as r, j (j)}
+            <dt class:sub={r.sub}>{r.label}</dt>
+            <dd>{r.value}</dd>
+          {/each}
+        </dl>
+      </section>
+    {/each}
+
   </div>
 </div>
 

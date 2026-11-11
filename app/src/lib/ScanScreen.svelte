@@ -336,6 +336,7 @@
   .group { display: flex; align-items: center; gap: 1px; padding-left: 10px; border-left: 1px solid var(--line); }
   .pagebar button { gap: 5px; }
   .pagebar .square { width: 26px; padding: 0; }
+  .pagebar .square :global(svg) { width: 16px; height: 16px; }
   .pagebar .danger { color: var(--danger); }
   .pagebar .grow { flex: 1; }
   .empty { margin: 80px auto; max-width: 400px; text-align: center; display: grid; gap: 8px; }
