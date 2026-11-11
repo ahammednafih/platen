@@ -149,3 +149,11 @@ pub async fn copy_id_card(st: State<'_, AppState>, front: PathBuf, back: PathBuf
     allow(&st, std::slice::from_ref(&path));
     Ok(path)
 }
+
+#[tauri::command]
+pub async fn copy_tone(st: State<'_, AppState>, files: Vec<PathBuf>, density: i32, background: u8) -> Res<Vec<PathBuf>> {
+    let dir = copy_dir(&st)?;
+    let out: Vec<PathBuf> = blocking(move || files.iter().map(|f| copy::tone(f, density, background, &dir)).collect::<anyhow::Result<Vec<_>>>()).await?;
+    allow(&st, &out);
+    Ok(out)
+}

@@ -59,6 +59,16 @@ fn levels(mut img: RgbImage, b: f32, c: f32) -> RgbImage {
     img
 }
 
+/// Copy tone: `density` -3..=3 darkens (+) or lightens (-) the midtones, keeping paper white;
+/// `background` 0..=3 pushes tinted or grey paper to white, stronger at each step.
+pub fn tone(mut img: RgbImage, density: i32, background: u8) -> RgbImage {
+    let white = [1.0, 0.9, 0.82, 0.74][background.min(3) as usize];
+    let gamma = 1.0 + 0.15 * density.clamp(-3, 3) as f32;
+    let lut: Vec<u8> = (0..256).map(|v| ((v as f32 / 255.0 / white).min(1.0).powf(gamma) * 255.0).round() as u8).collect();
+    img.pixels_mut().for_each(|p| p.0 = p.0.map(|v| lut[v as usize]));
+    img
+}
+
 /// Downscaled copy (longest side ≤ `max`) and the factor back to full size.
 fn small(img: &RgbImage, max: u32) -> (RgbImage, f32) {
     let k = (img.width().max(img.height()) as f32 / max as f32).max(1.0);

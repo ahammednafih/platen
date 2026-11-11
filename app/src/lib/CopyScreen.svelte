@@ -46,6 +46,8 @@
   let pct = $state(100);
   let media = $state("iso_a4_210x297mm");
   let quality = $state<Quality>("Normal");
+  let density = $state(0);
+  let background = $state(0);
 
   let step = $state(0);
   let scans = $state<string[]>([]);
@@ -56,6 +58,18 @@
   const k = $derived(kinds.find((x) => x.id === kind)!);
   const papers = $derived((caps?.media ?? ["iso_a4_210x297mm", "na_letter_8.5x11in"]).filter((m) => !m.startsWith("custom_")));
   const qualities = $derived<Quality[]>(caps?.qualities.length ? caps.qualities : ["Draft", "Normal", "High"]);
+  /** Paper size in mm from an IPP keyword like `iso_a4_210x297mm` or `na_letter_8.5x11in`. */
+  const paperMm = (kw: string) => {
+    const m = kw.match(/([\d.]+)x([\d.]+)(mm|in)$/);
+    const k = m?.[3] === "in" ? 25.4 : 1;
+    return m ? [Number(m[1]) * k, Number(m[2]) * k] : [210, 297];
+  };
+  const fitPct = $derived.by(() => {
+    const z = sizes.find((x) => x.id === original);
+    if (!z) return 0;
+    const [w, h] = paperMm(media);
+    return Math.floor(Math.min(w / z.w_mm, h / z.h_mm) * 100);
+  });
   const scale = $derived<Scale>(kind === "copy" ? (scaleMode === "Percent" ? { Percent: pct } : scaleMode) : kind === "idCard" ? "Actual" : "Fit");
 
   $effect(() => {
@@ -117,6 +131,10 @@
       if (kind === "idCard") {
         busy = "Placing front and back";
         files = [await api.copyIdCard(scans[0], scans[1])];
+      }
+      if (density || background) {
+        busy = "Adjusting";
+        files = await api.copyTone(files, density, background);
       }
       busy = "Printing";
       const job: PrintJob = {
@@ -216,7 +234,7 @@
             <span class="label">Scale</span>
             <div class="seg">
               <button class:on={scaleMode === "Actual"} onclick={() => (scaleMode = "Actual")}>100%</button>
-              <button class:on={scaleMode === "Fit"} onclick={() => (scaleMode = "Fit")}>Fit</button>
+              <button class:on={scaleMode === "Fit"} onclick={() => (scaleMode = "Fit")}>Fit{fitPct ? ` ${fitPct}%` : ""}</button>
               <button class:on={scaleMode === "Percent"} onclick={() => (scaleMode = "Percent")}>Custom</button>
             </div>
             {#if scaleMode === "Percent"}
@@ -224,6 +242,14 @@
               <input type="number" min="25" max="400" step="5" bind:value={pct} />
             {/if}
           {/if}
+          <span class="label">Density</span>
+          <select bind:value={density}>
+            {#each [-3, -2, -1, 0, 1, 2, 3] as d (d)}<option value={d}>{d > 0 ? `+${d} darker` : d < 0 ? `${d} lighter` : "0"}</option>{/each}
+          </select>
+          <span class="label">Background</span>
+          <select bind:value={background} title="Push tinted or grey paper to white">
+            {#each ["Keep", "Remove (low)", "Remove (medium)", "Remove (high)"] as b, i (b)}<option value={i}>{b}</option>{/each}
+          </select>
         </div>
       </section>
       <section>

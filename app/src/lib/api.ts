@@ -5,7 +5,7 @@ export type Fill = "Off" | "White" | "Paper";
 export type Kind = "A4" | "Long";
 export type ColorMode = "Color" | "Gray" | "BlackWhite";
 
-export type SizeId = "A4" | "Letter" | "B5" | "Executive" | "A5" | "HalfLetter" | "A6" | "Photo5x7" | "Photo4x6" | "Glass";
+export type SizeId = "A4" | "Letter" | "B5" | "Executive" | "A5" | "HalfLetter" | "Photo148x200" | "Photo5x8" | "A6" | "Photo5x7" | "Photo4x6" | "Photo3_5x5" | "Card" | "Glass";
 export interface Size { id: SizeId; name: string; w_mm: number; h_mm: number }
 export interface Settings { dpi: number; mode: ColorMode; fill: Fill; size: SizeId }
 export interface Preset { name: string; settings: Settings; builtin: boolean }
@@ -83,6 +83,7 @@ export const api = {
   copyLongTop: (color: boolean) => invoke<TopHalf>("copy_long_top", { color }),
   copyLongBottom: (top: TopHalf, color: boolean) => invoke<string>("copy_long_bottom", { top, color }),
   copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
+  copyTone: (files: string[], density: number, background: number) => invoke<string[]>("copy_tone", { files, density, background }),
 };
 
 /** True while a dialog or lightbox covers the screen, so screen shortcuts stay quiet. */

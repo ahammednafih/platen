@@ -19,9 +19,13 @@ pub enum SizeId {
     Executive,
     A5,
     HalfLetter,
+    Photo148x200,
+    Photo5x8,
     A6,
     Photo5x7,
     Photo4x6,
+    Photo3_5x5,
+    Card,
     Glass,
 }
 
@@ -33,16 +37,20 @@ pub struct Size {
     pub h_mm: f32,
 }
 
-pub const SIZES: [Size; 10] = [
+pub const SIZES: [Size; 14] = [
     Size { id: SizeId::A4, name: "A4", w_mm: 210.0, h_mm: 297.0 },
     Size { id: SizeId::Letter, name: "Letter", w_mm: 215.9, h_mm: 279.4 },
     Size { id: SizeId::B5, name: "B5", w_mm: 176.0, h_mm: 250.0 },
     Size { id: SizeId::Executive, name: "Executive", w_mm: 184.2, h_mm: 266.7 },
     Size { id: SizeId::A5, name: "A5", w_mm: 148.0, h_mm: 210.0 },
     Size { id: SizeId::HalfLetter, name: "Half letter", w_mm: 139.7, h_mm: 215.9 },
-    Size { id: SizeId::A6, name: "A6", w_mm: 105.0, h_mm: 148.0 },
+    Size { id: SizeId::Photo148x200, name: "Photo 14.8×20 cm", w_mm: 148.0, h_mm: 200.0 },
+    Size { id: SizeId::Photo5x8, name: "Photo 5×8 in", w_mm: 127.0, h_mm: 203.2 },
     Size { id: SizeId::Photo5x7, name: "Photo 5×7 in", w_mm: 127.0, h_mm: 177.8 },
+    Size { id: SizeId::A6, name: "A6", w_mm: 105.0, h_mm: 148.0 },
     Size { id: SizeId::Photo4x6, name: "Photo 4×6 in", w_mm: 101.6, h_mm: 152.4 },
+    Size { id: SizeId::Photo3_5x5, name: "Photo 3.5×5 in", w_mm: 88.9, h_mm: 127.0 },
+    Size { id: SizeId::Card, name: "Card 90×60 mm", w_mm: 90.0, h_mm: 60.0 },
     Size { id: SizeId::Glass, name: "Whole glass", w_mm: GLASS_W as f32 * 25.4 / 300.0, h_mm: GLASS_H as f32 * 25.4 / 300.0 },
 ];
 

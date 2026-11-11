@@ -66,6 +66,17 @@ pub fn id_card(front: &Path, back: &Path, dir: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// Density/background-removed copy of a scan; the original is returned untouched when both are off.
+pub fn tone(src: &Path, density: i32, background: u8, dir: &Path) -> Result<PathBuf> {
+    if density == 0 && background == 0 {
+        return Ok(src.to_path_buf());
+    }
+    let out = crate::adjust::tone(session::load_rgb(src)?, density, background);
+    let path = dir.join(format!("{}_tone.jpg", Session::new_stem()));
+    std::fs::write(&path, session::encode_rgb(&out, 92)?).context("can't save the toned copy")?;
+    Ok(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,5 +93,17 @@ mod tests {
 
         assert_eq!((out.width(), out.height()), (40, 40));
         assert!(out.get_pixel(20, 5)[0] < 30 && out.get_pixel(20, 35)[0] > 225);
+    }
+
+    #[test]
+    fn tone_whitens_tinted_paper_and_darkens_midtones() {
+        let img = image::RgbImage::from_fn(2, 1, |x, _| if x == 0 { image::Rgb([220, 215, 200]) } else { image::Rgb([128; 3]) });
+        let plain = crate::adjust::tone(img.clone(), 0, 0);
+        let clean = crate::adjust::tone(img.clone(), 0, 3);
+        let dark = crate::adjust::tone(img, 2, 0);
+
+        assert_eq!(plain.get_pixel(0, 0), &image::Rgb([220, 215, 200]));
+        assert_eq!(clean.get_pixel(0, 0), &image::Rgb([255; 3]));
+        assert!(dark.get_pixel(1, 0)[0] < 128);
     }
 }

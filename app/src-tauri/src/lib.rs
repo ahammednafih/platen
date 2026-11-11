@@ -76,6 +76,7 @@ pub fn run() {
             printing::copy_long_top,
             printing::copy_long_bottom,
             printing::copy_id_card,
+            printing::copy_tone,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");
