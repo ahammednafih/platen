@@ -234,7 +234,7 @@
             <span class="label">Scale</span>
             <div class="seg">
               <button class:on={scaleMode === "Actual"} onclick={() => (scaleMode = "Actual")}>100%</button>
-              <button class:on={scaleMode === "Fit"} onclick={() => (scaleMode = "Fit")}>Fit{fitPct ? ` ${fitPct}%` : ""}</button>
+              <button class:on={scaleMode === "Fit"} onclick={() => (scaleMode = "Fit")} title={fitPct ? `Fit the original to the paper (${fitPct}%)` : "Fit to paper"}>Fit</button>
               <button class:on={scaleMode === "Percent"} onclick={() => (scaleMode = "Percent")}>Custom</button>
             </div>
             {#if scaleMode === "Percent"}
