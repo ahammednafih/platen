@@ -5,7 +5,7 @@
     ["Anywhere", [["⌘1 – ⌘4", "Scan, Copy, Print, Saved scans"], ["⌘/", "Show these shortcuts"], ["Esc", "Close a dialog"]]],
     ["Scan", [
       ["⌘↩", "Scan page"], ["⌘L", "Long page"], ["⌘E", "Export"],
-      ["← →", "Select page"], ["Space", "Preview page"], ["R / ⇧R", "Rotate right / left"], ["⌫", "Delete page"],
+      ["← →", "Select page"], ["Space", "Preview page"], ["T", "Select text (in preview)"], ["R / ⇧R", "Rotate right / left"], ["⌫", "Delete page"],
     ]],
     ["Copy", [["⌘↩", "Scan / print the next step"]]],
     ["Print", [["⌘O", "Add files"], ["⌘P or ⌘↩", "Print"]]],

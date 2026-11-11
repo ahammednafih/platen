@@ -6,6 +6,8 @@ export type Kind = "A4" | "Long";
 export type ColorMode = "Color" | "Gray" | "BlackWhite";
 
 export type SizeId = "A4" | "Letter" | "B5" | "Executive" | "A5" | "HalfLetter" | "Photo148x200" | "Photo5x8" | "A6" | "Photo5x7" | "Photo4x6" | "Photo3_5x5" | "Card" | "Glass";
+export interface Word { text: string; x: number; y: number; w: number; h: number }
+export interface PageText { lines: Word[][]; text: string }
 export interface DetailRow { label: string; value: string; sub: boolean }
 export interface DetailGroup { title: string; rows: DetailRow[] }
 export interface Size { id: SizeId; name: string; w_mm: number; h_mm: number }
@@ -86,6 +88,7 @@ export const api = {
   copyLongBottom: (top: TopHalf, color: boolean) => invoke<string>("copy_long_bottom", { top, color }),
   copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
   deviceDetails: (password?: string) => invoke<DetailGroup[]>("device_details", { password }),
+  pageText: (file: string) => invoke<PageText>("page_text", { file }),
   stopJob: () => invoke<number>("stop_job"),
   copyTone: (files: string[], density: number, background: number) => invoke<string[]>("copy_tone", { files, density, background }),
 };

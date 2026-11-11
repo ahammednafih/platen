@@ -94,7 +94,7 @@ pub fn delete_draft(root: &Path, name: &str) -> Result<()> {
     if !dir.join("session.json").exists() {
         anyhow::bail!("{name} is not a draft");
     }
-    for sub in ["pages", "raw", "thumbs"] {
+    for sub in ["pages", "raw", "thumbs", "text"] {
         let _ = std::fs::remove_dir_all(dir.join(sub));
     }
     std::fs::remove_file(dir.join("session.json"))?;

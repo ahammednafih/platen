@@ -63,6 +63,68 @@ impl Ocr {
     }
 }
 
+/// A recognised word; the box is in fractions of the page (0..1) so it fits any preview size.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct Word {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+}
+
+/// The words on a page, line by line, and the same text as plain lines and paragraphs.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default, PartialEq)]
+pub struct PageText {
+    pub lines: Vec<Vec<Word>>,
+    pub text: String,
+}
+
+impl Ocr {
+    /// Words and text of one page image, OCR'd at up to 300 dpi.
+    pub fn words(&self, image: &Path, dpi: u32, tmp: &Path) -> Result<PageText> {
+        std::fs::create_dir_all(tmp)?;
+        let png = tmp.join(format!("words-{}.png", std::process::id()));
+        let img = image::open(image)?.to_luma8();
+        let dpi_out = dpi.min(OCR_DPI);
+        let img = imageops::resize(&img, img.width() * dpi_out / dpi.max(1), img.height() * dpi_out / dpi.max(1), imageops::FilterType::Triangle);
+        img.save(&png)?;
+        let out = Command::new(&self.exe).arg(&png).arg("stdout").args(["-l", &self.langs.join("+"), "--dpi", &dpi_out.to_string(), "tsv"]).output()?;
+        let _ = std::fs::remove_file(&png);
+        if !out.status.success() {
+            bail!("Tesseract failed: {}", String::from_utf8_lossy(&out.stderr).trim());
+        }
+        Ok(parse_tsv(&String::from_utf8_lossy(&out.stdout), img.width() as f32, img.height() as f32))
+    }
+}
+
+/// Tesseract TSV → lines of words. Columns: level page block par line word left top width height conf text;
+/// level 5 rows are words. A new paragraph starts a blank line in the plain text.
+pub fn parse_tsv(tsv: &str, w: f32, h: f32) -> PageText {
+    let mut page = PageText::default();
+    let mut last: Option<(&str, &str, &str)> = None;
+    for row in tsv.lines().skip(1).map(|l| l.split('\t').collect::<Vec<_>>()).filter(|c| c.len() >= 12 && c[0] == "5") {
+        let text = row[11].trim();
+        if text.is_empty() {
+            continue;
+        }
+        let key = (row[2], row[3], row[4]);
+        let num = |i: usize| row[i].parse::<f32>().unwrap_or(0.0);
+        if last != Some(key) {
+            if let Some(prev) = last {
+                page.text.push_str(if (prev.0, prev.1) == (key.0, key.1) { "\n" } else { "\n\n" });
+            }
+            page.lines.push(Vec::new());
+            last = Some(key);
+        } else {
+            page.text.push(' ');
+        }
+        page.text.push_str(text);
+        page.lines.last_mut().unwrap().push(Word { text: text.into(), x: num(6) / w, y: num(7) / h, w: num(8) / w, h: num(9) / h });
+    }
+    page
+}
+
 /// Languages from `WANTED` that this machine's Tesseract has; empty when it isn't installed.
 pub fn languages() -> Vec<String> {
     executable().map(|e| installed(&e)).unwrap_or_default()
@@ -169,6 +231,22 @@ mod tests {
         rect(640, y, s, 200); rect(736, y, s, 200);
         for i in 0..200 { rect(640 + i * 96 / 200, y + i, s, 1); }
         img
+    }
+
+    #[test]
+    fn tsv_groups_words_into_lines_and_paragraphs() {
+        let tsv = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n\
+            4\t1\t1\t1\t1\t0\t10\t10\t80\t10\t-1\t\n\
+            5\t1\t1\t1\t1\t1\t10\t10\t30\t10\t95\tHello\n\
+            5\t1\t1\t1\t1\t2\t50\t10\t40\t10\t95\tworld\n\
+            5\t1\t1\t1\t2\t1\t10\t30\t20\t10\t95\tnext\n\
+            5\t1\t1\t2\t1\t1\t10\t60\t20\t10\t95\tpara\n\
+            5\t1\t1\t2\t1\t2\t40\t60\t20\t10\t95\t \n";
+        let p = parse_tsv(tsv, 100.0, 100.0);
+
+        assert_eq!(p.text, "Hello world\nnext\n\npara");
+        assert_eq!(p.lines.len(), 3);
+        assert_eq!(p.lines[0][1], Word { text: "world".into(), x: 0.5, y: 0.1, w: 0.4, h: 0.1 });
     }
 
     #[test]

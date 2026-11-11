@@ -82,6 +82,7 @@ pub fn run() {
             printing::copy_tone,
             printing::stop_job,
             commands::device_details,
+            commands::page_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

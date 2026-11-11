@@ -346,3 +346,23 @@ pub async fn device_details(st: State<'_, AppState>, password: Option<String>) -
     })
     .await
 }
+
+/// Words on a session page for selecting and copying text; cached per page file (edits make new files).
+#[tauri::command]
+pub async fn page_text(st: State<'_, AppState>, file: String) -> Res<scan_core::ocr::PageText> {
+    if file.contains(['/', '\\']) {
+        return Err("bad page name".into());
+    }
+    let dir = session_dir(&st)?;
+    let dpi = st.session.lock().unwrap().as_ref().and_then(|s| s.pages.iter().find(|p| p.file == file).map(|p| p.dpi)).ok_or("page not found")?;
+    blocking(move || {
+        let cache = dir.join("text").join(format!("{file}.json"));
+        if let Some(t) = std::fs::read(&cache).ok().and_then(|b| serde_json::from_slice(&b).ok()) {
+            return Ok(t);
+        }
+        let text = scan_core::ocr::Ocr::find()?.words(&dir.join("pages").join(&file), dpi, &dir.join("text"))?;
+        std::fs::write(&cache, serde_json::to_vec(&text)?)?;
+        Ok(text)
+    })
+    .await
+}
