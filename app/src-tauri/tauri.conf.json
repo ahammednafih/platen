@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [{ "title": "Platen", "width": 1200, "height": 800, "minWidth": 900, "minHeight": 600, "dragDropEnabled": false }],
-    "security": { "csp": "default-src 'self'; img-src 'self' scanimg: scanfile: blob:; style-src 'self' 'unsafe-inline'" }
+    "security": { "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' scanimg: scanfile: blob:; style-src 'self' 'unsafe-inline'" }
   },
   "bundle": {
     "active": true,

@@ -53,6 +53,12 @@ export interface Progress { done: number; total: number }
 
 type Slot = { replace?: number; at?: number };
 
+/// Raw command results are an ArrayBuffer over the fast IPC channel, but a plain number array when
+/// the webview falls back to message passing (as packaged builds can).
+function bytes(data: ArrayBuffer | number[]): BlobPart {
+  return data instanceof ArrayBuffer ? data : new Uint8Array(data);
+}
+
 export const api = {
   connect: (host?: string) => invoke<Device>("connect", { host }),
   status: () => invoke<DeviceStatus>("status"),
@@ -95,7 +101,7 @@ export const api = {
   printCaps: () => invoke<PrintCaps>("print_caps"),
   printPlan: (job: PrintJob) => invoke<Plan>("print_plan", { job }),
   printPreview: async (job: PrintJob, slot: number) =>
-    URL.createObjectURL(new Blob([await invoke<ArrayBuffer>("print_preview", { job, slot })], { type: "image/jpeg" })),
+    URL.createObjectURL(new Blob([bytes(await invoke<ArrayBuffer | number[]>("print_preview", { job, slot }))], { type: "image/jpeg" })),
   print: (job: PrintJob) => invoke<number>("print", { job }),
   copyReset: () => invoke<void>("copy_reset"),
   copyScan: (area: Area, color: boolean) => invoke<string>("copy_scan", { area, color }),
