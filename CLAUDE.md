@@ -1,24 +1,49 @@
 # Platen
 
-Driverless scan/copy/print for AirScan + AirPrint printers. Plan and milestone status: `docs/PLAN.md`
-(read only the section you need).
+Driverless scan, copy and print for AirScan + AirPrint printers. User-facing overview: `README.md`.
+Design notes and the vendor protocol write-ups: `docs/PLAN.md` (read only the section you need).
+Contribution rules: `CONTRIBUTING.md`.
 
-- Rust pinned via `mise.toml`; run cargo as `mise exec -- cargo …`.
-- App: `cd app && pnpm tauri dev`; frontend check `pnpm check`. Package: `pnpm tauri build` →
-  `target/release/bundle/{macos,dmg}` (ad-hoc signed, not notarized). Commands live in
-  `app/src-tauri/src/commands.rs`, typed wrappers in `app/src/lib/api.ts` — keep them in sync.
-- Scanner/printer is on the LAN; network commands from the Claude sandbox need it disabled.
-- Test stitching offline with `platen --stitch TOP BOTTOM OUT`, fill with `platen --fill-file IN OUT`.
-- eSCL quirks: send `pwg:Version 2.93` + `scan:Intent`, else the device ignores settings; always
-  fetch `NextDocument` until 404 / DELETE the job or the device stays "Processing".
-- Don't add vendor branding or names to the UI.
-- eSCL clamps >600 dpi to 300; 1200 dpi goes over the native protocol (`core/src/native.rs`, TCP 54921).
-  Inquiry + scan must share one connection, else `-NG 401`. Full page at 1200 ≈ 2m20s, ~40 MB.
-- Searchable PDF shells out to Tesseract (`core/src/ocr.rs`): text-only PDF per page at 300 dpi, merged
-  over our pages with lopdf. Uses eng+mal when installed (`mal.traineddata` in Homebrew's tessdata).
-- Device details (`core/src/webui.rs`) log in to the web UI over HTTPS only (self-signed); password field name
-  is read from the form, success = `AuthCookie`. Password lives in the Keychain (`platen-device-web`, old name `scan-device-web` read as fallback). CSV export 403s.
-- Web UI settings forms: POST with a `Referer` from the device's own page (else 403); mode changes return a
-  "restart now?" page whose hidden fields go to `?pc=2`. Notes on the Scan button in `docs/PLAN.md` (M6).
-- After a Scan-button press the device refuses eSCL (HTTP 500) until the scan; button scans use `native`.
-- Don't `cargo fmt` the app crate or reformat `tauri.conf.json` — neither is formatter-clean; keep diffs to your change.
+## Commands
+
+- Rust is pinned in `mise.toml`; run cargo as `mise exec -- cargo …`.
+- Tests: `mise exec -- cargo test --workspace`. Frontend check: `cd app && pnpm check`.
+- App: `cd app && pnpm tauri dev`. Package: `pnpm tauri build` → `target/release/bundle/{macos,dmg}`
+  (ad-hoc signed, not notarized).
+- CLI: `mise exec -- cargo run -p platen-cli -- --help`. Offline checks: `platen --stitch TOP BOTTOM OUT`,
+  `platen --fill-file IN OUT`.
+- The printer is on the LAN; network commands from a sandbox need the sandbox off.
+
+## Layout
+
+- `crates/core` — the library (crate `platen-core`): `escl`, `native`, `ipp`, `stitch`, `fill`, `pdf`,
+  `ocr`, `session`, `copy`, `webui`, `pushscan`, `button`, `snmp`.
+- `crates/tui` — the `platen` CLI.
+- `app` — Tauri 2 + Svelte 5. Commands in `app/src-tauri/src/*.rs`, typed wrappers in
+  `app/src/lib/api.ts`; keep the two in sync.
+
+## Rules
+
+- No vendor names or branding in the UI. Compatibility notes go in the README.
+- Don't `cargo fmt` the app crate or reformat `tauri.conf.json`; neither is formatter-clean. Keep diffs
+  to your change.
+- Page edits write a new image file and never delete the old one; undo relies on that.
+- Settings live in `<config>/Platen`, rebuildable files in `<cache>/Platen` (`core/src/device.rs`).
+
+## Device quirks
+
+- eSCL: send `pwg:Version 2.93` + `scan:Intent`, or the device ignores settings. Always fetch
+  `NextDocument` until 404, or DELETE the job, or the device stays "Processing".
+- eSCL clamps anything above 600 dpi to 300. 1200 dpi goes over the native protocol
+  (`core/src/native.rs`, TCP 54921). Inquiry and scan must share one connection, else `-NG 401`.
+  A full page at 1200 dpi takes about 2m20s and 40 MB.
+- After a Scan-button press the device refuses eSCL (HTTP 500) until a scan starts; button scans use
+  `native`. Protocol notes: `docs/PLAN.md`, M6.
+- Web UI (`core/src/webui.rs`, `pushscan.rs`): HTTPS only, self-signed. The password field's name is read
+  from the form; success sets `AuthCookie`. Settings forms need a `Referer` from the device's own page
+  (403 without). A mode change returns a "restart now?" page whose hidden fields go to `?pc=2`.
+  CSV export 403s.
+- The device password is in the Keychain under `platen-device-web` (old name `scan-device-web` is read
+  as a fallback), through the Keychain API, never the `security` command line.
+- Searchable PDF shells out to Tesseract (`core/src/ocr.rs`): a text-only PDF per page at 300 dpi,
+  merged over our pages with lopdf. Uses eng+mal when `mal.traineddata` is installed.

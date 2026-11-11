@@ -152,8 +152,7 @@ and the CLI to GitHub Releases.
 ## Contributing
 
 Issues and pull requests are welcome, especially reports from other printers: what worked, what
-didn't, and the model. Keep vendor names out of the app's interface; compatibility notes belong here
-in the README.
+didn't, and the model. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and the ground rules.
 
 ## Licence
 
