@@ -58,6 +58,7 @@ export const api = {
   capabilities: () => invoke<Caps>("capabilities"),
   drafts: () => invoke<Draft[]>("drafts"),
   openSession: (name?: string) => invoke<SessionView>("open_session", { name }),
+  renameSession: (name: string) => invoke<SessionView>("rename_session", { name }),
   closeSession: () => invoke<void>("close_session"),
   getSettings: () => invoke<Settings>("get_settings"),
   setSettings: (settings: Settings) => invoke<void>("set_settings", { settings }),

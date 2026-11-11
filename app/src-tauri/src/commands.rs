@@ -124,13 +124,20 @@ pub fn drafts() -> Vec<Draft> {
 #[tauri::command]
 pub fn open_session(st: State<'_, AppState>, name: Option<String>) -> Res<SessionView> {
     let name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(device::default_name);
-    if name.contains(['/', '\\']) || name.starts_with('.') {
-        return Err("Session names can't contain slashes or start with a dot".into());
-    }
+    scan_core::session::check_name(name.trim()).map_err(err)?;
     let s = Session::open(device::default_root().join(name.trim())).map_err(err)?;
     let v = view(&s);
     *st.session.lock().unwrap() = Some(s);
     Ok(v)
+}
+
+/// Rename the open scan (its folder and exports carrying the old name).
+#[tauri::command]
+pub fn rename_session(st: State<'_, AppState>, name: String) -> Res<SessionView> {
+    let mut guard = st.session.lock().unwrap();
+    let s = guard.as_mut().ok_or("No session open")?;
+    s.rename(&name).map_err(err)?;
+    Ok(view(s))
 }
 
 #[tauri::command]

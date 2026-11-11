@@ -54,6 +54,7 @@ pub fn run() {
             commands::drafts,
             commands::open_session,
             commands::close_session,
+            commands::rename_session,
             commands::get_settings,
             commands::set_settings,
             commands::presets,

@@ -1,6 +1,6 @@
 //! A scanning session: an ordered list of page JPEGs in one folder, plus export.
 use crate::pdf::{self, JpegPage};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use image::{GrayImage, ImageReader, imageops};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,14 @@ pub struct Session {
     pub dirty: bool,
 }
 
+/// Scan names become folder names.
+pub fn check_name(name: &str) -> Result<()> {
+    if name.is_empty() || name.contains(['/', '\\', ':']) || name.starts_with('.') {
+        bail!("Scan names can't be empty, contain / or :, or start with a dot");
+    }
+    Ok(())
+}
+
 impl Session {
     pub fn open(dir: PathBuf) -> Result<Session> {
         std::fs::create_dir_all(dir.join("pages"))?;
@@ -56,6 +64,30 @@ impl Session {
         std::fs::write(&tmp, serde_json::to_vec_pretty(&self.pages)?)?;
         std::fs::rename(tmp, self.dir.join("session.json"))?;
         self.dirty = true;
+        Ok(())
+    }
+
+    /// Rename the scan: moves its folder and renames exports that carry the old name (`<old>_print.pdf`).
+    pub fn rename(&mut self, name: &str) -> Result<()> {
+        let name = name.trim();
+        if name == self.name {
+            return Ok(());
+        }
+        check_name(name)?;
+        let to = self.dir.parent().context("scan has no parent folder")?.join(name);
+        if to.exists() {
+            bail!("There's already a scan called “{name}”");
+        }
+        std::fs::rename(&self.dir, &to)?;
+        let old = format!("{}_", self.name);
+        for entry in std::fs::read_dir(&to)?.flatten() {
+            let file = entry.file_name().to_string_lossy().into_owned();
+            if let Some(rest) = file.strip_prefix(&old) {
+                let _ = std::fs::rename(entry.path(), to.join(format!("{name}_{rest}")));
+            }
+        }
+        self.dir = to;
+        self.name = name.to_string();
         Ok(())
     }
 
@@ -264,6 +296,21 @@ pub fn load_rgb(path: &Path) -> Result<image::RgbImage> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rename_moves_the_folder_and_its_exports() {
+        let root = std::env::temp_dir().join(format!("scan-rename-{}", Session::new_stem()));
+        let mut s = Session::open(root.join("2026-11-11_1301")).unwrap();
+        std::fs::write(s.dir.join("2026-11-11_1301_print.pdf"), b"x").unwrap();
+        std::fs::create_dir_all(root.join("taken")).unwrap();
+        assert!(s.rename("taken").is_err());
+        assert!(s.rename("a/b").is_err());
+        s.rename(" Deed copy ").unwrap();
+        assert_eq!(s.name, "Deed copy");
+        assert!(root.join("Deed copy/Deed copy_print.pdf").exists());
+        assert!(!root.join("2026-11-11_1301").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn export_writes_selected_outputs_and_cleans_up() {
