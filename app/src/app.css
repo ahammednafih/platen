@@ -199,3 +199,5 @@ body, aside, .pane, .card, .topbar, .dialog, .seg { transition: background-color
   button:active:not(:disabled) { transform: none; }
 }
 
+button.stop { margin-left: 8px; color: var(--danger); }
+button.stop:hover:not(:disabled) { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }

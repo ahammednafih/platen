@@ -81,7 +81,12 @@ impl PrintJob {
     }
 
     /// Render and send every sheet; `progress(done, total)` runs after each job is accepted.
-    pub fn run(&self, printer: &Printer, name: &str, mut progress: impl FnMut(usize, usize)) -> Result<Vec<i32>> {
+    pub fn run(&self, printer: &Printer, name: &str, progress: impl FnMut(usize, usize)) -> Result<Vec<i32>> {
+        self.run_until(printer, name, &std::sync::atomic::AtomicBool::new(false), progress)
+    }
+
+    /// Like `run`, but stops sending sheets once `stop` is set.
+    pub fn run_until(&self, printer: &Printer, name: &str, stop: &std::sync::atomic::AtomicBool, mut progress: impl FnMut(usize, usize)) -> Result<Vec<i32>> {
         let plan = self.plan()?;
         if plan.order.is_empty() {
             bail!("nothing to print with these settings");
@@ -99,6 +104,9 @@ impl PrintJob {
         };
         let mut jobs = Vec::new();
         for (i, (jpeg, opts)) in sends.iter().enumerate() {
+            if stop.load(std::sync::atomic::Ordering::Relaxed) {
+                bail!("stopped");
+            }
             jobs.push(printer.print_jpeg(jpeg, opts, &format!("{name} {}", i + 1))?);
             progress(i + 1, sends.len());
         }

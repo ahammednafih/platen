@@ -146,6 +146,9 @@ pub struct ScanOpts {
     pub height: u32,
 }
 
+/// The eSCL job being scanned right now, so another thread can cancel it.
+static CURRENT_JOB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
 fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(300)))
@@ -220,11 +223,20 @@ impl Scanner {
             return crate::native::scan(self.host(), o);
         }
         let job = self.create_job(o)?;
+        *CURRENT_JOB.lock().unwrap() = Some(job.clone());
         let result = self.fetch(&job);
+        CURRENT_JOB.lock().unwrap().take();
         // Always close the job; otherwise the scanner stays "Processing".
         let _ = self.agent.get(format!("{job}/NextDocument")).call();
         let _ = self.agent.delete(&job).call();
         result
+    }
+
+    /// Abort the scan in progress, if any; the waiting `scan` call then fails.
+    pub fn cancel_scan(&self) {
+        if let Some(job) = CURRENT_JOB.lock().unwrap().take() {
+            let _ = self.agent.delete(&job).call();
+        }
     }
 
     fn create_job(&self, o: ScanOpts) -> Result<String> {

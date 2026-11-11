@@ -126,6 +126,14 @@
     files = f;
   }
 
+  let stopping = $state(false);
+  async function stop() {
+    stopping = true;
+    busy = "Stopping";
+    await api.stopJob().catch(() => {});
+  }
+  const failed = (e: unknown) => (String(e) === "stopped" ? { ok: true, text: "Stopped. Nothing else will print." } : { ok: false, text: String(e) });
+
   async function send(j: PrintJob, label: string) {
     busy = label;
     log = null;
@@ -134,10 +142,11 @@
       log = { ok: true, text: `Sent ${n} ${n === 1 ? "job" : "jobs"} to the printer.` };
       return true;
     } catch (e) {
-      log = { ok: false, text: String(e) };
+      log = failed(e);
       return false;
     } finally {
       busy = "";
+      stopping = false;
     }
   }
 
@@ -161,7 +170,7 @@
 
   onMount(() => {
     const un = listen<{ done: number; total: number }>("print-progress", (e) => {
-      if (busy) busy = busy.replace(/ \d+\/\d+$/, "") + ` ${e.payload.done}/${e.payload.total}`;
+      if (busy && !stopping) busy = busy.replace(/ \d+\/\d+$/, "") + ` ${e.payload.done}/${e.payload.total}`;
     });
     return () => {
       un.then((f) => f());
@@ -213,6 +222,7 @@
         <div class="status" class:err={(log && !log.ok) || (planError && !busy)}>
           {#if busy}
             <span class="spinner"></span>{busy}…
+            <button class="ghost small stop" onclick={stop} disabled={stopping}>Stop</button>
           {:else if flip}
             <div class="flip">
               <p><strong>Fronts are printed.</strong> Put the printed stack back in the paper tray, blank side up as the printer feeds it, top edge first.</p>

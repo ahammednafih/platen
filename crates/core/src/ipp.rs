@@ -8,6 +8,8 @@ use std::time::Duration;
 
 const OP_PRINT_JOB: u16 = 0x0002;
 const OP_GET_PRINTER_ATTRIBUTES: u16 = 0x000B;
+const OP_CANCEL_JOB: u16 = 0x0008;
+const OP_GET_JOBS: u16 = 0x000A;
 
 // Value tags.
 const T_INTEGER: u8 = 0x21;
@@ -179,6 +181,28 @@ impl Printer {
         let (_, groups) = self.send(req.end(), jpeg)?;
         let job = groups.into_iter().flatten().find(|(k, _)| k == "job-id").and_then(|(_, v)| v.first().and_then(Value::as_int));
         Ok(job.unwrap_or(0))
+    }
+
+    /// Ids of jobs the printer hasn't finished (queued or printing).
+    pub fn active_jobs(&self) -> Result<Vec<i32>> {
+        let mut req = Request::new(OP_GET_JOBS, &self.uri);
+        req.attr(T_KEYWORD, "which-jobs", b"not-completed");
+        req.keywords("requested-attributes", &["job-id"]);
+        let (_, groups) = self.send(req.end(), &[])?;
+        Ok(groups.iter().filter_map(|g| g.iter().find(|(k, _)| k == "job-id")).filter_map(|(_, v)| v.first().and_then(Value::as_int)).collect())
+    }
+
+    pub fn cancel_job(&self, id: i32) -> Result<()> {
+        let mut req = Request::new(OP_CANCEL_JOB, &self.uri);
+        req.attr(T_INTEGER, "job-id", &id.to_be_bytes());
+        self.send(req.end(), &[]).map(drop)
+    }
+
+    /// Cancel everything still queued or printing; returns how many jobs were cancelled.
+    pub fn cancel_active(&self) -> Result<usize> {
+        let jobs = self.active_jobs()?;
+        jobs.iter().try_for_each(|id| self.cancel_job(*id))?;
+        Ok(jobs.len())
     }
 
     fn send(&self, body: Vec<u8>, doc: &[u8]) -> Result<(u16, Vec<Vec<(String, Vec<Value>)>>)> {

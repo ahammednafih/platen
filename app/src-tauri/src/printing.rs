@@ -93,11 +93,40 @@ pub async fn print_preview(job: PrintJob, slot: usize) -> Res<Response> {
 #[tauri::command]
 pub async fn print(app: AppHandle, st: State<'_, AppState>, job: PrintJob) -> Res<usize> {
     let p = printer(&st)?;
-    blocking(move || {
-        let jobs = job.run(&p, "scan", |done, total| {
+    let stop = start(&st);
+    let res = blocking(move || {
+        let jobs = job.run_until(&p, "scan", &stop, |done, total| {
             let _ = app.emit("print-progress", Progress { done, total });
         })?;
         Ok(jobs.len())
+    })
+    .await;
+    stopped(&st, res)
+}
+
+/// Clear the stop flag for a new copy/print and hand the worker a handle to it.
+fn start(st: &AppState) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+    st.stop.store(false, std::sync::atomic::Ordering::Relaxed);
+    st.stop.clone()
+}
+
+/// After Stop, report "stopped" rather than whatever error the cut-off request produced.
+fn stopped<T>(st: &AppState, res: Res<T>) -> Res<T> {
+    match res {
+        Err(_) if st.stop.load(std::sync::atomic::Ordering::Relaxed) => Err("stopped".into()),
+        other => other,
+    }
+}
+
+/// Stop the copy or print in progress: no more sheets are sent, a running scan is aborted, and jobs
+/// already queued on the printer are cancelled.
+#[tauri::command]
+pub async fn stop_job(st: State<'_, AppState>) -> Res<usize> {
+    st.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    let (sc, p) = (scanner(&st)?, printer(&st)?);
+    blocking(move || {
+        sc.cancel_scan();
+        p.cancel_active()
     })
     .await
 }
@@ -121,7 +150,8 @@ pub fn copy_reset(st: State<'_, AppState>) {
 #[tauri::command]
 pub async fn copy_scan(st: State<'_, AppState>, area: Area, color: bool) -> Res<PathBuf> {
     let (sc, dir) = (scanner(&st)?, copy_dir(&st)?);
-    let path = blocking(move || copy::scan(&sc, area, color, &dir)).await?;
+    start(&st);
+    let path = stopped(&st, blocking(move || copy::scan(&sc, area, color, &dir)).await)?;
     allow(&st, std::slice::from_ref(&path));
     Ok(path)
 }

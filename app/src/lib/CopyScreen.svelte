@@ -85,7 +85,7 @@
   });
 
   const unlisten = listen<{ done: number; total: number }>("print-progress", (e) => {
-    if (busy) busy = `Printing ${e.payload.done}/${e.payload.total}`;
+    if (busy && !stopping) busy = `Printing ${e.payload.done}/${e.payload.total}`;
   });
   onDestroy(() => {
     unlisten.then((f) => f());
@@ -117,6 +117,14 @@
     return api.copyScan(kind === "idCard" ? "HalfTop" : { Size: original }, color);
   }
 
+  let stopping = $state(false);
+  async function stop() {
+    stopping = true;
+    busy = "Stopping";
+    await api.stopJob().catch(() => {});
+  }
+  const failed = (e: unknown) => (String(e) === "stopped" ? { ok: true, text: "Stopped. Nothing else will print." } : { ok: false, text: String(e) });
+
   async function go() {
     log = null;
     busy = "Scanning";
@@ -145,9 +153,10 @@
       log = { ok: true, text: `Sent ${copies} ${copies === 1 ? "copy" : "copies"} to the printer.` };
       await reset();
     } catch (e) {
-      log = { ok: false, text: String(e) };
+      log = failed(e);
     } finally {
       busy = "";
+      stopping = false;
     }
   }
   function onkey(e: KeyboardEvent) {
@@ -193,7 +202,7 @@
         {#if k.steps[step].hint}<p class="muted">{k.steps[step].hint}</p>{/if}
 
         {#if busy}
-          <p class="status"><span class="spinner"></span>{busy}…</p>
+          <p class="status"><span class="spinner"></span>{busy}… <button class="ghost small stop" onclick={stop} disabled={stopping}>Stop</button></p>
         {:else if log}
           <p class="status" class:err={!log.ok}>{log.text}</p>
         {:else if !connected}

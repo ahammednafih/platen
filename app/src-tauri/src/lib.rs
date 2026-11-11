@@ -18,6 +18,8 @@ pub struct AppState {
     picked: Mutex<HashSet<PathBuf>>,
     /// Scratch folder for the copy in progress.
     copy_dir: Mutex<Option<PathBuf>>,
+    /// Set by Stop; copy scans and print jobs check it.
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 type Res<T> = Result<T, String>;
@@ -33,6 +35,7 @@ pub fn run() {
         settings: Mutex::new(scan_core::presets::last()),
         picked: Mutex::new(HashSet::new()),
         copy_dir: Mutex::new(None),
+        stop: Default::default(),
     };
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -77,6 +80,7 @@ pub fn run() {
             printing::copy_long_bottom,
             printing::copy_id_card,
             printing::copy_tone,
+            printing::stop_job,
             commands::device_details,
         ])
         .run(tauri::generate_context!())

@@ -86,6 +86,7 @@ export const api = {
   copyLongBottom: (top: TopHalf, color: boolean) => invoke<string>("copy_long_bottom", { top, color }),
   copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
   deviceDetails: (password?: string) => invoke<DetailGroup[]>("device_details", { password }),
+  stopJob: () => invoke<number>("stop_job"),
   copyTone: (files: string[], density: number, background: number) => invoke<string[]>("copy_tone", { files, density, background }),
 };
 
