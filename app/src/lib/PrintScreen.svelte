@@ -6,13 +6,12 @@
 
   let { connected }: { connected: boolean } = $props();
 
-  const PREVIEWS = 24;
+  const PREVIEWS = 60;
   const printable = ["pdf", "jpg", "jpeg", "png"];
 
   let files = $state<string[]>([]);
   let caps = $state<PrintCaps | null>(null);
   let ranges = $state("");
-  let subset = $state<Subset>("All");
   let reverse = $state(false);
   let nup = $state(1);
   let scaleMode = $state<"Fit" | "Actual" | "Percent">("Fit");
@@ -25,8 +24,14 @@
   let twoSided = $state(false);
 
   let plan = $state<Plan | null>(null);
+  // Picked pages across all files, in order; the Range field mirrors it.
+  let sel = $state<boolean[]>([]);
+  let anchor = 0;
   let planError = $state("");
   let previews = $state<string[]>([]);
+  // Pages: pick what to print. Sheets: what comes out of the printer (N-up, odd/even, order).
+  let view = $state<"Pages" | "Sheets">("Pages");
+  let sheetPreviews = $state<string[]>([]);
   let busy = $state("");
   let flip = $state(false);
   let log = $state<{ ok: boolean; text: string } | null>(null);
@@ -37,7 +42,7 @@
 
   function job(over: Partial<PrintJob> = {}): PrintJob {
     return {
-      files: $state.snapshot(files), ranges, subset: twoSided ? "All" : subset, reverse, nup, scale, collate,
+      files: $state.snapshot(files), ranges, subset: "All", reverse, nup, scale, collate,
       opts: { copies, color, media, scaling: "fit", quality },
       ...over,
     };
@@ -52,12 +57,13 @@
     }).catch(() => {});
   });
 
-  // Re-plan and re-render previews shortly after any setting changes.
+  const none = $derived(sel.length > 0 && !sel.some(Boolean));
+
+  // Re-plan shortly after any setting changes.
   $effect(() => {
     const j = job();
-    if (!j.files.length) {
+    if (!j.files.length || none) {
       plan = null;
-      previews = [];
       return;
     }
     let stale = false;
@@ -67,16 +73,101 @@
         if (stale) return;
         plan = p;
         planError = "";
+        if (view !== "Sheets") return;
         const urls = await Promise.all(p.order.slice(0, PREVIEWS).map((_, i) => api.printPreview(j, i).catch(() => "")));
         if (stale) return urls.forEach((u) => u && URL.revokeObjectURL(u));
-        previews.forEach((u) => u && URL.revokeObjectURL(u));
-        previews = urls;
+        sheetPreviews.forEach((u) => u && URL.revokeObjectURL(u));
+        sheetPreviews = urls;
       } catch (e) {
         if (!stale) { plan = null; planError = String(e); }
       }
     }, 250);
     return () => { stale = true; clearTimeout(t); };
   });
+
+  // The preview shows every page, one per tile, so pages can be picked by clicking.
+  $effect(() => {
+    // Built by hand so picking pages (ranges) doesn't re-render every preview.
+    const j: PrintJob = {
+      files: $state.snapshot(files), ranges: "", subset: "All", reverse: false, nup: 1, scale, collate: true,
+      opts: { copies: 1, color, media, scaling: "fit", quality },
+    };
+    if (!j.files.length) {
+      sel = [];
+      previews = [];
+      return;
+    }
+    let stale = false;
+    const t = setTimeout(async () => {
+      try {
+        const p = await api.printPlan(j);
+        if (stale) return;
+        if (p.pages !== sel.length) setSel(Array(p.pages).fill(true));
+        const urls = await Promise.all(p.order.slice(0, PREVIEWS).map((_, i) => api.printPreview(j, i).catch(() => "")));
+        if (stale) return urls.forEach((u) => u && URL.revokeObjectURL(u));
+        previews.forEach((u) => u && URL.revokeObjectURL(u));
+        previews = urls;
+      } catch (e) {
+        if (!stale) planError = String(e);
+      }
+    }, 250);
+    return () => { stale = true; clearTimeout(t); };
+  });
+
+  // "1-3, 7" for the picked pages; empty when every page is picked.
+  function toRanges(s: boolean[]) {
+    if (s.every(Boolean)) return "";
+    const out: string[] = [];
+    for (let i = 0; i < s.length; i++) {
+      if (!s[i]) continue;
+      let j = i;
+      while (s[j + 1]) j++;
+      out.push(i === j ? `${i + 1}` : `${i + 1}-${j + 1}`);
+      i = j;
+    }
+    return out.join(", ");
+  }
+
+  // Same rules as the printer side: blank = all, open ends allowed. Null while half-typed.
+  function fromRanges(text: string, n: number): boolean[] | null {
+    const parts = text.split(",").map((p) => p.trim()).filter(Boolean);
+    if (!parts.length) return Array(n).fill(true);
+    const s = Array(n).fill(false);
+    for (const part of parts) {
+      const [a, b] = part.includes("-") ? part.split("-").map((x) => x.trim()) : [part, part];
+      const lo = a ? Number(a) : 1;
+      const hi = b ? Number(b) : n;
+      if (!Number.isInteger(lo) || !Number.isInteger(hi) || lo < 1 || lo > hi || lo > n) return null;
+      for (let i = lo - 1; i < Math.min(hi, n); i++) s[i] = true;
+    }
+    return s;
+  }
+
+  function setSel(s: boolean[]) {
+    sel = s;
+    ranges = toRanges(s);
+  }
+
+  function pickPreset(v: Subset) {
+    setSel(sel.map((_, i) => v === "All" || (v === "Odd") === (i % 2 === 0)));
+  }
+
+  const preset = $derived.by<Subset | null>(() => {
+    if (sel.every(Boolean)) return "All";
+    for (const v of ["Odd", "Even"] as const) if (sel.every((on, i) => on === ((v === "Odd") === (i % 2 === 0)))) return v;
+    return null;
+  });
+
+  // Click toggles a page; shift-click sets the run from the last clicked page to this one.
+  function toggle(i: number, e: MouseEvent) {
+    const s = [...sel];
+    if (e.shiftKey) {
+      const on = !s[i];
+      for (let k = Math.min(anchor, i); k <= Math.max(anchor, i); k++) s[k] = on;
+    } else s[i] = !s[i];
+    anchor = i;
+    setSel(s);
+  }
 
   function add(paths: string[]) {
     const ok = paths.filter((p) => printable.includes(p.split(".").pop()?.toLowerCase() ?? ""));
@@ -163,7 +254,7 @@
   function onkey(e: KeyboardEvent) {
     if (!e.metaKey || busy || covered()) return;
     if (e.key === "o") pick();
-    else if ((e.key === "p" || e.key === "Enter") && connected && plan && !flip) print();
+    else if ((e.key === "p" || e.key === "Enter") && connected && plan && !none && !flip) print();
     else return;
     e.preventDefault();
   }
@@ -175,6 +266,7 @@
     return () => {
       un.then((f) => f());
       previews.forEach((u) => u && URL.revokeObjectURL(u));
+      sheetPreviews.forEach((u) => u && URL.revokeObjectURL(u));
     };
   });
 
@@ -191,14 +283,16 @@
 <div class="screen" class:dragging role="region" aria-label="Print" ondragover={dragover} ondragleave={dragleave} ondrop={drop}>
   <header class="topbar">
     <h1>Print</h1>
-    {#if plan}
+    {#if none}
+      <span class="faint small count">No pages picked</span>
+    {:else if plan}
       <span class="faint small count">
         {plan.picked} of {plan.pages} {plan.pages === 1 ? "page" : "pages"} on {sheetsOut} {sheetsOut === 1 ? "sheet" : "sheets"}
       </span>
     {/if}
     <span class="grow"></span>
     <button onclick={pick} disabled={!!busy}>Add files…</button>
-    <button class="primary" onclick={print} disabled={!connected || !!busy || !plan || flip}>
+    <button class="primary" onclick={print} disabled={!connected || !!busy || !plan || none || flip}>
       {twoSided ? "Print fronts" : "Print"}
     </button>
   </header>
@@ -244,19 +338,48 @@
           <strong>Choose or drop PDFs and images to print</strong>
           <span class="muted">Pick pages, put several on a sheet, or print both sides by hand</span>
         </button>
-      {:else if plan}
+      {/if}
+
+      {#if files.length && sel.length}
+        <div class="seg view">
+          {#each ["Pages", "Sheets"] as const as v (v)}
+            <button class:on={view === v} onclick={() => (view = v)}>{v}</button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if files.length && view === "Sheets"}
+        {#if plan}
+          <ol class="sheets">
+            {#each plan.order.slice(0, PREVIEWS) as s, i (i)}
+              <li>
+                <div class="paper sheet static" style="aspect-ratio: {paperRatio}">
+                  {#if sheetPreviews[i]}<img src={sheetPreviews[i]} alt="Sheet {i + 1}" />{/if}
+                </div>
+                <span class="faint small">{s === null ? "Blank back" : `Sheet ${s + 1}`}</span>
+              </li>
+            {/each}
+          </ol>
+          {#if plan.order.length > PREVIEWS}
+            <p class="faint small more">and {plan.order.length - PREVIEWS} more sheets</p>
+          {/if}
+        {/if}
+      {:else if files.length && sel.length}
         <ol class="sheets">
-          {#each plan.order.slice(0, PREVIEWS) as s, i (i)}
+          {#each sel.slice(0, PREVIEWS) as on, i (i)}
             <li>
-              <div class="paper sheet" style="aspect-ratio: {paperRatio}">
-                {#if previews[i]}<img src={previews[i]} alt="Sheet {i + 1}" />{/if}
-              </div>
-              <span class="faint small">{s === null ? "Blank back" : `Sheet ${s + 1}`}</span>
+              <button class="paper sheet" class:off={!on} style="aspect-ratio: {paperRatio}" aria-pressed={on}
+                title={on ? "Click to leave out, shift-click for a run" : "Click to print, shift-click for a run"}
+                onclick={(e) => toggle(i, e)}>
+                {#if previews[i]}<img src={previews[i]} alt="Page {i + 1}" />{/if}
+                <span class="tick" aria-hidden="true">{on ? "✓" : ""}</span>
+              </button>
+              <span class="faint small">Page {i + 1}</span>
             </li>
           {/each}
         </ol>
-        {#if plan.order.length > PREVIEWS}
-          <p class="faint small more">and {plan.order.length - PREVIEWS} more sheets</p>
+        {#if sel.length > PREVIEWS}
+          <p class="faint small more">and {sel.length - PREVIEWS} more pages; use Range to pick them</p>
         {/if}
       {/if}
     </div>
@@ -266,7 +389,8 @@
         <div class="group-title">Pages</div>
         <div class="props">
           <span class="label">Range</span>
-          <input type="text" placeholder="All, or e.g. 1-3, 7" bind:value={ranges} />
+          <input type="text" placeholder="All, or e.g. 1-3, 7" bind:value={ranges}
+            oninput={() => { const s = fromRanges(ranges, sel.length); if (s) sel = s; }} />
           <span class="label">Per sheet</span>
           <select bind:value={nup}>
             {#each [1, 2, 4, 6, 9, 16] as n (n)}<option value={n}>{n === 1 ? "1 page" : `${n} pages`}</option>{/each}
@@ -281,14 +405,12 @@
             <span class="label">Percent</span>
             <input type="number" min="10" max="400" step="5" bind:value={pct} />
           {/if}
-          {#if !twoSided}
-            <span class="label">Sheets</span>
-            <div class="seg">
-              {#each ["All", "Odd", "Even"] as const as v (v)}
-                <button class:on={subset === v} onclick={() => (subset = v)}>{v}</button>
-              {/each}
-            </div>
-          {/if}
+          <span class="label">Pick</span>
+          <div class="seg">
+            {#each ["All", "Odd", "Even"] as const as v (v)}
+              <button class:on={preset === v} onclick={() => pickPreset(v)}>{v}</button>
+            {/each}
+          </div>
           <span class="label">Order</span>
           <label class="check"><input type="checkbox" bind:checked={reverse} /> Last sheet first</label>
         </div>
@@ -359,7 +481,19 @@
   .drop:hover:not(:disabled) { background: var(--panel); border-color: var(--accent); }
   .sheets { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px 16px; }
   .sheets li { display: grid; gap: 6px; justify-items: center; }
-  .sheet { width: 100%; display: grid; }
+  .sheet {
+    width: 100%; height: auto; display: grid; position: relative; padding: 0; border: 0; border-radius: 2px; background: var(--paper);
+    outline: 2px solid transparent; outline-offset: 3px; transition: opacity 0.15s var(--ease), outline-color 0.15s var(--ease), transform 0.1s var(--ease);
+  }
+  .sheet:hover { background: var(--paper); outline-color: var(--line-strong); }
+  .sheet.off { opacity: 0.35; }
+  .sheet.static { outline: none; }
+  .view { justify-self: start; }
+  .tick {
+    position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-content: center;
+    font-size: 11px; font-weight: 700; color: #fff; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg);
+  }
+  .off .tick { background: var(--bg); border: 1.5px solid var(--line-strong); }
   .sheet img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .more { text-align: center; }
   section { display: grid; gap: 8px; }
