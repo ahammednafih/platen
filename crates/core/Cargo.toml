@@ -1,5 +1,5 @@
 [package]
-name = "scan-core"
+name = "platen-core"
 version.workspace = true
 edition.workspace = true
 

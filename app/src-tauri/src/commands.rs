@@ -1,13 +1,13 @@
 //! Commands the Svelte frontend invokes. Blocking work (network, image) runs off the main thread.
 use crate::{AppState, Res, err};
-use scan_core::adjust::{self, Edit};
-use scan_core::capture::{self, Captured, Settings, TopHalf};
-use scan_core::device::{self, Draft};
-use scan_core::escl::{Caps, Scanner};
-use scan_core::ipp::{Printer, Status};
-use scan_core::presets::{self, Preset};
-use scan_core::session::{ExportOpts, Page, Session};
-use scan_core::{pushscan, webui};
+use platen_core::adjust::{self, Edit};
+use platen_core::capture::{self, Captured, Settings, TopHalf};
+use platen_core::device::{self, Draft};
+use platen_core::escl::{Caps, Scanner};
+use platen_core::ipp::{Printer, Status};
+use platen_core::presets::{self, Preset};
+use platen_core::session::{ExportOpts, Page, Session};
+use platen_core::{pushscan, webui};
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::State;
@@ -158,7 +158,7 @@ pub fn drafts() -> Vec<Draft> {
 #[tauri::command]
 pub fn open_session(st: State<'_, AppState>, name: Option<String>) -> Res<SessionView> {
     let name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(device::default_name);
-    scan_core::session::check_name(name.trim()).map_err(err)?;
+    platen_core::session::check_name(name.trim()).map_err(err)?;
     let s = Session::open(device::default_root().join(name.trim())).map_err(err)?;
     st.history.lock().unwrap().clear();
     let v = view(&s);
@@ -273,7 +273,7 @@ pub async fn edit_page(st: State<'_, AppState>, index: usize, edit: Edit) -> Res
 /// OCR languages available for searchable PDFs; empty when Tesseract isn't installed.
 #[tauri::command]
 pub async fn ocr_languages() -> Res<Vec<String>> {
-    blocking(|| Ok(scan_core::ocr::languages())).await
+    blocking(|| Ok(platen_core::ocr::languages())).await
 }
 
 #[tauri::command]
@@ -361,7 +361,7 @@ pub async fn file_pages(st: State<'_, AppState>, path: PathBuf) -> Res<usize> {
     if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
         return Ok(1);
     }
-    blocking(move || scan_core::pdfedit::page_count(&std::fs::read(path)?)).await
+    blocking(move || platen_core::pdfedit::page_count(&std::fs::read(path)?)).await
 }
 
 #[derive(Serialize)]
@@ -377,7 +377,7 @@ pub struct ShrinkResult {
 
 /// Shrink drafts live here until kept or discarded.
 fn shrink_dir() -> Res<PathBuf> {
-    Ok(dirs::cache_dir().ok_or("No cache folder")?.join("scan").join("shrink"))
+    Ok(platen_core::device::cache_dir().join("shrink"))
 }
 
 /// Write `<name>_under<N>MB.pdf` next to `path`. `path` may be any PDF the user picked.
@@ -390,12 +390,12 @@ pub async fn shrink_pdf(st: State<'_, AppState>, path: PathBuf, max_mb: f32) -> 
     let dir = shrink_dir()?;
     let out = blocking(move || {
         let input = std::fs::read(&path)?;
-        let r = scan_core::pdfedit::shrink(&input, (max_mb * 1_000_000.0) as u64)?;
+        let r = platen_core::pdfedit::shrink(&input, (max_mb * 1_000_000.0) as u64)?;
         let stem = path.file_stem().unwrap_or_default().to_string_lossy();
         std::fs::create_dir_all(&dir)?;
         let out = dir.join(format!("{stem}_under{max_mb}MB.pdf"));
         std::fs::write(&out, &r.data)?;
-        let pages = scan_core::pdfedit::page_count(&r.data)?;
+        let pages = platen_core::pdfedit::page_count(&r.data)?;
         Ok(ShrinkResult { out, before: input.len() as u64, after: r.data.len() as u64, fits: r.fits, pages })
     })
     .await?;
@@ -436,7 +436,7 @@ pub async fn enable_snmp_write(st: State<'_, AppState>, password: Option<String>
 
 /// Words on a session page for selecting and copying text; cached per page file (edits make new files).
 #[tauri::command]
-pub async fn page_text(st: State<'_, AppState>, file: String) -> Res<scan_core::ocr::PageText> {
+pub async fn page_text(st: State<'_, AppState>, file: String) -> Res<platen_core::ocr::PageText> {
     if file.contains(['/', '\\']) {
         return Err("bad page name".into());
     }
@@ -447,7 +447,7 @@ pub async fn page_text(st: State<'_, AppState>, file: String) -> Res<scan_core::
         if let Some(t) = std::fs::read(&cache).ok().and_then(|b| serde_json::from_slice(&b).ok()) {
             return Ok(t);
         }
-        let text = scan_core::ocr::Ocr::find()?.words(&dir.join("pages").join(&file), dpi, &dir.join("text"))?;
+        let text = platen_core::ocr::Ocr::find()?.words(&dir.join("pages").join(&file), dpi, &dir.join("text"))?;
         std::fs::write(&cache, serde_json::to_vec(&text)?)?;
         Ok(text)
     })

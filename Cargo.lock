@@ -3637,6 +3637,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "platen-app"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "image",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "platen-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+]
+
+[[package]]
+name = "platen-cli"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dirs",
+ "image",
+ "platen-core",
+ "ratatui",
+ "ratatui-image",
+ "serde_json",
+]
+
+[[package]]
+name = "platen-core"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "image",
+ "lopdf",
+ "mdns-sd",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "rayon",
+ "serde",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "plist"
 version = "1.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4306,56 +4355,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "scan"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "dirs",
- "image",
- "ratatui",
- "ratatui-image",
- "scan-core",
- "serde_json",
-]
-
-[[package]]
-name = "scan-app"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "dirs",
- "image",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "scan-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
-]
-
-[[package]]
-name = "scan-core"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "dirs",
- "image",
- "lopdf",
- "mdns-sd",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "rayon",
- "serde",
- "serde_json",
- "ureq",
 ]
 
 [[package]]

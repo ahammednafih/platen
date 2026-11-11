@@ -1,7 +1,7 @@
 //! `scanimg://localhost/<pages|raw>/<file>?w=<px>` — downscaled JPEGs of the open session's
 //! images, cached under `<session>/thumbs/`, so the grid never ships full-size scans to the webview.
 use crate::AppState;
-use scan_core::session;
+use platen_core::session;
 use std::path::{Path, PathBuf};
 use tauri::http::{Request, Response, StatusCode};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
@@ -37,7 +37,7 @@ pub fn serve_file<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>
                 return Some(hit);
             }
             let is_pdf = p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
-            let bytes = if is_pdf { scan_core::pdfedit::page_preview(&std::fs::read(&p).ok()?, page, w).ok() } else { resized(&p, w).ok() }?;
+            let bytes = if is_pdf { platen_core::pdfedit::page_preview(&std::fs::read(&p).ok()?, page, w).ok() } else { resized(&p, w).ok() }?;
             if let Some(c) = cache {
                 let _ = std::fs::create_dir_all(c.parent()?).and_then(|_| std::fs::write(&c, &bytes));
             }
@@ -56,13 +56,13 @@ fn cache_path(path: &Path, page: usize, w: u32) -> Option<PathBuf> {
     let meta = std::fs::metadata(path).ok()?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), page, w).hash(&mut h);
-    Some(dirs::cache_dir()?.join("scan").join("previews").join(format!("{:016x}.jpg", h.finish())))
+    Some(platen_core::device::cache_dir().join("previews").join(format!("{:016x}.jpg", h.finish())))
 }
 
 /// The canonical path if it's inside the scans folder or was picked by the user.
 pub fn allowed(st: &AppState, path: &Path) -> Option<PathBuf> {
     let real = path.canonicalize().ok()?;
-    let root = scan_core::device::default_root().canonicalize().ok();
+    let root = platen_core::device::default_root().canonicalize().ok();
     let inside = root.is_some_and(|r| real.starts_with(r));
     let picked = st.picked.lock().unwrap().iter().any(|p| p.canonicalize().ok().as_ref() == Some(&real));
     (inside || picked).then_some(real)

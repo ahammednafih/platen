@@ -96,7 +96,7 @@
 
 <div class="shell">
   <aside class="side">
-    <div class="brand"><span class="mark" aria-hidden="true"></span>Scan</div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span>Platen</div>
     <nav>
       {#each nav as [v, label, key] (v)}
         <button class:on={view === v} onclick={() => (view = v)} title="{label} (⌘{key})">

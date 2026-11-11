@@ -218,7 +218,7 @@ impl ExportOpts {
     }
 
     fn path() -> PathBuf {
-        dirs::config_dir().unwrap_or_default().join("scan").join("export.json")
+        crate::device::config_dir().join("export.json")
     }
 
     pub fn load() -> ExportOpts {

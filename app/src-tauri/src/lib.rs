@@ -6,9 +6,9 @@ mod history;
 mod printing;
 mod thumbs;
 
-use scan_core::capture::Settings;
-use scan_core::escl::Scanner;
-use scan_core::session::Session;
+use platen_core::capture::Settings;
+use platen_core::escl::Scanner;
+use platen_core::session::Session;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -39,7 +39,7 @@ pub fn run() {
     let state = AppState {
         scanner: Mutex::new(None),
         session: Mutex::new(None),
-        settings: Mutex::new(scan_core::presets::last()),
+        settings: Mutex::new(platen_core::presets::last()),
         picked: Mutex::new(HashSet::new()),
         copy_dir: Mutex::new(None),
         stop: Default::default(),

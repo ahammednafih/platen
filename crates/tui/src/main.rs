@@ -1,8 +1,8 @@
 mod app;
 
-use scan_core::capture::Settings;
-use scan_core::device::{self, connect, default_name, expand};
-use scan_core::{escl, fill, ipp, pdf, session, stitch};
+use platen_core::capture::Settings;
+use platen_core::device::{self, connect, default_name, expand};
+use platen_core::{escl, fill, ipp, pdf, session, stitch};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -80,7 +80,7 @@ fn main() -> Result<()> {
         let t = std::time::Instant::now();
         let mb: f32 = a[2].parse().context("MB must be a number, e.g. 1 or 0.5")?;
         let input = std::fs::read(&a[0])?;
-        let r = scan_core::pdfedit::shrink(&input, (mb * 1_000_000.0) as u64)?;
+        let r = platen_core::pdfedit::shrink(&input, (mb * 1_000_000.0) as u64)?;
         std::fs::write(&a[1], &r.data)?;
         println!(
             "{:.2} MB → {:.2} MB ({}; images at {:.0}% size, quality {}) in {:.1}s",
@@ -106,7 +106,7 @@ fn main() -> Result<()> {
         let printer = ipp::Printer::for_host(s.host());
         if let Some(files) = cli.print {
             let opts = ipp::PrintOpts { copies: cli.copies, color: !cli.gray, ..Default::default() };
-            let job = scan_core::printjob::PrintJob {
+            let job = platen_core::printjob::PrintJob {
                 files,
                 ranges: String::new(),
                 subset: Default::default(),

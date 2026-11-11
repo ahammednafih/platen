@@ -31,7 +31,7 @@ pub struct Saved {
 }
 
 fn saved_path() -> std::path::PathBuf {
-    dirs::config_dir().unwrap_or_default().join("scan").join("button.json")
+    crate::device::config_dir().join("button.json")
 }
 
 pub fn saved() -> Option<Saved> {

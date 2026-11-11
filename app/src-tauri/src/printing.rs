@@ -1,10 +1,10 @@
 //! Print and copy commands. Copies scan into a scratch folder, then print like any file.
 use crate::commands::{blocking, scanner};
 use crate::{AppState, Res, err};
-use scan_core::capture::TopHalf;
-use scan_core::copy::{self, Area};
-use scan_core::ipp::{PrintCaps, Printer};
-use scan_core::printjob::{Plan, PrintJob};
+use platen_core::capture::TopHalf;
+use platen_core::copy::{self, Area};
+use platen_core::ipp::{PrintCaps, Printer};
+use platen_core::printjob::{Plan, PrintJob};
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::ipc::Response;

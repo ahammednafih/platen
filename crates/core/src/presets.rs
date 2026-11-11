@@ -15,7 +15,7 @@ pub struct Preset {
 }
 
 fn dir() -> PathBuf {
-    dirs::config_dir().unwrap_or_default().join("scan")
+    crate::device::config_dir()
 }
 
 fn write(file: &str, bytes: Vec<u8>) {

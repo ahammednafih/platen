@@ -1,6 +1,6 @@
 //! Undo/redo for the open scan. Edits never delete page files (each edit writes a new one), so a
 //! step is just the page list from before it.
-use scan_core::session::Page;
+use platen_core::session::Page;
 
 const LIMIT: usize = 100;
 

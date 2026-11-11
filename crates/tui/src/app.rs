@@ -1,7 +1,7 @@
 //! The TUI: page list, key handling, and background scan jobs.
-use scan_core::capture::{self, Settings, TopHalf, dur};
-use scan_core::escl::Scanner;
-use scan_core::session::{self, ExportOpts, Kind, Page, Session};
+use platen_core::capture::{self, Settings, TopHalf, dur};
+use platen_core::escl::Scanner;
+use platen_core::session::{self, ExportOpts, Kind, Page, Session};
 use anyhow::{Context, Result};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout};
@@ -94,7 +94,7 @@ pub fn run(scanner: Scanner, session: Session, settings: Settings) -> Result<()>
 }
 
 fn spawn_status(scanner: Scanner, tx: Sender<Msg>) {
-    let printer = scan_core::ipp::Printer::for_host(scanner.host());
+    let printer = platen_core::ipp::Printer::for_host(scanner.host());
     let tx2 = tx.clone();
     std::thread::spawn(move || loop {
         if let Ok(st) = printer.status() {

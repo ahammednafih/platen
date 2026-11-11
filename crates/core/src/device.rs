@@ -6,8 +6,24 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, UNIX_EPOCH};
 
-fn config_dir() -> PathBuf {
-    dirs::config_dir().unwrap_or_default().join("scan")
+const APP_DIR: &str = "Platen";
+/// Folder name before the rename; moved over once so settings and presets survive.
+const OLD_APP_DIR: &str = "scan";
+
+/// Settings, presets and the cached device host.
+pub fn config_dir() -> PathBuf {
+    let base = dirs::config_dir().unwrap_or_default();
+    let dir = base.join(APP_DIR);
+    let old = base.join(OLD_APP_DIR);
+    if !dir.exists() && old.is_dir() {
+        let _ = std::fs::rename(&old, &dir);
+    }
+    dir
+}
+
+/// Rebuildable files: page previews and shrink drafts.
+pub fn cache_dir() -> PathBuf {
+    dirs::cache_dir().unwrap_or_default().join(APP_DIR)
 }
 
 /// Explicit host wins; else the cached one if it answers; else browse mDNS and cache it.

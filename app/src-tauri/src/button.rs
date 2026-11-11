@@ -2,9 +2,9 @@
 //! thread running while connected, and scan over the native protocol when a press comes in.
 use crate::commands::{blocking, place, scanner, session_dir, web_host, with_password, PageResult};
 use crate::{AppState, Res};
-use scan_core::button::{self, Saved};
-use scan_core::capture;
-use scan_core::pushscan::{self, SnmpMode};
+use platen_core::button::{self, Saved};
+use platen_core::capture;
+use platen_core::pushscan::{self, SnmpMode};
 use serde::Serialize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

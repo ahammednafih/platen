@@ -1,22 +1,21 @@
 [package]
-name = "scan-app"
+name = "platen-app"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "scan_app_lib"
+name = "platen_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-scan-core.workspace = true
+platen-core.workspace = true
 anyhow.workspace = true
 image.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-dirs.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"

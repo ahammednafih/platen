@@ -7,7 +7,9 @@ use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use std::time::Duration;
 
-const KEYCHAIN_SERVICE: &str = "scan-device-web";
+const KEYCHAIN_SERVICE: &str = "platen-device-web";
+/// Service name before the rename; read as a fallback so a saved password survives.
+const OLD_KEYCHAIN_SERVICE: &str = "scan-device-web";
 const PAGES: [&str; 2] = ["/general/information.html?kind=item", "/net/wireless/wireless.html"];
 /// Already shown elsewhere, or vendor branding.
 const SKIP_ROWS: [&str; 1] = ["Model Name"];
@@ -154,7 +156,8 @@ fn decode(s: &str) -> String {
 
 /// Device password from the login Keychain, if saved.
 pub fn saved_password(host: &str) -> Option<String> {
-    let out = keychain(&["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", host, "-w"]).ok()?;
+    let find = |service| keychain(&["find-generic-password", "-s", service, "-a", host, "-w"]).ok();
+    let out = find(KEYCHAIN_SERVICE).or_else(|| find(OLD_KEYCHAIN_SERVICE))?;
     Some(out.trim_end_matches('\n').to_string()).filter(|p| !p.is_empty())
 }
 
