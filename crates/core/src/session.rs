@@ -275,7 +275,13 @@ fn derive(data: &[u8], dpi: u32, want_share: bool, want_print: bool) -> Result<(
         return Ok((JpegPage { data: share, dpi: target as f32 }, JpegPage { data: Vec::new(), dpi: target as f32 }));
     }
     let mut gray: GrayImage = imageops::grayscale(&img);
-    // Push cream paper to white, keep ink dark (like `-level 25%,76%,0.9`).
+    whiten(&mut gray);
+    let print = encode_gray(&gray, 88)?;
+    Ok((JpegPage { data: share, dpi: target as f32 }, JpegPage { data: print, dpi: target as f32 }))
+}
+
+/// The print treatment: push cream or gray paper to white, keep ink dark (like `-level 25%,76%,0.9`).
+pub fn whiten(gray: &mut GrayImage) {
     let lut: Vec<u8> = (0..256)
         .map(|v| {
             let t = ((v as f32 / 255.0 - 0.25) / (0.76 - 0.25)).clamp(0.0, 1.0);
@@ -283,8 +289,6 @@ fn derive(data: &[u8], dpi: u32, want_share: bool, want_print: bool) -> Result<(
         })
         .collect();
     gray.pixels_mut().for_each(|p| p[0] = lut[p[0] as usize]);
-    let print = encode_gray(&gray, 88)?;
-    Ok((JpegPage { data: share, dpi: target as f32 }, JpegPage { data: print, dpi: target as f32 }))
 }
 
 pub fn encode_rgb(img: &image::RgbImage, q: u8) -> Result<Vec<u8>> {

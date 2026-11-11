@@ -42,7 +42,7 @@ export type Area = { Size: SizeId } | "HalfTop";
 export interface PrintOpts { copies: number; color: boolean; media: string; scaling: string; quality: Quality }
 export interface PrintJob {
   files: string[]; ranges: string; subset: Subset; reverse: boolean;
-  nup: number; scale: Scale; collate: boolean; opts: PrintOpts;
+  nup: number; scale: Scale; collate: boolean; clean?: boolean; opts: PrintOpts;
 }
 export interface PrintCaps { media: string[]; media_default: string; color: boolean; qualities: Quality[]; max_copies: number; duplex: boolean }
 export type SnmpMode = "ReadWrite" | "ReadOnly" | "Off";

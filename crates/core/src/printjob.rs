@@ -24,6 +24,9 @@ pub struct PrintJob {
     pub scale: Scale,
     /// With several copies: whole sets (1,2,3, 1,2,3) instead of 1,1, 2,2, 3,3.
     pub collate: bool,
+    /// With `opts.color` off: whiten the paper and keep ink dark, instead of the printer's plain gray.
+    #[serde(default)]
+    pub clean: bool,
     pub opts: PrintOpts,
 }
 
@@ -74,10 +77,13 @@ impl PrintJob {
         };
         let img = sheet::compose(&pages, self.nup, self.scale, self.paper(), dpi);
         if self.opts.color {
-            session::encode_rgb(&img, 90)
-        } else {
-            session::encode_gray(&image::imageops::grayscale(&img), 90)
+            return session::encode_rgb(&img, 90);
         }
+        let mut gray = image::imageops::grayscale(&img);
+        if self.clean {
+            session::whiten(&mut gray);
+        }
+        session::encode_gray(&gray, 90)
     }
 
     /// Render and send every sheet; `progress(done, total)` runs after each job is accepted.
@@ -131,7 +137,7 @@ mod tests {
             })
             .collect();
         let opts = PrintOpts { copies: 2, color: false, media: "iso_a4_210x297mm".into(), scaling: "fit".into(), quality: Quality::Normal };
-        let job = PrintJob { files, ranges: "1-5".into(), subset: Subset::Even, reverse: false, nup: 2, scale: Scale::Fit, collate: true, opts };
+        let job = PrintJob { files, ranges: "1-5".into(), subset: Subset::Even, reverse: false, nup: 2, scale: Scale::Fit, collate: true, clean: false, opts };
 
         let plan = job.plan().unwrap();
         let blank = job.sheet(&plan, None, 20).unwrap();

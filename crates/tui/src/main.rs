@@ -105,7 +105,7 @@ fn main() -> Result<()> {
         let s = connect_noisy(cli.host.as_deref())?;
         let printer = ipp::Printer::for_host(s.host());
         if let Some(files) = cli.print {
-            let opts = ipp::PrintOpts { copies: cli.copies, color: !cli.gray, ..Default::default() };
+            let opts = ipp::PrintOpts { copies: cli.copies, color: !(cli.gray || cli.bw), ..Default::default() };
             let job = platen_core::printjob::PrintJob {
                 files,
                 ranges: String::new(),
@@ -114,6 +114,7 @@ fn main() -> Result<()> {
                 nup: 1,
                 scale: Default::default(),
                 collate: true,
+                clean: cli.bw,
                 opts,
             };
             let jobs = job.run(&printer, "scan", |d, n| eprintln!("sent {d}/{n}"))?;

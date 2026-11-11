@@ -23,7 +23,10 @@
   let pct = $state(100);
   let copies = $state(1);
   let collate = $state(true);
-  let color = $state(true);
+  // Colour, the printer's own gray, or our clean black on white (paper whitened, ink kept dark).
+  let tone = $state<"Colour" | "Gray" | "B&W">("Colour");
+  const color = $derived(tone === "Colour");
+  const clean = $derived(tone === "B&W");
   let media = $state("iso_a4_210x297mm");
   let quality = $state<Quality>("Normal");
   let twoSided = $state(false);
@@ -47,7 +50,7 @@
 
   function job(over: Partial<PrintJob> = {}): PrintJob {
     return {
-      files: $state.snapshot(files), ranges, subset: "All", reverse, nup, scale, collate,
+      files: $state.snapshot(files), ranges, subset: "All", reverse, nup, scale, collate, clean,
       opts: { copies, color, media, scaling: "fit", quality },
       ...over,
     };
@@ -58,7 +61,7 @@
     api.printCaps().then((c) => {
       caps = c;
       if (!c.media.includes(media)) media = c.media_default;
-      if (!c.color) color = false;
+      if (!c.color && tone === "Colour") tone = "Gray";
     }).catch(() => {});
   });
 
@@ -94,7 +97,7 @@
   $effect(() => {
     // Built by hand so picking pages (ranges) doesn't re-render every preview.
     const j: PrintJob = {
-      files: $state.snapshot(files), ranges: "", subset: "All", reverse: false, nup: 1, scale, collate: true,
+      files: $state.snapshot(files), ranges: "", subset: "All", reverse: false, nup: 1, scale, collate: true, clean,
       opts: { copies: 1, color, media, scaling: "fit", quality },
     };
     if (!j.files.length) {
@@ -454,8 +457,9 @@
           </select>
           <span class="label">Colour</span>
           <div class="seg">
-            <button class:on={color} onclick={() => (color = true)} disabled={caps ? !caps.color : false}>Colour</button>
-            <button class:on={!color} onclick={() => (color = false)}>B&W</button>
+            <button class:on={tone === "Colour"} onclick={() => (tone = "Colour")} disabled={caps ? !caps.color : false}>Colour</button>
+            <button class:on={tone === "Gray"} onclick={() => (tone = "Gray")} title="Shades of gray, as the printer renders them">Gray</button>
+            <button class:on={tone === "B&W"} onclick={() => (tone = "B&W")} title="Clean black on white: paper pushed to white, ink kept dark. Best for scanned documents">B&W</button>
           </div>
           <span class="label">Quality</span>
           <div class="seg">
