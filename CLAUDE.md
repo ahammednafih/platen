@@ -46,4 +46,4 @@ Contribution rules: `CONTRIBUTING.md`.
 - The device password is in the Keychain under `platen-device-web` (old name `scan-device-web` is read
   as a fallback), through the Keychain API, never the `security` command line.
 - Searchable PDF shells out to Tesseract (`core/src/ocr.rs`): a text-only PDF per page at 300 dpi,
-  merged over our pages with lopdf. Uses eng+mal when `mal.traineddata` is installed.
+  merged over our pages with lopdf. Reads English unless `<config>/Platen/ocr-languages` lists others.

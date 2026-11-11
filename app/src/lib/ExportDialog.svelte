@@ -17,7 +17,9 @@
     if (!langs.length) opts.searchable = false;
   });
 
-  const langName: Record<string, string> = { eng: "English", mal: "Malayalam" };
+  // Tesseract uses three-letter codes; show the language's name where the system knows it.
+  const names = new Intl.DisplayNames(undefined, { type: "language" });
+  const langName = (code: string) => { try { return names.of(code.split("_")[0]) ?? code; } catch { return code; } };
   const anyPdf = $derived(!!opts && (opts.color || opts.share || opts.print));
 
   type Flag = Exclude<keyof ExportOpts, "max_mb">;
@@ -103,7 +105,7 @@
           <span><strong>Searchable PDFs</strong> <span class="muted">—
             {#if langs === null}checking for text recognition…
             {:else if !langs.length}needs Tesseract (<code>brew install tesseract</code>)
-            {:else}recognise {langs.map((l) => langName[l] ?? l).join(" and ")} text so it can be found and copied{/if}
+            {:else}recognise {langs.map(langName).join(" and ")} text so it can be found and copied{/if}
           </span></span>
         </label>
       </fieldset>

@@ -7,8 +7,21 @@ use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Languages used when installed, in Tesseract's naming.
-const WANTED: [&str; 2] = ["eng", "mal"];
+/// Read English unless `<config>/Platen/ocr-languages` lists others: Tesseract language codes
+/// separated by spaces, commas, `+` or new lines (for example `eng deu`).
+const DEFAULT_LANGS: [&str; 1] = ["eng"];
+const LANGS_FILE: &str = "ocr-languages";
+
+fn wanted() -> Vec<String> {
+    let listed = std::fs::read_to_string(crate::device::config_dir().join(LANGS_FILE)).unwrap_or_default();
+    let langs = parse_langs(&listed);
+    if langs.is_empty() { DEFAULT_LANGS.map(String::from).to_vec() } else { langs }
+}
+
+fn parse_langs(text: &str) -> Vec<String> {
+    let ok = |l: &&str| !l.is_empty() && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    text.split([' ', ',', '+', '\n', '\t', '\r']).filter(ok).map(str::to_string).collect()
+}
 /// Tesseract is most accurate around 300 dpi; more only costs time.
 const OCR_DPI: u32 = 300;
 
@@ -22,7 +35,7 @@ impl Ocr {
         let exe = executable().context("Searchable PDF needs Tesseract — install it with `brew install tesseract`")?;
         let langs = installed(&exe);
         if langs.is_empty() {
-            bail!("Tesseract has no English or Malayalam data installed");
+            bail!("Tesseract has no data installed for {}", wanted().join(", "));
         }
         Ok(Ocr { exe, langs })
     }
@@ -125,7 +138,7 @@ pub fn parse_tsv(tsv: &str, w: f32, h: f32) -> PageText {
     page
 }
 
-/// Languages from `WANTED` that this machine's Tesseract has; empty when it isn't installed.
+/// The wanted languages that this machine's Tesseract has; empty when it isn't installed.
 pub fn languages() -> Vec<String> {
     executable().map(|e| installed(&e)).unwrap_or_default()
 }
@@ -142,7 +155,7 @@ fn executable() -> Option<PathBuf> {
 fn installed(exe: &Path) -> Vec<String> {
     let out = Command::new(exe).arg("--list-langs").output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
     let have: Vec<&str> = out.lines().map(str::trim).collect();
-    WANTED.iter().filter(|l| have.contains(l)).map(|l| l.to_string()).collect()
+    wanted().into_iter().filter(|l| have.contains(&l.as_str())).collect()
 }
 
 /// Lay each text-only PDF over the matching page of `pdf`, scaled to its MediaBox.
@@ -231,6 +244,12 @@ mod tests {
         rect(640, y, s, 200); rect(736, y, s, 200);
         for i in 0..200 { rect(640 + i * 96 / 200, y + i, s, 1); }
         img
+    }
+
+    #[test]
+    fn language_list_takes_any_separator_and_drops_junk() {
+        assert_eq!(parse_langs("eng, deu+fra\nchi_sim  ../x"), ["eng", "deu", "fra", "chi_sim"]);
+        assert!(parse_langs(" \n").is_empty());
     }
 
     #[test]

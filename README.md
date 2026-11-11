@@ -77,6 +77,9 @@ brew install tesseract          # English
 brew install tesseract-lang     # other languages
 ```
 
+Platen reads English by default. For other languages, list their Tesseract codes in
+`~/Library/Application Support/Platen/ocr-languages`, for example `eng deu`.
+
 ## Using the printer's Scan button
 
 Out of the box, pressing Scan on the printer does nothing useful without the vendor app running.
