@@ -49,7 +49,7 @@ pub(crate) fn scanner(st: &AppState) -> Res<Scanner> {
     st.scanner.lock().unwrap().clone().ok_or_else(|| "Not connected to a scanner".into())
 }
 
-fn session_dir(st: &AppState) -> Res<PathBuf> {
+pub(crate) fn session_dir(st: &AppState) -> Res<PathBuf> {
     st.session.lock().unwrap().as_ref().map(|s| s.dir.clone()).ok_or_else(|| "No session open".into())
 }
 
@@ -70,7 +70,7 @@ pub struct PageResult {
 }
 
 /// Put a captured page at `replace`, else insert at `at`, else append.
-fn place(st: &AppState, c: Captured, replace: Option<usize>, at: Option<usize>) -> Res<PageResult> {
+pub(crate) fn place(st: &AppState, c: Captured, replace: Option<usize>, at: Option<usize>) -> Res<PageResult> {
     let mut index = 0;
     let session = edit(st, |pages| {
         index = match replace {
@@ -90,10 +90,11 @@ fn place(st: &AppState, c: Captured, replace: Option<usize>, at: Option<usize>) 
 }
 
 #[tauri::command]
-pub async fn connect(st: State<'_, AppState>, host: Option<String>) -> Res<Device> {
+pub async fn connect(app: tauri::AppHandle, st: State<'_, AppState>, host: Option<String>) -> Res<Device> {
     let s = blocking(move || device::connect(host.as_deref())).await?;
     let d = Device { name: s.name.clone(), host: s.host().to_string() };
     *st.scanner.lock().unwrap() = Some(s);
+    crate::button::resume(&app, &st, d.host.split(':').next().unwrap_or_default());
     Ok(d)
 }
 
@@ -326,7 +327,7 @@ pub async fn shrink_pdf(st: State<'_, AppState>, path: PathBuf, max_mb: f32) -> 
 }
 
 /// Device web UI host: the scanner's host without the port.
-fn web_host(st: &AppState) -> Res<String> {
+pub(crate) fn web_host(st: &AppState) -> Res<String> {
     Ok(scanner(st)?.host().split(':').next().unwrap_or_default().to_string())
 }
 
@@ -339,7 +340,7 @@ pub async fn device_details(st: State<'_, AppState>, password: Option<String>) -
 }
 
 /// Runs `f` with the device password: the typed one (saved to the Keychain once it works) or the saved one.
-fn with_password<T>(host: &str, password: Option<String>, f: impl FnOnce(&str) -> anyhow::Result<T>) -> anyhow::Result<T> {
+pub(crate) fn with_password<T>(host: &str, password: Option<String>, f: impl FnOnce(&str) -> anyhow::Result<T>) -> anyhow::Result<T> {
     let typed = password.is_some();
     let pw = password.or_else(|| webui::saved_password(host)).ok_or_else(|| anyhow::anyhow!("needs-password"))?;
     match f(&pw) {
@@ -347,13 +348,6 @@ fn with_password<T>(host: &str, password: Option<String>, f: impl FnOnce(&str) -
         Ok(v) if typed => webui::save_password(host, &pw).map(|_| v),
         other => other,
     }
-}
-
-/// SNMP access on the device; the Scan button needs read-write.
-#[tauri::command]
-pub async fn snmp_access(st: State<'_, AppState>, password: Option<String>) -> Res<pushscan::SnmpAccess> {
-    let host = web_host(&st)?;
-    blocking(move || with_password(&host, password, |pw| pushscan::snmp_access(&host, pw))).await
 }
 
 /// Switch the device's SNMP v1/v2c to read-write through its web UI.

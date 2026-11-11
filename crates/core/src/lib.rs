@@ -1,5 +1,6 @@
 //! Driverless scanning, stitching, printing and export for AirScan/AirPrint devices.
 pub mod adjust;
+pub mod button;
 pub mod capture;
 pub mod copy;
 pub mod device;
@@ -15,6 +16,7 @@ pub mod pushscan;
 pub mod printjob;
 pub mod render;
 pub mod session;
+pub mod snmp;
 pub mod sheet;
 pub mod stitch;
 pub mod webui;

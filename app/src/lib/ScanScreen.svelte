@@ -1,12 +1,16 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { api, covered, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
   import AdjustDialog from "./AdjustDialog.svelte";
   import LongPageWizard from "./LongPageWizard.svelte";
   import Lightbox from "./Lightbox.svelte";
 
-  let { session = $bindable(), connected, onexport, onclose }: {
+  let { session = $bindable(), connected, press = null, onpressed = () => {}, onexport, onclose }: {
     session: SessionView;
     connected: boolean;
+    /// A press of the device's Scan button, cleared with `onpressed` once taken.
+    press?: number | null;
+    onpressed?: () => void;
     onexport: () => void;
     onclose: () => void;
   } = $props();
@@ -54,6 +58,16 @@
       () => api.scanA4({ replace, at: insertAt }));
     if (r) landed(r);
   }
+
+  // A second press while scanning is dropped; the device gives up on it by itself.
+  $effect(() => {
+    if (press === null) return;
+    onpressed();
+    untrack(() => {
+      if (busy) return;
+      run("Scanning from the device button", () => api.scanButton(insertAt)).then((r) => r && landed(r));
+    });
+  });
 
   function retake(i: number) {
     if (session.pages[i].kind === "Long") wizard = { replace: i };

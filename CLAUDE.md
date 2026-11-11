@@ -18,4 +18,7 @@ Driverless scan/copy/print for AirScan + AirPrint printers. Plan and milestone s
   over our pages with lopdf. Uses eng+mal when installed (`mal.traineddata` in Homebrew's tessdata).
 - Device details (`core/src/webui.rs`) log in to the web UI over HTTPS only (self-signed); password field name
   is read from the form, success = `AuthCookie`. Password lives in the Keychain (`scan-device-web`). CSV export 403s.
+- Web UI settings forms: POST with a `Referer` from the device's own page (else 403); mode changes return a
+  "restart now?" page whose hidden fields go to `?pc=2`. Notes on the Scan button in `docs/PLAN.md` (M6).
+- After a Scan-button press the device refuses eSCL (HTTP 500) until the scan; button scans use `native`.
 - Don't `cargo fmt` the app crate or reformat `tauri.conf.json` — neither is formatter-clean; keep diffs to your change.

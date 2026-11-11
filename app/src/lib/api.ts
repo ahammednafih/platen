@@ -45,7 +45,8 @@ export interface PrintJob {
 }
 export interface PrintCaps { media: string[]; media_default: string; color: boolean; qualities: Quality[]; max_copies: number; duplex: boolean }
 export type SnmpMode = "ReadWrite" | "ReadOnly" | "Off";
-export interface SnmpAccess { mode: SnmpMode; set_community: string }
+export interface ButtonStatus { snmp: SnmpMode; destination: string | null; name: string; on: boolean }
+export interface Press { func: string; seq: number }
 export interface Plan { pages: number; picked: number; sheets: number; order: (number | null)[] }
 export interface Progress { done: number; total: number }
 
@@ -90,8 +91,11 @@ export const api = {
   copyLongBottom: (top: TopHalf, color: boolean) => invoke<string>("copy_long_bottom", { top, color }),
   copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
   deviceDetails: (password?: string) => invoke<DetailGroup[]>("device_details", { password }),
-  snmpAccess: (password?: string) => invoke<SnmpAccess>("snmp_access", { password }),
   enableSnmpWrite: (password?: string) => invoke<void>("enable_snmp_write", { password }),
+  buttonStatus: (password?: string) => invoke<ButtonStatus>("button_status", { password }),
+  buttonEnable: (password?: string) => invoke<void>("button_enable", { password }),
+  buttonDisable: () => invoke<void>("button_disable"),
+  scanButton: (at?: number) => invoke<PageResult>("scan_button", { at }),
   pageText: (file: string) => invoke<PageText>("page_text", { file }),
   stopJob: () => invoke<number>("stop_job"),
   copyTone: (files: string[], density: number, background: number) => invoke<string[]>("copy_tone", { files, density, background }),

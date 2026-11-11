@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { api, type Device, type DeviceStatus } from "./api";
   import DeviceDetails from "./DeviceDetails.svelte";
@@ -13,11 +14,13 @@
   let host = $state("");
   let editing = $state(false);
   let details = $state(false);
+  let buttonError = $state("");
 
   async function connect(h?: string) {
     busy = true;
     error = "";
     try {
+      buttonError = "";
       device = await api.connect(h || undefined);
       connected = true;
       editing = false;
@@ -42,7 +45,8 @@
   onMount(() => {
     connect();
     const t = setInterval(refresh, 5000);
-    return () => clearInterval(t);
+    const un = listen<string>("button-error", (e) => (buttonError = e.payload));
+    return () => { clearInterval(t); un.then((f) => f()); };
   });
 
   const inkColor: Record<string, string> = { black: "#2b2b2b", cyan: "#1ba1d6", magenta: "#d6338a", yellow: "#e9c21b" };
@@ -82,6 +86,9 @@
 
   {#if error}
     <p class="error small">{error}</p>
+  {/if}
+  {#if buttonError}
+    <p class="error small" title={buttonError}>Scan button stopped: {buttonError}</p>
   {/if}
   {#if editing || (error && !device)}
     <form class="host" onsubmit={(e) => { e.preventDefault(); connect(host); }}>

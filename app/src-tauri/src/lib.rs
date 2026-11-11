@@ -1,4 +1,5 @@
 //! Tauri shell over scan-core: shared state, commands, and the `scanimg://` thumbnail protocol.
+mod button;
 mod commands;
 mod printing;
 mod thumbs;
@@ -20,6 +21,8 @@ pub struct AppState {
     copy_dir: Mutex<Option<PathBuf>>,
     /// Set by Stop; copy scans and print jobs check it.
     stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Stop flag of the Scan-button listener, while one runs.
+    button: Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 type Res<T> = Result<T, String>;
@@ -36,6 +39,7 @@ pub fn run() {
         picked: Mutex::new(HashSet::new()),
         copy_dir: Mutex::new(None),
         stop: Default::default(),
+        button: Mutex::new(None),
     };
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -82,8 +86,11 @@ pub fn run() {
             printing::copy_tone,
             printing::stop_job,
             commands::device_details,
-            commands::snmp_access,
             commands::enable_snmp_write,
+            button::button_status,
+            button::button_enable,
+            button::button_disable,
+            button::scan_button,
             commands::page_text,
         ])
         .run(tauri::generate_context!())

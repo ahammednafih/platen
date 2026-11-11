@@ -45,9 +45,19 @@ pub struct TopHalf {
 }
 
 pub fn scan_a4(scanner: &Scanner, s: Settings, dir: &Path) -> Result<Captured> {
+    store(s, dir, || scanner.scan(s.opts(Kind::A4)))
+}
+
+/// A page started by the device's Scan button: the device refuses eSCL while it waits, so this
+/// goes over the native protocol.
+pub fn scan_button(scanner: &Scanner, s: Settings, dir: &Path) -> Result<Captured> {
+    store(s, dir, || crate::native::scan(scanner.host(), s.opts(Kind::A4)))
+}
+
+fn store(s: Settings, dir: &Path, grab: impl FnOnce() -> Result<Vec<u8>>) -> Result<Captured> {
     let opts = s.opts(Kind::A4);
     let t0 = Instant::now();
-    let data = scanner.scan(opts)?;
+    let data = grab()?;
     let secs = t0.elapsed().as_secs_f32();
     let data = finish(data, s)?;
     let (w, h, _) = jpeg_info(&data).context("scanner sent a bad image")?;

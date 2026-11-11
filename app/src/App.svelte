@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import CopyScreen from "./lib/CopyScreen.svelte";
   import DevicePanel from "./lib/DevicePanel.svelte";
@@ -18,6 +20,19 @@
   let exporting = $state(false);
   let view = $state<View>("scan");
   let help = $state(false);
+  // A Scan-button press waiting for the scan screen to pick it up.
+  let press = $state<number | null>(null);
+
+  // The device waits for this Mac after a press, so open a session and go to Scan right away.
+  onMount(() => {
+    const un = listen<{ seq: number }>("button-press", async (e) => {
+      if (exporting) return;
+      view = "scan";
+      if (!session) session = await api.openSession();
+      press = e.payload.seq;
+    });
+    return () => { un.then((f) => f()); };
+  });
 
   type Theme = "system" | "light" | "dark";
   const stored = (): Theme => { try { return (localStorage.getItem("theme") as Theme) || "system"; } catch { return "system"; } };
@@ -115,7 +130,7 @@
       <div class="with-pane">
         <div class="col">
           {#if session}
-            <ScanScreen bind:session {connected} onexport={() => (exporting = true)} onclose={close} />
+            <ScanScreen bind:session {connected} {press} onpressed={() => (press = null)} onexport={() => (exporting = true)} onclose={close} />
           {:else}
             <Start onopen={(s) => (session = s)} />
           {/if}
