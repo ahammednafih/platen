@@ -38,7 +38,7 @@ CI runs the same two checks.
 | Talking to the device, image work, PDFs | `crates/core`, with a test beside the code |
 | A new app command | `app/src-tauri/src`, registered in `lib.rs`, with a typed wrapper in `app/src/lib/api.ts` |
 | Screens and dialogs | `app/src/lib` |
-| How a device protocol behaves | `docs/PLAN.md`, so the next person doesn't rediscover it |
+| How a device protocol behaves | `docs/protocols.md`, so the next person doesn't rediscover it |
 
 ## Ground rules
 

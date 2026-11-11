@@ -136,7 +136,7 @@ cd app && pnpm check              # frontend type check
 | `crates/core` | The library: scanning (eSCL and the native protocol), printing (IPP), stitching, PDF writing, OCR, sessions, the Scan button. |
 | `crates/tui` | The `platen` command-line app. |
 | `app` | The desktop app: Tauri 2 with a Svelte 5 frontend. Commands live in `app/src-tauri/src`. |
-| `docs/PLAN.md` | Design notes, including how the vendor protocols work. |
+| `docs/protocols.md` | How the device protocols behave, including the vendor-specific ones. |
 
 ### Releasing
 

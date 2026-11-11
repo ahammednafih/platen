@@ -1,7 +1,7 @@
 # Platen
 
 Driverless scan, copy and print for AirScan + AirPrint printers. User-facing overview: `README.md`.
-Design notes and the vendor protocol write-ups: `docs/PLAN.md` (read only the section you need).
+How the device protocols behave: `docs/protocols.md`. Local planning notes, if present: `docs/PLAN.md` (not in the repo).
 Contribution rules: `CONTRIBUTING.md`.
 
 ## Commands
@@ -38,7 +38,7 @@ Contribution rules: `CONTRIBUTING.md`.
   (`core/src/native.rs`, TCP 54921). Inquiry and scan must share one connection, else `-NG 401`.
   A full page at 1200 dpi takes about 2m20s and 40 MB.
 - After a Scan-button press the device refuses eSCL (HTTP 500) until a scan starts; button scans use
-  `native`. Protocol notes: `docs/PLAN.md`, M6.
+  `native`. Details: `docs/protocols.md`.
 - Web UI (`core/src/webui.rs`, `pushscan.rs`): HTTPS only, self-signed. The password field's name is read
   from the form; success sets `AuthCookie`. Settings forms need a `Referer` from the device's own page
   (403 without). A mode change returns a "restart now?" page whose hidden fields go to `?pc=2`.
