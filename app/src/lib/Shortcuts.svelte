@@ -38,7 +38,8 @@
 </div>
 
 <style>
-  .dialog { width: 420px; display: grid; gap: 14px; }
+  .dialog { width: min(420px, 92vw); max-height: 88vh; overflow-y: auto; padding: 20px 22px; display: grid; gap: 14px; }
+  h2 { margin: 0; }
   dl { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; margin: 6px 0 0; }
   dt, dd { margin: 0; }
   kbd { font: inherit; font-size: 12px; color: var(--muted); }
