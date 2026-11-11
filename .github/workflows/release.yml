@@ -1,0 +1,61 @@
+# Push a tag like v0.3.0 to build the app and publish a GitHub release with the .dmg and the CLI.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag must match the app version
+        run: |
+          version=$(node -p "require('./app/package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match app/package.json version $version"
+            exit 1
+          fi
+
+      - uses: jdx/mise-action@v2
+      - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Build the app (Apple silicon + Intel)
+        working-directory: app
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm tauri build --target universal-apple-darwin
+
+      - name: Build the CLI (Apple silicon + Intel)
+        run: |
+          cargo build --release -p platen-cli --target aarch64-apple-darwin --target x86_64-apple-darwin
+          lipo -create -output platen target/aarch64-apple-darwin/release/platen target/x86_64-apple-darwin/release/platen
+          tar -czf "platen-cli-$GITHUB_REF_NAME-macos-universal.tar.gz" platen
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --generate-notes \
+            target/universal-apple-darwin/release/bundle/dmg/*.dmg \
+            platen-cli-*.tar.gz
