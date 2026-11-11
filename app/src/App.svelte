@@ -145,6 +145,8 @@
   nav button { justify-content: flex-start; border: none; background: none; height: 28px; padding: 0 8px; color: var(--muted); gap: 10px; }
   nav button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   nav button.on { background: var(--hover); color: var(--text); }
+  nav button svg { transition: color 0.14s var(--ease); }
+  nav button.on svg { color: var(--accent); }
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
   .theme { margin: 0 4px 4px; }
