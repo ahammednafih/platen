@@ -14,7 +14,7 @@ export interface Size { id: SizeId; name: string; w_mm: number; h_mm: number }
 export interface Settings { dpi: number; mode: ColorMode; fill: Fill; size: SizeId }
 export interface Preset { name: string; settings: Settings; builtin: boolean }
 export interface Caps { resolutions: number[]; modes: ColorMode[]; sizes: Size[] }
-export interface Page { file: string; kind: Kind; dpi: number; w: number; h: number; secs: number }
+export interface Page { file: string; kind: Kind; dpi: number; w: number; h: number; secs: number; color?: string | null }
 export interface SessionView { name: string; dir: string; pages: Page[]; can_undo?: boolean; can_redo?: boolean }
 export interface PageResult { session: SessionView; index: number; note: string }
 export interface TopHalf { path: string; stem: string; secs: number }
@@ -28,7 +28,7 @@ export interface ExportOpts {
   cleanup: boolean; open_pdf: boolean; open_folder: boolean;
   max_mb: number | null; searchable: boolean;
 }
-export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop" | "Gray" | "BlackWhite"
+export type Edit = "RotateLeft" | "RotateRight" | "Rotate180" | "Straighten" | "Crop" | "Gray" | "BlackWhite" | "Colour"
   | { CropTo: { x: number; y: number; w: number; h: number } }
   | { Levels: { brightness: number; contrast: number } };
 export interface Saved { session: string; name: string; path: string; bytes: number; modified: number }

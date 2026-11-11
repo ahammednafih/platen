@@ -22,6 +22,10 @@ pub struct Page {
     /// Machine time for this page (scans + join), excluding waiting on the user.
     #[serde(default)]
     pub secs: f32,
+    /// The colour image this page was made gray or black and white from, so it can go back.
+    /// Later edits are applied to it too.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 impl Page {
@@ -379,7 +383,7 @@ mod tests {
         let mut s = Session::open(dir.clone()).unwrap();
         let img = image::RgbImage::from_pixel(620, 877, image::Rgb([230, 220, 200]));
         std::fs::write(s.dir.join("pages/a.jpg"), encode_rgb(&img, 90).unwrap()).unwrap();
-        s.pages.push(Page { file: "a.jpg".into(), kind: Kind::A4, dpi: 75, w: 620, h: 877, secs: 1.0 });
+        s.pages.push(Page { file: "a.jpg".into(), kind: Kind::A4, dpi: 75, w: 620, h: 877, secs: 1.0, color: None });
         s.save().unwrap();
 
         let opts = ExportOpts { color: false, share: true, print: true, images: true, cleanup: true, open_pdf: false, open_folder: false, max_mb: None, searchable: false };

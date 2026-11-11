@@ -104,7 +104,7 @@
   const editLabels: Record<string, string> = {
     RotateLeft: "Rotating", RotateRight: "Rotating", Rotate180: "Rotating",
     Straighten: "Straightening", Crop: "Cropping", CropTo: "Cropping", Levels: "Adjusting",
-    Gray: "Converting", BlackWhite: "Converting",
+    Gray: "Converting", BlackWhite: "Converting", Colour: "Converting",
   };
 
   async function edit(i: number, e: Edit) {
@@ -269,8 +269,11 @@
       <div class="group">
         <button class="ghost small" title="Paint torn or cut-away edges" onclick={() => fill(i)} disabled={!!busy}>{@html icon.fill} Fill</button>
         <button class="ghost small" title="Brightness and contrast" onclick={() => (adjusting = i)} disabled={!!busy}>{@html icon.adjust} Adjust</button>
-        <button class="ghost small" title="Make this page black and white (undo with ⌘Z)" onclick={() => edit(i, "BlackWhite")} disabled={!!busy}>{@html icon.bw} B&W</button>
-        <button class="ghost small" title="Make this page gray (undo with ⌘Z)" onclick={() => edit(i, "Gray")} disabled={!!busy}>Gray</button>
+        <button class="ghost small" title="Make this page black and white" onclick={() => edit(i, "BlackWhite")} disabled={!!busy}>{@html icon.bw} B&W</button>
+        <button class="ghost small" title="Make this page gray" onclick={() => edit(i, "Gray")} disabled={!!busy}>Gray</button>
+        {#if p.color}
+          <button class="ghost small" title="Back to the colour scan this page was made from" onclick={() => edit(i, "Colour")} disabled={!!busy}>Colour</button>
+        {/if}
       </div>
       <span class="grow"></span>
       <button class="ghost small danger" title="Delete (⌫)" onclick={() => remove(i)} disabled={!!busy}>{@html icon.trash} Delete</button>

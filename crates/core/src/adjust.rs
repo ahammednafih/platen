@@ -2,7 +2,7 @@
 use crate::capture::{Captured, black_and_white};
 use crate::fill::{self, Fill};
 use crate::session::{self, Page, Session};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use image::{DynamicImage, GrayImage, Rgb, RgbImage, imageops};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -20,21 +20,49 @@ pub enum Edit {
     CropTo { x: f32, y: f32, w: f32, h: f32 },
     Gray,
     BlackWhite,
+    /// Back to the colour image a gray or black-and-white page was made from.
+    Colour,
     /// Same maths as CSS `brightness(b) contrast(c)`, so the UI preview matches.
     Levels { brightness: f32, contrast: f32 },
 }
 
 /// Apply `edit` to a page, writing a new file so thumbnail URLs never go stale.
 pub fn edit_page(dir: &Path, page: &Page, edit: Edit) -> Result<Captured> {
-    let src = image::open(dir.join("pages").join(&page.file))?;
-    let gray = matches!(src, DynamicImage::ImageLuma8(_)) || matches!(edit, Edit::Gray | Edit::BlackWhite);
+    let pages = dir.join("pages");
+    let tone = matches!(edit, Edit::Gray | Edit::BlackWhite);
+    if edit == Edit::Colour {
+        return back_to_colour(&pages, page);
+    }
+    // Gray and B&W always start from the colour original, so switching between them loses nothing.
+    let from = if tone { page.color.as_deref().unwrap_or(&page.file) } else { &page.file };
+    let src = image::open(pages.join(from))?;
+    let was_gray = matches!(src, DynamicImage::ImageLuma8(_));
     let (img, note) = apply(src.to_rgb8(), edit)?;
-    let data = if gray { session::encode_gray(&imageops::grayscale(&img), 90)? } else { session::encode_rgb(&img, 92)? };
-    let mut page = page.clone();
-    page.file = format!("{}.jpg", Session::new_stem());
-    (page.w, page.h) = img.dimensions();
-    std::fs::write(dir.join("pages").join(&page.file), data)?;
-    Ok(Captured { page, note })
+    let data = if was_gray || tone { session::encode_gray(&imageops::grayscale(&img), 90)? } else { session::encode_rgb(&img, 92)? };
+    let mut out = page.clone();
+    out.file = format!("{}.jpg", Session::new_stem());
+    (out.w, out.h) = img.dimensions();
+    std::fs::write(pages.join(&out.file), data)?;
+    out.color = match (&page.color, tone) {
+        (_, true) => (!was_gray).then(|| from.to_string()),
+        (Some(c), false) => mirror(&pages, c, edit),
+        (None, false) => None,
+    };
+    Ok(Captured { page: out, note })
+}
+
+fn back_to_colour(pages: &Path, page: &Page) -> Result<Captured> {
+    let file = page.color.clone().context("this page has no colour version")?;
+    let (w, h) = image::image_dimensions(pages.join(&file))?;
+    Ok(Captured { page: Page { file, w, h, color: None, ..page.clone() }, note: "back to colour".into() })
+}
+
+/// Repeat an edit on the kept colour original; if it can't be repeated, stop offering colour.
+fn mirror(pages: &Path, color: &str, edit: Edit) -> Option<String> {
+    let (img, _) = apply(image::open(pages.join(color)).ok()?.to_rgb8(), edit).ok()?;
+    let file = format!("{}c.jpg", Session::new_stem());
+    std::fs::write(pages.join(&file), session::encode_rgb(&img, 92).ok()?).ok()?;
+    Some(file)
 }
 
 /// Where the paper is on a page, as fractions `(x, y, w, h)`; `None` when no dark lid shows.
@@ -71,6 +99,7 @@ pub fn apply(img: RgbImage, edit: Edit) -> Result<(RgbImage, String)> {
             }
             (imageops::crop_imm(&img, x, y, w, h).to_image(), "cropped".into())
         }
+        Edit::Colour => bail!("this page has no colour version"),
         Edit::Gray => (DynamicImage::ImageLuma8(imageops::grayscale(&img)).to_rgb8(), "made gray".into()),
         Edit::BlackWhite => (DynamicImage::ImageLuma8(crate::capture::black_and_white(&img)).to_rgb8(), "made black and white".into()),
         Edit::Levels { brightness, contrast } => (levels(img, brightness, contrast), "adjusted brightness and contrast".into()),
@@ -193,6 +222,27 @@ mod tests {
     use super::*;
 
     const WHITE: Rgb<u8> = Rgb([250, 248, 240]);
+
+    #[test]
+    fn a_black_and_white_page_goes_back_to_colour_with_its_later_edits() {
+        let dir = std::env::temp_dir().join(format!("platen-tone-{}", Session::new_stem()));
+        std::fs::create_dir_all(dir.join("pages")).unwrap();
+        let img = RgbImage::from_fn(60, 40, |x, _| if x < 30 { Rgb([200, 40, 40]) } else { WHITE });
+        std::fs::write(dir.join("pages/a.jpg"), session::encode_rgb(&img, 92).unwrap()).unwrap();
+        let page = Page { file: "a.jpg".into(), kind: session::Kind::A4, dpi: 300, w: 60, h: 40, secs: 0.0, color: None };
+
+        let bw = edit_page(&dir, &page, Edit::BlackWhite).unwrap().page;
+        assert_eq!(bw.color.as_deref(), Some("a.jpg"));
+        let turned = edit_page(&dir, &bw, Edit::RotateRight).unwrap().page;
+        let back = edit_page(&dir, &turned, Edit::Colour).unwrap().page;
+
+        assert_eq!((back.w, back.h, back.color), (40, 60, None));
+        let red = image::open(dir.join("pages").join(&back.file)).unwrap().to_rgb8();
+        let p = red.get_pixel(20, 10);
+        assert!(p[0] > p[1] + 80, "colour survived the round trip: {p:?}");
+        assert!(edit_page(&dir, &page, Edit::Colour).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     fn lines() -> RgbImage {
         let mut img = RgbImage::from_pixel(1000, 1400, WHITE);

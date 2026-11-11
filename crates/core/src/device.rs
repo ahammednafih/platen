@@ -163,7 +163,7 @@ mod tests {
     fn drafts_lists_sessions_with_pages_and_skips_other_folders() {
         let root = std::env::temp_dir().join(format!("scan-drafts-{}", Session::new_stem()));
         let mut s = Session::open(root.join("letters")).unwrap();
-        s.pages.push(Page { file: "a.jpg".into(), kind: Kind::A4, dpi: 300, w: 1, h: 1, secs: 0.0 });
+        s.pages.push(Page { file: "a.jpg".into(), kind: Kind::A4, dpi: 300, w: 1, h: 1, secs: 0.0, color: None });
         s.save().unwrap();
         std::fs::create_dir_all(root.join("exported")).unwrap();
 

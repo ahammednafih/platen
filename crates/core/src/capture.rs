@@ -63,7 +63,7 @@ fn store(s: Settings, dir: &Path, grab: impl FnOnce() -> Result<Vec<u8>>) -> Res
     let (w, h, _) = jpeg_info(&data).context("scanner sent a bad image")?;
     let file = format!("{}.jpg", Session::new_stem());
     std::fs::write(dir.join("pages").join(&file), &data)?;
-    let page = Page { file, kind: Kind::A4, dpi: opts.dpi, w, h, secs };
+    let page = Page { file, kind: Kind::A4, dpi: opts.dpi, w, h, secs, color: None };
     let (mw, mh) = page.mm();
     let name = Size::get(s.size).name;
     Ok(Captured { note: format!("{name} page {mw}×{mh} mm in {}", dur(secs)), page })
@@ -96,7 +96,7 @@ pub fn scan_bottom(scanner: &Scanner, s: Settings, dir: &Path, top: &TopHalf) ->
     std::fs::write(dir.join("pages").join(&file), jpeg)?;
     let join_secs = t1.elapsed().as_secs_f32();
     let secs = top.secs + bottom_secs + join_secs;
-    let page = Page { file, kind: Kind::Long, dpi: opts.dpi, w: r.image.width(), h: r.image.height(), secs };
+    let page = Page { file, kind: Kind::Long, dpi: opts.dpi, w: r.image.width(), h: r.image.height(), secs, color: None };
     let (mw, mh) = page.mm();
     let warn = if r.score < 0.2 { " — low match, check the preview" } else { "" };
     let note = format!(
@@ -120,6 +120,8 @@ pub fn fill_page(dir: &Path, page: &Page, mode: Fill) -> Result<Captured> {
     }
     let mut page = page.clone();
     page.file = format!("{}.jpg", Session::new_stem());
+    // The fill isn't repeated on a kept colour original, so going back to colour is no longer offered.
+    page.color = None;
     std::fs::write(dir.join("pages").join(&page.file), session::encode_rgb(&img, 92)?)?;
     let pct = n as f32 * 100.0 / (img.width() * img.height()) as f32;
     Ok(Captured { page, note: format!("filled torn areas {} ({pct:.1}% of page)", mode.label()) })
