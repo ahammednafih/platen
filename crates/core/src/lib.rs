@@ -16,3 +16,4 @@ pub mod render;
 pub mod session;
 pub mod sheet;
 pub mod stitch;
+pub mod webui;

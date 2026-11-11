@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { api, type Device, type DeviceStatus } from "./api";
+  import DeviceDetails from "./DeviceDetails.svelte";
 
   let { connected = $bindable(false) }: { connected?: boolean } = $props();
 
@@ -11,6 +12,7 @@
   let busy = $state(false);
   let host = $state("");
   let editing = $state(false);
+  let details = $state(false);
 
   async function connect(h?: string) {
     busy = true;
@@ -69,6 +71,7 @@
           </li>
         {/each}
       </ul>
+      <button class="ghost small web" onclick={() => (details = true)}>Device details</button>
     {/if}
     {#if editing}
       <button class="ghost small web" onclick={() => openUrl(`http://${device!.host.split(":")[0]}/`)}>Open device web page</button>
@@ -87,6 +90,8 @@
     </form>
   {/if}
 </section>
+
+{#if details}<DeviceDetails onclose={() => (details = false)} />{/if}
 
 <style>
   .device { display: grid; gap: 10px; padding: 0 4px; }

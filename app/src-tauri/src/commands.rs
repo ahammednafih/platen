@@ -7,6 +7,7 @@ use scan_core::escl::{Caps, Scanner};
 use scan_core::ipp::{Printer, Status};
 use scan_core::presets::{self, Preset};
 use scan_core::session::{ExportOpts, Page, Session};
+use scan_core::webui;
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::State;
@@ -322,4 +323,32 @@ pub async fn shrink_pdf(st: State<'_, AppState>, path: PathBuf, max_mb: f32) -> 
     .await?;
     st.picked.lock().unwrap().insert(out.out.clone());
     Ok(out)
+}
+
+/// Device web UI host: the scanner's host without the port.
+fn web_host(st: &AppState) -> Res<String> {
+    Ok(scanner(st)?.host().split(':').next().unwrap_or_default().to_string())
+}
+
+/// Counters, refills, error history and Wi-Fi status. A typed password is saved to the Keychain once it
+/// works; errors `needs-password` / `wrong-password` ask the UI for one.
+#[tauri::command]
+pub async fn device_details(st: State<'_, AppState>, password: Option<String>) -> Res<Vec<webui::Group>> {
+    let host = web_host(&st)?;
+    blocking(move || {
+        let typed = password.is_some();
+        let pw = password.or_else(|| webui::saved_password(&host)).ok_or_else(|| anyhow::anyhow!("needs-password"))?;
+        match webui::details(&host, &pw) {
+            Err(e) if e.is::<webui::WrongPassword>() => Err(anyhow::anyhow!("wrong-password")),
+            Ok(groups) if typed => webui::save_password(&host, &pw).map(|_| groups),
+            other => other,
+        }
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn device_forget(st: State<'_, AppState>) -> Res<()> {
+    let host = web_host(&st)?;
+    blocking(move || webui::forget_password(&host)).await
 }

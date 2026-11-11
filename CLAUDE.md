@@ -16,4 +16,6 @@ Driverless scan/copy/print for AirScan + AirPrint printers. Plan and milestone s
   Inquiry + scan must share one connection, else `-NG 401`. Full page at 1200 ≈ 2m20s, ~40 MB.
 - Searchable PDF shells out to Tesseract (`core/src/ocr.rs`): text-only PDF per page at 300 dpi, merged
   over our pages with lopdf. Uses eng+mal when installed (`mal.traineddata` in Homebrew's tessdata).
+- Device details (`core/src/webui.rs`) log in to the web UI over HTTPS only (self-signed); password field name
+  is read from the form, success = `AuthCookie`. Password lives in the Keychain (`scan-device-web`). CSV export 403s.
 - Don't `cargo fmt` the app crate or reformat `tauri.conf.json` — neither is formatter-clean; keep diffs to your change.
