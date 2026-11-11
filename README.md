@@ -7,6 +7,12 @@ there is nothing to install on the printer side and no account to sign in to. It
 replacement for a slow, limited vendor app and grew to cover everything that app did, plus the things
 it wouldn't.
 
+![A scan with three pages and the page toolbar](docs/screenshots/scan.png)
+
+| Crop to the paper, a standard size, or a box you draw | Pick pages to print by clicking them |
+| --- | --- |
+| ![The crop tool](docs/screenshots/crop.png) | ![The print screen](docs/screenshots/print.png) |
+
 > Platen is an independent project. It is not affiliated with, endorsed by, or supported by any
 > printer manufacturer.
 
