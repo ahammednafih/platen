@@ -104,6 +104,15 @@ platen --print file.pdf --copies 2   # print
 platen --shrink in.pdf out.pdf 2     # shrink a PDF under 2 MB
 ```
 
+For scripts and agents, pages can be scanned one command at a time, and `--json` gives machine-readable
+output:
+
+```sh
+platen letter --add-page             # scan one page into the scan "letter"; repeat per page
+platen letter --pdf letter.pdf       # write its pages to a PDF
+platen --status --json               # also: --list, --add-page, --pdf
+```
+
 Run `platen --help` for the rest.
 
 ## Security and privacy

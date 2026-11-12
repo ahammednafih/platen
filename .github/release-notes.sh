@@ -8,7 +8,7 @@ tag=$1
 prev=$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)
 range=${prev:+$prev..}$tag
 
-section() { # title, then the gitmoji that belong under it
+section() {
   local title=$1 lines
   shift
   lines=$(git log --format=%s "$range" | while read -r emoji subject; do
@@ -23,7 +23,6 @@ section "New" ✨
 section "Fixed" 🐛
 section "Improved" ⚡️ 💄 🍱
 section "Security" 🔒️
-# Docs, CI, dependency bumps and other housekeeping are left out.
 
 if [ -n "$prev" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
   echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$tag"

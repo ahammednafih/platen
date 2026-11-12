@@ -1,6 +1,6 @@
 mod app;
 
-use platen_core::capture::Settings;
+use platen_core::capture::{self, Settings};
 use platen_core::device::{self, connect, default_name, expand};
 use platen_core::{escl, fill, ipp, pdf, session, stitch};
 
@@ -56,6 +56,15 @@ struct Cli {
     /// Scan once to a JPEG file without the TUI (full glass area).
     #[arg(long, value_name = "OUT")]
     scan_to: Option<PathBuf>,
+    /// Scan one page into the session NAME without the TUI, then exit. Run again for the next page.
+    #[arg(long, requires = "name")]
+    add_page: bool,
+    /// Write the session NAME's pages to a PDF without the TUI (after --add-page, if both are given).
+    #[arg(long, value_name = "OUT", requires = "name")]
+    pdf: Option<PathBuf>,
+    /// Print results as JSON, for scripts and agents: --status, --list, --add-page, --pdf.
+    #[arg(long)]
+    json: bool,
 }
 
 fn main() -> Result<()> {
@@ -122,6 +131,10 @@ fn main() -> Result<()> {
             return Ok(());
         }
         let st = printer.status()?;
+        if cli.json {
+            println!("{}", serde_json::json!({ "status": st, "capabilities": printer.caps().ok() }));
+            return Ok(());
+        }
         println!("{} — {}{}", st.model, st.state, if st.reasons.is_empty() { String::new() } else { format!(" ({})", st.reasons.join(", ")) });
         for i in st.ink {
             println!("  {:<8} {:>3}%", i.name, i.level);
@@ -132,15 +145,57 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if cli.list {
-        return list_drafts(&expand(&cli.dir));
+        return list_drafts(&expand(&cli.dir), cli.json);
     }
 
     let name = cli.name.unwrap_or_else(default_name);
+    session::check_name(&name)?;
     let dir = expand(&cli.dir).join(&name);
+    let settings = Settings { dpi: cli.dpi, mode, fill: cli.fill, size: Default::default() };
+    if cli.add_page || cli.pdf.is_some() {
+        return one_shot(dir, cli.add_page.then_some((cli.host.as_deref(), settings)), cli.pdf.as_deref(), cli.json);
+    }
     let session = session::Session::open(dir)?;
     let scanner = connect_noisy(cli.host.as_deref())?;
-    let settings = Settings { dpi: cli.dpi, mode, fill: cli.fill, size: Default::default() };
     app::run(scanner, session, settings)
+}
+
+fn one_shot(dir: PathBuf, scan: Option<(Option<&str>, Settings)>, pdf: Option<&std::path::Path>, json: bool) -> Result<()> {
+    if scan.is_none() && !dir.join("session.json").exists() {
+        anyhow::bail!("No scan called “{}” yet; add pages with --add-page", dir.file_name().unwrap_or_default().to_string_lossy());
+    }
+    let mut session = session::Session::open(dir)?;
+    let mut added = None;
+    if let Some((host, settings)) = scan {
+        let scanner = connect_noisy(host)?;
+        let c = capture::scan_a4(&scanner, settings, &session.dir)?;
+        session.pages.push(c.page.clone());
+        session.save()?;
+        added = Some(c);
+    }
+    if let Some(out) = pdf {
+        session.write_pdf(out)?;
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "session": session.name,
+                "dir": session.dir,
+                "pages": session.pages.len(),
+                "added": added.as_ref().map(|c| &c.page),
+                "pdf": pdf,
+            })
+        );
+        return Ok(());
+    }
+    if let Some(c) = &added {
+        println!("page {} of “{}”: {}", session.pages.len(), session.name, c.note);
+    }
+    if let Some(out) = pdf {
+        println!("{} page(s) → {}", session.pages.len(), out.display());
+    }
+    Ok(())
 }
 
 fn stitch_files(top: &PathBuf, bottom: &PathBuf, out: &PathBuf) -> Result<()> {
@@ -160,8 +215,12 @@ fn stitch_files(top: &PathBuf, bottom: &PathBuf, out: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn list_drafts(root: &std::path::Path) -> Result<()> {
+fn list_drafts(root: &std::path::Path, json: bool) -> Result<()> {
     let drafts = device::drafts(root);
+    if json {
+        println!("{}", serde_json::to_string(&drafts)?);
+        return Ok(());
+    }
     if drafts.is_empty() {
         println!("No drafts in {}", root.display());
         return Ok(());
@@ -169,7 +228,7 @@ fn list_drafts(root: &std::path::Path) -> Result<()> {
     for d in drafts {
         println!("  {:<28} {:>3} pages", d.name, d.pages);
     }
-    println!("\nResume with:  scan <name>");
+    println!("\nResume with:  platen <name>");
     Ok(())
 }
 
@@ -183,5 +242,30 @@ fn color_mode(cli: &Cli) -> escl::ColorMode {
         (_, true) => escl::ColorMode::BlackWhite,
         (true, _) => escl::ColorMode::Gray,
         _ => escl::ColorMode::Color,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn flags_are_consistent() {
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn one_shot_flags_need_a_session_name() {
+        assert!(Cli::try_parse_from(["platen", "--add-page"]).is_err());
+        assert!(Cli::try_parse_from(["platen", "--pdf", "out.pdf"]).is_err());
+        assert!(Cli::try_parse_from(["platen", "letter", "--add-page", "--pdf", "out.pdf", "--json"]).is_ok());
+    }
+
+    #[test]
+    fn pdf_of_a_scan_that_does_not_exist_is_an_error_and_leaves_no_folder() {
+        let dir = std::env::temp_dir().join(format!("platen-test-{}", session::Session::new_stem()));
+        assert!(one_shot(dir.clone(), None, Some(&dir.join("out.pdf")), true).is_err());
+        assert!(!dir.exists());
     }
 }
