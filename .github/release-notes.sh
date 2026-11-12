@@ -21,9 +21,7 @@ section() { # title, then the gitmoji that belong under it
 
 section "New" ✨
 section "Fixed" 🐛
-section "Improved" ⚡️ 💄 🍱
-section "Security" 🔒️
-# Docs, CI, dependency bumps and other housekeeping are left out.
+# Highlights only: polish, security hardening, docs, CI and dependency bumps are left out.
 
 if [ -n "$prev" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
   echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$tag"
