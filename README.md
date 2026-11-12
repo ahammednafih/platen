@@ -155,7 +155,8 @@ git tag v0.3.0 && git push origin v0.3.0
 ```
 
 The release workflow tests, builds a universal app (Apple silicon and Intel), and publishes the `.dmg`
-and the CLI to GitHub Releases.
+and the CLI to GitHub Releases. The release notes are written from the commit subjects since the last
+tag, grouped by their gitmoji (`.github/release-notes.sh`).
 
 ## Contributing
 

@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
+          fetch-depth: 0 # the release notes read history back to the previous tag
 
       - name: Tag must match the app version
         run: |
@@ -67,6 +68,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" --generate-notes \
+          .github/release-notes.sh "$TAG" > notes.md
+          gh release create "$TAG" --notes-file notes.md \
             target/universal-apple-darwin/release/bundle/dmg/*.dmg \
             platen-cli-*.tar.gz
