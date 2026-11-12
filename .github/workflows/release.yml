@@ -1,5 +1,5 @@
 # Push a tag like v0.3.0 to build the app and publish a GitHub release with the .dmg and the CLI.
-# Tests run in CI on main, not here: tag a commit CI has passed.
+# Tests run in CI on main, not here; the release stops if CI hasn't passed on the tagged commit.
 # If a tag's run gets stuck, start it by hand: Actions → Release → Run workflow, with the tag.
 name: Release
 
@@ -17,6 +17,7 @@ env:
 
 permissions:
   contents: write
+  checks: read
 
 jobs:
   release:
@@ -32,6 +33,18 @@ jobs:
           version=$(node -p "require('./app/package.json').version")
           if [ "v$version" != "$TAG" ]; then
             echo "::error::Tag $TAG doesn't match app/package.json version $version"
+            exit 1
+          fi
+
+      - name: CI must have passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?check_name=test" \
+            --jq '[.check_runs[] | select(.conclusion == "success")] | length')
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::CI hasn't passed on $sha. Wait for it, or fix it, then run this again."
             exit 1
           fi
 
