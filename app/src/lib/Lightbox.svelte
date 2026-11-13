@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, img, mm, type Page, type PageText } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { pages, index = $bindable(), onclose }: { pages: Page[]; index: number; onclose: () => void } = $props();
 
@@ -71,7 +72,7 @@
 
   function onkey(e: KeyboardEvent) {
     if (e.metaKey) return; // leave ⌘C to the browser
-    if (e.key === "Escape" || (e.key === " " && !textMode)) onclose();
+    if (e.key === " " && !textMode) onclose();
     else if (e.key === "+" || e.key === "=") setZoom(zoom * 1.5);
     else if (e.key === "-") setZoom(zoom / 1.5);
     else if (e.key === "0") setZoom(1);
@@ -87,6 +88,7 @@
 <svelte:window onkeydown={onkey} />
 
 {#if page}
+<Modal label="Page {index + 1}" {onclose} backdrop={false}>
   <div class="backdrop" role="presentation" onclick={(e) => { if (e.target === e.currentTarget && !selecting()) onclose(); }}>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="stage" class:zoomed={zoom > 1} bind:this={stage} onwheel={wheel}
@@ -123,6 +125,7 @@
       {#if error}<span class="err">{error}</span>{/if}
     </div>
   </div>
+</Modal>
 {/if}
 
 <style>

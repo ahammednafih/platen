@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { api, type Exported, type ExportOpts } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { pages, onclose, onended }: { pages: number; onclose: () => void; onended: () => void } = $props();
 
@@ -55,17 +56,10 @@
   }
 
   const base = (f: string) => f.split("/").pop();
-  function onkey(e: KeyboardEvent) {
-    if (e.key !== "Escape" || busy) return;
-    e.preventDefault();
-    onclose();
-  }
 </script>
 
-<svelte:window onkeydown={onkey} />
-
-<div class="backdrop">
-  <div class="card dialog" role="dialog" aria-label="Export">
+<Modal label="Export" {onclose} dismissible={!busy}>
+  <div class="card dialog">
     {#if done}
       <h2>Saved {done.files.length} {done.files.length === 1 ? "file" : "files"}</h2>
       <ul class="files">
@@ -127,7 +121,7 @@
       </footer>
     {/if}
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(520px, 92vw); padding: 20px 22px; display: grid; gap: 16px; }

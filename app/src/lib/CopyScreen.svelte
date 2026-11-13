@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { listen } from "@tauri-apps/api/event";
+  import { Radio, RadioGroup } from "@ui-sdk/svelte/radio";
   import { api, covered, DEFAULT_SIZES, fileImg, paperName, type PrintCaps, type PrintJob, type Quality, type Scale, type Size, type SizeId, type TopHalf } from "./api";
 
   let { connected }: { connected: boolean } = $props();
@@ -179,15 +180,15 @@
 
   <div class="screen-body">
     <div class="screen-main">
-      <div class="kinds" role="tablist">
+      <RadioGroup class="kinds" aria-label="Kind of copy" value={kind} onValueChange={(v) => { if (v) choose(v as Kind); }}>
         {#each kinds as x (x.id)}
-          <button role="tab" aria-selected={kind === x.id} class:on={kind === x.id} onclick={() => choose(x.id)} disabled={!!busy && kind !== x.id}>
+          <Radio value={x.id} disabled={!!busy && kind !== x.id}>
             <span class="glyph {x.id}" aria-hidden="true"><i></i><i></i></span>
             <span class="kname">{x.name}</span>
             <span class="kabout">{x.about}</span>
-          </button>
+          </Radio>
         {/each}
-      </div>
+      </RadioGroup>
 
       <div class="stage">
         <svg class="glass {kind}" class:second={step > 0} viewBox="0 0 120 150" aria-hidden="true">
@@ -303,19 +304,19 @@
   .glass.twoInOne.second .sheet, .glass.idCard.second .sheet { fill: var(--accent-soft); }
   @media (max-width: 720px) { .stage { grid-template-columns: minmax(0, 1fr); } .glass { display: none; } }
   .screen-main { padding: 16px 20px 40px; display: grid; gap: 28px; align-content: start; }
-  .kinds { max-width: 760px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .kinds button {
+  .screen-main :global(.kinds) { max-width: 760px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .screen-main :global(.kinds [data-slot="radio"]) {
     height: auto; padding: 12px; display: grid; justify-items: start; align-content: start; gap: 4px; text-align: left;
     white-space: normal; background: var(--panel); border-color: var(--line); border-radius: 8px;
   }
-  .kinds button.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
+  .screen-main :global(.kinds [data-slot="radio"][data-checked]) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
   .kname { font-weight: 600; }
   .kabout { font-size: 12px; color: var(--muted); line-height: 1.4; }
 
   /* Small sheet glyph showing where the copy lands on the paper. */
   .glyph { width: 26px; height: 36px; margin-bottom: 6px; position: relative; background: var(--paper); border-radius: 2px; box-shadow: 0 0 0 1px var(--line-strong); }
   .glyph i { position: absolute; background: var(--faint); border-radius: 1px; }
-  .on .glyph i { background: var(--accent); }
+  .screen-main :global([data-checked] > .glyph i) { background: var(--accent); }
   .copy i:first-child { inset: 4px; }
   .copy i:last-child { display: none; }
   .twoInOne i:first-child { left: 4px; right: 4px; top: 4px; height: 12px; }

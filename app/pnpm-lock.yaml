@@ -17,6 +17,12 @@ importers:
       '@tauri-apps/plugin-opener':
         specifier: 2.7.3
         version: 2.7.3
+      '@ui-sdk/core':
+        specifier: 0.1.0-beta.1
+        version: 0.1.0-beta.1
+      '@ui-sdk/svelte':
+        specifier: 0.1.0-beta.1
+        version: 0.1.0-beta.1(@ui-sdk/core@0.1.0-beta.1)(svelte@5.57.3)
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: 7.3.1
@@ -255,6 +261,15 @@ packages:
 
   '@types/estree@1.0.10':
     resolution: {integrity: sha512-lTyOMnOcmRBzdCv6/4zUZCrEhV0xrqQiUZBZtVcbmLHBXKLnN8q89v/wKRF/Q0HbwVsqbIG3o5HDoFl9sduM+g==}
+
+  '@ui-sdk/core@0.1.0-beta.1':
+    resolution: {integrity: sha512-sWsZW8RN6Gviir7REQYuDIafm9hierHQE31OJ+2g+1Pp3lDVKp/dk0+0dxFvqOQRmBveRvlE9FiARgNlQ9dMFw==}
+
+  '@ui-sdk/svelte@0.1.0-beta.1':
+    resolution: {integrity: sha512-nQQaFKn7e/M87yj/ax7JgZc3uYjiacmKs05ljCIrdOiPbkiROGcbKHgngVZUF7x0GJWhGTDg67Yc28kirKUoLA==}
+    peerDependencies:
+      '@ui-sdk/core': ^0.1.0-beta.1
+      svelte: '>=5.33'
 
   acorn@8.19.0:
     resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
@@ -656,6 +671,13 @@ snapshots:
   '@tsconfig/svelte@5.0.8': {}
 
   '@types/estree@1.0.10': {}
+
+  '@ui-sdk/core@0.1.0-beta.1': {}
+
+  '@ui-sdk/svelte@0.1.0-beta.1(@ui-sdk/core@0.1.0-beta.1)(svelte@5.57.3)':
+    dependencies:
+      '@ui-sdk/core': 0.1.0-beta.1
+      svelte: 5.57.3
 
   acorn@8.19.0: {}
 

@@ -121,7 +121,7 @@ export const api = {
 };
 
 /** True while a dialog or lightbox covers the screen, so screen shortcuts stay quiet. */
-export const covered = () => !!document.querySelector(".backdrop");
+export const covered = () => !!document.querySelector('[data-slot="dialog-content"]');
 
 /** Sizes offered before the scanner reports which fit its glass. */
 export const DEFAULT_SIZES: Size[] = [

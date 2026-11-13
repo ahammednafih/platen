@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, fileImg } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { path, onclose }: { path: string; onclose: () => void } = $props();
 
@@ -17,8 +18,7 @@
   });
 
   function onkey(e: KeyboardEvent) {
-    if (e.key === "Escape") onclose();
-    else if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") page = Math.min(pages - 1, page + 1);
+    if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") page = Math.min(pages - 1, page + 1);
     else if (e.key === "ArrowLeft" || e.key === "ArrowUp") page = Math.max(0, page - 1);
     else return;
     e.preventDefault();
@@ -29,6 +29,7 @@
 
 <svelte:window onkeydown={onkey} />
 
+<Modal label={name ?? "Preview"} {onclose} backdrop={false}>
 <div class="viewer">
   <header>
     <span class="name">{name}</span>
@@ -51,6 +52,7 @@
     {/if}
   </div>
 </div>
+</Modal>
 
 <style>
   .viewer { position: fixed; inset: 0; z-index: 20; background: rgb(12 12 12 / 92%); display: grid; grid-template-rows: auto 1fr; color: #eee; }

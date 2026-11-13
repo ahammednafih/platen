@@ -1,3 +1,5 @@
+@layer ui-sdk;
+
 /* Quiet, dense, keyboard-first: cool neutrals, hairline borders, one indigo accent. */
 :root {
   --bg: #ffffff;
@@ -166,7 +168,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .seg button.on { background: var(--raised); color: var(--text); box-shadow: var(--shadow), 0 0 0 1px var(--line-strong); }
 
 /* Modal. */
-.backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 40%); display: grid; place-items: center; z-index: 10; }
+[data-slot="dialog-backdrop"] { position: fixed; inset: 0; background: rgb(0 0 0 / 40%); }
+[data-slot="dialog-content"] { position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; padding: 0; border: none; background: none; color: inherit; outline: none; }
 .dialog { background: var(--raised); border: none; border-radius: 12px; box-shadow: var(--shadow-pop); }
 
 /* Status line and spinner. */
@@ -189,8 +192,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 ::selection { background: var(--accent-soft); }
 body, aside, .pane, .card, .topbar, .dialog, .seg { transition: background-color 0.25s var(--ease), border-color 0.25s var(--ease), color 0.25s var(--ease); }
 .screen { animation: screen-in 0.22s var(--ease); }
-.backdrop { animation: fade-in 0.16s var(--ease); }
-.backdrop > .dialog { animation: pop-in 0.22s var(--ease); }
+[data-slot="dialog-backdrop"] { animation: fade-in 0.16s var(--ease); }
+[data-slot="dialog-content"] > .dialog { animation: pop-in 0.22s var(--ease); }
 @keyframes screen-in { from { opacity: 0; transform: translateY(4px); } }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }

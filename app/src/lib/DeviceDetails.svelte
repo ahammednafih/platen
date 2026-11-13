@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, type ButtonStatus, type DetailGroup } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { host, onclose }: { host: string; onclose: () => void } = $props();
 
@@ -56,19 +57,12 @@
   const toggle = () => act(button?.on ? "Turning off…" : "Turning on…", () => (button?.on ? api.buttonDisable() : api.buttonEnable()));
   const pointHere = () => act("Updating…", () => api.buttonEnable());
 
-  function onkey(e: KeyboardEvent) {
-    if (e.key !== "Escape") return;
-    e.preventDefault();
-    onclose();
-  }
 
   onMount(() => load());
 </script>
 
-<svelte:window onkeydown={onkey} />
-
-<div class="backdrop" role="presentation" onclick={onclose}>
-  <div class="card dialog" role="dialog" aria-label="Device details" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+<Modal label="Device details" {onclose} closeOnOutsidePress>
+  <div class="card dialog">
     <header>
       <h2>Device details</h2>
       <span class="grow"></span>
@@ -147,7 +141,7 @@
     {/each}
 
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(460px, 92vw); max-height: 88vh; overflow-y: auto; padding: 20px 22px; display: grid; gap: 12px; }

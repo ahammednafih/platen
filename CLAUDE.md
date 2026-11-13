@@ -27,6 +27,8 @@ Contribution rules: `CONTRIBUTING.md`.
 - No vendor names or branding in the UI. Compatibility notes go in the README.
 - Don't `cargo fmt` the app crate or reformat `tauri.conf.json`; neither is formatter-clean. Keep diffs
   to your change.
+- Dialogs wrap their content in `app/src/lib/Modal.svelte`; menus, popovers and radio groups come from
+  `@ui-sdk/svelte` (skill in `.agents/skills/ui-sdk`). Don't hand-roll `role="dialog"`, `"menu"` or `"radio"`.
 - Page edits write a new image file and never delete the old one; undo relies on that.
 - Settings live in `<config>/Platen`, rebuildable files in `<cache>/Platen` (`core/src/device.rs`).
 

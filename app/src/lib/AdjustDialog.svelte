@@ -1,5 +1,6 @@
 <script lang="ts">
   import { img, type Page } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { page, number, onapply, oncancel }: {
     page: Page;
@@ -16,8 +17,7 @@
   const changed = $derived(brightness !== 0 || contrast !== 0);
 
   function onkey(e: KeyboardEvent) {
-    if (e.key === "Escape") oncancel();
-    else if (e.key === "Enter" && changed) onapply(b, c);
+    if (e.key === "Enter" && changed) onapply(b, c);
     else return;
     e.preventDefault();
   }
@@ -25,8 +25,8 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="backdrop">
-  <div class="card dialog" role="dialog" aria-label="Adjust page {number}">
+<Modal label="Adjust page {number}" onclose={oncancel}>
+  <div class="card dialog">
     <h2>Adjust page {number}</h2>
     <div class="view">
       <img src={img("pages", page.file, 1200)} alt="Page {number}" style:filter="brightness({b}) contrast({c})" />
@@ -48,7 +48,7 @@
       <button class="primary" onclick={() => onapply(b, c)} disabled={!changed}>Apply</button>
     </footer>
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(560px, 92vw); padding: 20px 22px; display: grid; gap: 12px; }

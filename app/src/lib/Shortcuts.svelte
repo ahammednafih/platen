@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Modal from "./Modal.svelte";
+
   let { onclose }: { onclose: () => void } = $props();
 
   const groups: [string, [string, string][]][] = [
@@ -10,18 +12,10 @@
     ["Copy", [["⌘↩", "Scan / print the next step"]]],
     ["Print", [["⌘O", "Add files"], ["⌘P or ⌘↩", "Print"]]],
   ];
-
-  function onkey(e: KeyboardEvent) {
-    if (e.key !== "Escape") return;
-    e.preventDefault();
-    onclose();
-  }
 </script>
 
-<svelte:window onkeydown={onkey} />
-
-<div class="backdrop" role="presentation" onclick={onclose}>
-  <div class="card dialog" role="dialog" aria-label="Keyboard shortcuts" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
+<Modal label="Keyboard shortcuts" {onclose} closeOnOutsidePress>
+  <div class="card dialog">
     <header>
       <h2>Keyboard shortcuts</h2>
       <button class="ghost small close" onclick={onclose} title="Close (Esc)" aria-label="Close">
@@ -40,7 +34,7 @@
       </section>
     {/each}
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(420px, 92vw); max-height: 88vh; overflow-y: auto; padding: 20px 22px; display: grid; gap: 14px; }

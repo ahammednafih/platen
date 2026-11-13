@@ -1,6 +1,7 @@
 <script lang="ts">
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { api, fileImg, size, type ShrinkResult } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { path, onclose, ondone }: { path: string; onclose: () => void; ondone: () => void } = $props();
 
@@ -57,8 +58,7 @@
   }
 
   function onkey(e: KeyboardEvent) {
-    if (e.key === "Escape") cancel();
-    else if (draft && e.key === "ArrowRight") page = Math.min(draft.pages - 1, page + 1);
+    if (draft && e.key === "ArrowRight") page = Math.min(draft.pages - 1, page + 1);
     else if (draft && e.key === "ArrowLeft") page = Math.max(0, page - 1);
     else if (draft && e.key === " ") showing = showing === "Shrunk" ? "Original" : "Shrunk";
     else return;
@@ -68,8 +68,8 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="backdrop">
-  <div class="card dialog" class:wide={!!draft} role="dialog" aria-label="Shrink PDF">
+<Modal label="Shrink PDF" onclose={cancel} dismissible={!busy}>
+  <div class="card dialog" class:wide={!!draft}>
     <h2>Shrink PDF</h2>
     <p class="muted file">{name(path)}</p>
 
@@ -134,7 +134,7 @@
       </footer>
     {/if}
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(460px, 92vw); max-height: 92vh; padding: 20px 22px; display: grid; gap: 14px; }

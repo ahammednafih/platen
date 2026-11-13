@@ -11,6 +11,8 @@
   import ScanSettings from "./lib/ScanSettings.svelte";
   import Shortcuts from "./lib/Shortcuts.svelte";
   import Start from "./lib/Start.svelte";
+  import { Popover, PopoverContent, PopoverTrigger } from "@ui-sdk/svelte/popover";
+  import { Radio, RadioGroup } from "@ui-sdk/svelte/radio";
   import { api, type SessionView } from "./lib/api";
 
   type View = "scan" | "copy" | "print" | "library";
@@ -20,7 +22,6 @@
   let exporting = $state(false);
   let view = $state<View>("scan");
   let help = $state(false);
-  let appearing = $state(false);
   // Files sent from Saved scans to the Print screen.
   let toPrint = $state<string[] | null>(null);
   // A Scan-button press waiting for the scan screen to pick it up.
@@ -79,7 +80,6 @@
   }
 
   function onkey(e: KeyboardEvent) {
-    if (e.key === "Escape" && appearing) return void (appearing = false);
     if (!e.metaKey || exporting) return;
     if (e.key === "/") {
       help = !help;
@@ -109,28 +109,24 @@
     <div class="grow"></div>
     <DevicePanel bind:connected />
     <div class="foot">
-      <div class="pop-anchor">
-        <button class="ghost small" class:open={appearing} onclick={() => (appearing = !appearing)} aria-expanded={appearing}>
+      <Popover>
+        <PopoverTrigger class="ghost small">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5v11A5.5 5.5 0 0 0 8 2.5z" fill="currentColor" /></svg>
           Appearance
-        </button>
-        {#if appearing}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="catch" onclick={() => (appearing = false)} onkeydown={() => {}}></div>
-          <div class="pop card" role="dialog" aria-label="Appearance">
-            <div class="seg theme">
-              {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
-                <button class:on={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
-              {/each}
-            </div>
-            <div class="accents" role="radiogroup" aria-label="Accent colour">
-              {#each accents as [v, label, light, dark] (v)}
-                <button role="radio" aria-checked={accent === v} class:on={accent === v} title={label} aria-label={label} style:--light={light} style:--dark={dark} onclick={() => (accent = v)}></button>
-              {/each}
-            </div>
+        </PopoverTrigger>
+        <PopoverContent class="pop card" side="top" align="start" sideOffset={6} aria-label="Appearance">
+          <div class="seg theme">
+            {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
+              <button class:on={theme === v} aria-pressed={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
+            {/each}
           </div>
-        {/if}
-      </div>
+          <RadioGroup class="accents" aria-label="Accent colour" value={accent} onValueChange={(v) => { if (v) accent = v as Accent; }}>
+            {#each accents as [v, label, light, dark] (v)}
+              <Radio value={v} title={label} aria-label={label} style="--light: {light}; --dark: {dark}" />
+            {/each}
+          </RadioGroup>
+        </PopoverContent>
+      </Popover>
       <button class="ghost small" onclick={() => (help = true)} title="Keyboard shortcuts (⌘/)">Shortcuts <span class="faint">⌘/</span></button>
     </div>
   </aside>
@@ -179,11 +175,9 @@
   .dev { font-size: 10px; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; line-height: 14px; }
   .mark::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 2px; border-radius: 1px; background: var(--accent-text); opacity: 0.9; }
   .foot { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
-  .foot button.open { background: var(--hover); color: var(--text); }
-  .pop-anchor { position: relative; }
-  .catch { position: fixed; inset: 0; z-index: 19; }
-  .pop {
-    position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20; width: 196px; padding: 10px; display: grid; gap: 10px;
+  .foot :global([data-slot="popover-trigger"][data-open]) { background: var(--hover); color: var(--text); }
+  .foot :global(.pop) {
+    margin: 0; width: 196px; padding: 10px; display: grid; gap: 10px; color: inherit;
     background: var(--raised); box-shadow: var(--shadow-pop); border: none; border-radius: 10px; animation: pop-in 0.16s var(--ease);
   }
   nav { display: grid; gap: 1px; }
@@ -195,12 +189,11 @@
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
   .theme { margin: 0; }
-  .accents { display: flex; justify-content: space-between; padding: 0 4px; }
-  .accents button { width: 14px; height: 14px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
-  .accents button:hover:not(:disabled) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); transform: scale(1.15); }
-  .accents button { width: 18px; height: 18px; }
-  .accents button.on { box-shadow: 0 0 0 2px var(--raised), 0 0 0 3.5px var(--text); }
-  .accents button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .foot :global(.accents) { display: flex; justify-content: space-between; padding: 0 4px; }
+  .foot :global(.accents [data-slot="radio"]) { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
+  .foot :global(.accents [data-slot="radio"]:hover:not(:disabled)) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); transform: scale(1.15); }
+  .foot :global(.accents [data-slot="radio"][data-checked]) { box-shadow: 0 0 0 2px var(--raised), 0 0 0 3.5px var(--text); }
+  .foot :global(.accents [data-slot="radio"]:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
   main { min-width: 0; min-height: 0; overflow: hidden; }
   .with-pane { display: flex; height: 100%; }
   .col { flex: 1; min-width: 0; overflow: auto; }

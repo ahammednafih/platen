@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Modal from "./Modal.svelte";
   import { api, img, mm, type Page } from "./api";
 
   let { page, index, onapply, onclose }: {
@@ -83,8 +84,7 @@
   }
 
   function onkey(e: KeyboardEvent) {
-    if (e.key === "Escape") onclose();
-    else if (e.key === "Enter") apply();
+    if (e.key === "Enter") apply();
     else return;
     e.preventDefault();
   }
@@ -100,8 +100,8 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="backdrop">
-  <div class="card dialog" role="dialog" aria-label="Crop page {index + 1}">
+<Modal label="Crop page {index + 1}" {onclose}>
+  <div class="card dialog">
     <h2>Crop page {index + 1}</h2>
     <div class="body">
       <div class="frame"><div class="view">
@@ -135,7 +135,7 @@
       <button class="primary" onclick={apply} disabled={isWhole}>Crop</button>
     </footer>
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(820px, 94vw); padding: 20px 22px; display: grid; gap: 14px; }

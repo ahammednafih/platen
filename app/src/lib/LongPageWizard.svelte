@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, img, type PageResult, type TopHalf } from "./api";
+  import Modal from "./Modal.svelte";
 
   let { replace, at, ondone, oncancel }: {
     replace?: number;
@@ -38,17 +39,10 @@
 
   const busy = $derived(step === "scanning-top" || step === "joining");
   const topFile = $derived(top ? top.path.split("/").pop()! : "");
-  function onkey(e: KeyboardEvent) {
-    if (e.key !== "Escape" || busy) return;
-    e.preventDefault();
-    oncancel();
-  }
 </script>
 
-<svelte:window onkeydown={onkey} />
-
-<div class="backdrop">
-  <div class="card dialog" role="dialog" aria-label="Long page">
+<Modal label={replace === undefined ? "Long page" : `Retake page ${replace + 1} (long)`} onclose={oncancel} dismissible={!busy}>
+  <div class="card dialog">
     <header>
       <h2>{replace === undefined ? "Long page" : `Retake page ${replace + 1} (long)`}</h2>
       <ol class="steps">
@@ -93,7 +87,7 @@
       {/if}
     </footer>
   </div>
-</div>
+</Modal>
 
 <style>
   .dialog { width: min(640px, 92vw); padding: 20px 22px; display: grid; gap: 18px; }

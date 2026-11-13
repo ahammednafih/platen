@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+  import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@ui-sdk/svelte/menu";
   import { api, fileImg, size, type Saved } from "./api";
 
   let { onprint }: { onprint: (path: string) => void } = $props();
@@ -12,8 +13,6 @@
   let filter = $state("");
   let viewing = $state<string | null>(null);
   let shrinking = $state<string | null>(null);
-  // The card whose ⋯ menu is open, and the one being renamed.
-  let menu = $state<string | null>(null);
   let renaming = $state<string | null>(null);
   let draft = $state("");
   let error = $state("");
@@ -24,7 +23,6 @@
   }
 
   async function trash(path: string) {
-    menu = null;
     try {
       await api.trashFile(path);
       await load();
@@ -34,7 +32,6 @@
   }
 
   function startRename(f: Saved) {
-    menu = null;
     renaming = f.path;
     draft = f.name.replace(/\.[^.]+$/, "");
   }
@@ -57,11 +54,6 @@
     else return;
     e.preventDefault();
     e.stopPropagation();
-  }
-
-  function act(f: () => unknown) {
-    menu = null;
-    f();
   }
 
   async function load() {
@@ -127,23 +119,19 @@
                 <button class="ghost" onclick={() => (viewing = f.path)}>Preview</button>
                 <button class="ghost" onclick={() => onprint(f.path)} title="Open in Print">Print</button>
                 <button class="ghost" onclick={(e) => share(f.path, e)} title="AirDrop, Mail, Messages…">Share</button>
-                <div class="more">
-                  <button class="ghost dots" class:open={menu === f.path} aria-label="More" aria-expanded={menu === f.path} onclick={() => (menu = menu === f.path ? null : f.path)}>
+                <Menu>
+                  <MenuTrigger class="ghost dots" aria-label="More">
                     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="12.5" cy="8" r="1.3" /></svg>
-                  </button>
-                  {#if menu === f.path}
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="catch" onclick={() => (menu = null)} onkeydown={() => {}}></div>
-                    <div class="menu card" role="menu">
-                      <button role="menuitem" onclick={() => act(() => openPath(f.path))}>Open</button>
-                      <button role="menuitem" onclick={() => act(() => revealItemInDir(f.path))}>Show in Finder</button>
-                      {#if isPdf(f.path)}<button role="menuitem" onclick={() => act(() => (shrinking = f.path))}>Shrink…</button>{/if}
-                      <button role="menuitem" onclick={() => startRename(f)}>Rename</button>
-                      <hr />
-                      <button role="menuitem" class="danger" onclick={() => trash(f.path)}>Move to Trash</button>
-                    </div>
-                  {/if}
-                </div>
+                  </MenuTrigger>
+                  <MenuContent class="menu card" align="start" sideOffset={4} finalFocus={() => (renaming === f.path ? document.querySelector<HTMLElement>("input.rename") : null)}>
+                    <MenuItem onSelect={() => openPath(f.path)}>Open</MenuItem>
+                    <MenuItem onSelect={() => revealItemInDir(f.path)}>Show in Finder</MenuItem>
+                    {#if isPdf(f.path)}<MenuItem onSelect={() => (shrinking = f.path)}>Shrink…</MenuItem>{/if}
+                    <MenuItem onSelect={() => startRename(f)}>Rename</MenuItem>
+                    <MenuSeparator />
+                    <MenuItem destructive onSelect={() => trash(f.path)}>Move to Trash</MenuItem>
+                  </MenuContent>
+                </Menu>
               </div>
             </div>
           </li>
@@ -180,19 +168,17 @@
   .tools { display: flex; flex-wrap: wrap; margin: 4px -6px 0; }
   .tools button { height: 22px; padding: 0 6px; font-size: 12px; }
   .tools { align-items: center; }
-  .more { position: relative; }
-  .dots { width: 24px; padding: 0; }
-  .dots.open { background: var(--hover); color: var(--text); }
-  .catch { position: fixed; inset: 0; z-index: 19; }
-  .menu {
-    position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 168px; padding: 4px; display: grid;
+  .tools :global(.dots) { width: 24px; padding: 0; }
+  .tools :global(.dots[data-open]) { background: var(--hover); color: var(--text); }
+  .tools :global(.menu) {
+    margin: 0; min-width: 168px; padding: 4px; display: grid; color: var(--text);
     background: var(--raised); border: none; border-radius: 8px; box-shadow: var(--shadow-pop); animation: pop-in 0.14s var(--ease);
   }
-  .menu button { justify-content: flex-start; height: 26px; font-size: 13px; padding: 0 10px; border: none; background: none; border-radius: 5px; }
-  .menu button:hover:not(:disabled) { background: var(--accent); color: var(--accent-text); }
-  .menu button.danger { color: var(--danger); }
-  .menu button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
-  .menu hr { border: none; border-top: 1px solid var(--line); margin: 4px 6px; }
+  .tools :global([data-slot="menu-item"]) { display: flex; align-items: center; height: 26px; font-size: 13px; padding: 0 10px; border-radius: 5px; cursor: default; outline: none; }
+  .tools :global([data-slot="menu-item"][data-highlighted]) { background: var(--accent); color: var(--accent-text); }
+  .tools :global([data-slot="menu-item"][data-destructive]) { color: var(--danger); }
+  .tools :global([data-slot="menu-item"][data-destructive][data-highlighted]) { background: var(--danger); color: #fff; }
+  .tools :global([data-slot="menu-separator"]) { border-top: 1px solid var(--line); margin: 4px 6px; }
   .rename { height: 24px; font-weight: 600; }
   .error { color: var(--danger); }
 </style>
