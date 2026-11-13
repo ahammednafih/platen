@@ -1,4 +1,4 @@
-//! Work on existing PDFs: shrink to a size limit, and preview pages (largest image per page).
+//! Work on existing PDFs: leave out pages, shrink to a size limit, and preview pages (largest image per page).
 //!
 //! Shrinking re-encodes embedded raster images (lower resolution / JPEG quality) and leaves
 //! text and vector content alone, so it works for scans and for most other PDFs.
@@ -149,6 +149,46 @@ fn encode(i: &Img, scale: f32, quality: u8) -> Option<(Vec<u8>, u32, u32, bool)>
     (ok.is_ok() && out.len() < i.original_len).then(|| (out, img.width(), img.height(), gray))
 }
 
+/// Leave out `skip` (1-based page numbers) and drop whatever only those pages used.
+pub fn drop_pages(pdf: &[u8], skip: &[u32]) -> Result<Vec<u8>> {
+    if skip.is_empty() {
+        return Ok(pdf.to_vec());
+    }
+    let mut doc = Document::load_mem(pdf).context("couldn't read the PDF")?;
+    let count = doc.get_pages().len() as u32;
+    if let Some(p) = skip.iter().find(|&&p| p == 0 || p > count) {
+        bail!("page {p} isn't in this PDF (it has {count})");
+    }
+    if (1..=count).all(|p| skip.contains(&p)) {
+        bail!("that leaves out every page");
+    }
+    doc.delete_pages(skip);
+    doc.prune_objects();
+    doc.compress();
+    let mut out = Vec::new();
+    doc.save_to(&mut out)?;
+    Ok(out)
+}
+
+/// Page numbers from a list like `11-18` or `2,5-7,20-` (an open end runs to `count`).
+pub fn parse_pages(spec: &str, count: u32) -> Result<Vec<u32>> {
+    let num = |s: &str| s.trim().parse::<u32>().with_context(|| format!("{s:?} isn't a page number"));
+    let mut pages = Vec::new();
+    for part in spec.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        let (a, b) = match part.split_once('-') {
+            Some((a, b)) => (num(a)?, if b.trim().is_empty() { count } else { num(b)? }),
+            None => (num(part)?, num(part)?),
+        };
+        if a == 0 || a > b {
+            bail!("{part:?} isn't a page range");
+        }
+        pages.extend(a..=b);
+    }
+    pages.sort_unstable();
+    pages.dedup();
+    Ok(pages)
+}
+
 pub fn page_count(pdf: &[u8]) -> Result<usize> {
     Ok(Document::load_mem(pdf)?.get_pages().len())
 }
@@ -157,6 +197,19 @@ pub fn page_count(pdf: &[u8]) -> Result<usize> {
 pub fn page_preview(pdf: &[u8], index: usize, max_w: u32) -> Result<Vec<u8>> {
     let doc = Document::load_mem(pdf)?;
     let page = *doc.get_pages().values().nth(index).context("no such page")?;
+    preview(&doc, page, max_w)
+}
+
+/// `page_preview` for every page except where `skip` says so, reading the PDF once. Each page goes
+/// to `done` as soon as it's ready, None when it has no image.
+pub fn page_previews(pdf: &[u8], max_w: u32, skip: impl Fn(usize) -> bool + Sync, done: impl Fn(usize, Option<Vec<u8>>) + Sync) -> Result<()> {
+    let doc = Document::load_mem(pdf)?;
+    let pages: Vec<(usize, ObjectId)> = doc.get_pages().into_values().enumerate().filter(|(i, _)| !skip(*i)).collect();
+    pages.into_par_iter().for_each(|(i, p)| done(i, preview(&doc, p, max_w).ok()));
+    Ok(())
+}
+
+fn preview(doc: &Document, page: ObjectId, max_w: u32) -> Result<Vec<u8>> {
     let best = doc
         .get_page_images(page)?
         .into_iter()
@@ -193,6 +246,29 @@ mod tests {
         assert!(s.fits && s.data.len() as u64 <= limit, "{} > {limit}", s.data.len());
         assert_eq!(page_count(&s.data).unwrap(), 2);
         assert!(page_preview(&s.data, 1, 300).is_ok());
+        let got = std::sync::Mutex::new(Vec::new());
+        page_previews(&s.data, 300, |i| i == 0, |i, p| got.lock().unwrap().push((i, p.is_some()))).unwrap();
+        assert_eq!(*got.lock().unwrap(), [(1, true)]);
+    }
+
+    #[test]
+    fn drops_pages_and_their_images() {
+        let pdf = noisy_pdf("drop");
+
+        let one = drop_pages(&pdf, &[2]).unwrap();
+
+        assert_eq!(page_count(&one).unwrap(), 1);
+        assert!(one.len() < pdf.len() * 2 / 3, "{} vs {}", one.len(), pdf.len());
+        assert!(drop_pages(&pdf, &[1, 2]).is_err());
+        assert!(drop_pages(&pdf, &[3]).is_err());
+    }
+
+    #[test]
+    fn parses_page_lists() {
+        assert_eq!(parse_pages("11-13", 26).unwrap(), [11, 12, 13]);
+        assert_eq!(parse_pages("2, 5-6,25-", 26).unwrap(), [2, 5, 6, 25, 26]);
+        assert!(parse_pages("4-2", 26).is_err());
+        assert!(parse_pages("x", 26).is_err());
     }
 
     #[test]

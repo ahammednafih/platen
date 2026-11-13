@@ -26,7 +26,7 @@ it wouldn't.
 - Page tools: rotate, straighten, crop, brightness and contrast, fill torn edges, reorder by dragging,
   retake, undo and redo.
 - Export to PDF (colour, share-size, print-ready) or JPEG/PNG, with a searchable text layer.
-- Shrink any PDF under a size limit, and compare it with the original before saving.
+- Shrink any PDF under a size limit, leaving out pages you don't need, and compare it with the original before saving.
 - The printer's own Scan button can scan straight into the app.
 
 **Copy**
@@ -102,6 +102,8 @@ platen --status                      # scanner and printer state, ink levels
 platen --scan-to page.jpg --dpi 300  # scan one page to a file
 platen --print file.pdf --copies 2   # print
 platen --shrink in.pdf out.pdf 2     # shrink a PDF under 2 MB
+platen --shrink in.pdf out.pdf 2 --skip 11-18   # same, without pages 11 to 18
+platen --shrink in.pdf out.pdf --skip 11-18     # only leave out pages 11 to 18
 ```
 
 For scripts and agents, pages can be scanned one command at a time, and `--json` gives machine-readable

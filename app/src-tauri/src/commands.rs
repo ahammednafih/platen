@@ -388,6 +388,42 @@ pub async fn file_pages(st: State<'_, AppState>, path: PathBuf) -> Res<usize> {
     blocking(move || platen_core::pdfedit::page_count(&std::fs::read(path)?)).await
 }
 
+#[derive(Clone, Serialize)]
+pub struct PreviewReady {
+    page: usize,
+    ok: bool,
+}
+
+/// Render every page's preview at width `w` in one pass, into the cache `scanfile://` reads from,
+/// reporting each page on `ready` as it lands (cached pages first).
+#[tauri::command]
+pub async fn pdf_previews(st: State<'_, AppState>, path: PathBuf, w: u32, ready: tauri::ipc::Channel<PreviewReady>) -> Res<()> {
+    let path = crate::thumbs::allowed(&st, &path).ok_or("That file can't be opened here")?;
+    blocking(move || {
+        let cache = |i| crate::thumbs::cache_path(&path, i, w);
+        let hit = |i| cache(i).is_some_and(|c| c.exists());
+        let pdf = std::fs::read(&path)?;
+        platen_core::pdfedit::page_previews(
+            &pdf,
+            w,
+            |i| {
+                let h = hit(i);
+                if h {
+                    let _ = ready.send(PreviewReady { page: i, ok: true });
+                }
+                h
+            },
+            |i, bytes| {
+                let ok = bytes.zip(cache(i)).is_some_and(|(b, c)| {
+                    c.parent().is_some_and(|d| std::fs::create_dir_all(d).is_ok()) && std::fs::write(c, b).is_ok()
+                });
+                let _ = ready.send(PreviewReady { page: i, ok });
+            },
+        )
+    })
+    .await
+}
+
 #[derive(Serialize)]
 pub struct ShrinkResult {
     /// Draft in the cache until the user keeps it.
@@ -404,22 +440,27 @@ fn shrink_dir() -> Res<PathBuf> {
     Ok(platen_core::device::cache_dir().join("shrink"))
 }
 
-/// Write `<name>_under<N>MB.pdf` next to `path`. `path` may be any PDF the user picked.
+/// Write `<name>_under<N>MB.pdf` (or `<name>_<N>pages.pdf` with no limit) next to `path`, leaving out `skip`
+/// (1-based). `path` may be any PDF the user picked.
 #[tauri::command]
-pub async fn shrink_pdf(st: State<'_, AppState>, path: PathBuf, max_mb: f32) -> Res<ShrinkResult> {
-    if !(0.05..=1000.0).contains(&max_mb) {
+pub async fn shrink_pdf(st: State<'_, AppState>, path: PathBuf, max_mb: Option<f32>, skip: Vec<u32>) -> Res<ShrinkResult> {
+    if max_mb.is_some_and(|mb| !(0.05..=1000.0).contains(&mb)) {
         return Err("Pick a size between 0.05 and 1000 MB".into());
     }
     st.picked.lock().unwrap().insert(path.clone());
     let dir = shrink_dir()?;
     let out = blocking(move || {
         let input = std::fs::read(&path)?;
-        let r = platen_core::pdfedit::shrink(&input, (max_mb * 1_000_000.0) as u64)?;
+        let kept = platen_core::pdfedit::drop_pages(&input, &skip)?;
+        let r = platen_core::pdfedit::shrink(&kept, max_mb.map_or(u64::MAX, |mb| (mb * 1_000_000.0) as u64))?;
+        let pages = platen_core::pdfedit::page_count(&r.data)?;
         let stem = path.file_stem().unwrap_or_default().to_string_lossy();
         std::fs::create_dir_all(&dir)?;
-        let out = dir.join(format!("{stem}_under{max_mb}MB.pdf"));
+        let out = dir.join(match max_mb {
+            Some(mb) => format!("{stem}_under{mb}MB.pdf"),
+            None => format!("{stem}_{pages}pages.pdf"),
+        });
         std::fs::write(&out, &r.data)?;
-        let pages = platen_core::pdfedit::page_count(&r.data)?;
         Ok(ShrinkResult { out, before: input.len() as u64, after: r.data.len() as u64, fits: r.fits, pages })
     })
     .await?;

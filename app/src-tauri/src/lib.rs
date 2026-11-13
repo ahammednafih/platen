@@ -94,6 +94,7 @@ pub fn run() {
             commands::delete_draft,
             commands::file_pages,
             commands::shrink_pdf,
+            commands::pdf_previews,
             commands::keep_shrunk,
             commands::discard_shrunk,
             dock::set_dock_icon,

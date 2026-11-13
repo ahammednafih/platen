@@ -1,5 +1,5 @@
 // Typed wrappers over the Tauri commands in src-tauri/src/commands.rs.
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 export type Fill = "Off" | "White" | "Paper";
 export type Kind = "A4" | "Long";
@@ -90,7 +90,12 @@ export const api = {
   library: () => invoke<Saved[]>("library"),
   deleteDraft: (name: string) => invoke<Draft[]>("delete_draft", { name }),
   filePages: (path: string) => invoke<number>("file_pages", { path }),
-  shrinkPdf: (path: string, maxMb: number) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb }),
+  pdfPreviews: (path: string, w: number, onReady: (r: { page: number; ok: boolean }) => void) => {
+    const ready = new Channel<{ page: number; ok: boolean }>();
+    ready.onmessage = onReady;
+    return invoke<void>("pdf_previews", { path, w, ready });
+  },
+  shrinkPdf: (path: string, maxMb: number | null, skip: number[] = []) => invoke<ShrinkResult>("shrink_pdf", { path, maxMb, skip }),
   shareFile: (path: string, anchor: { x: number; y: number; w: number; h: number }) => invoke<void>("share_file", { path, anchor }),
   setDockIcon: (accent: string) => invoke<void>("set_dock_icon", { accent }),
   trashFile: (path: string) => invoke<void>("trash_file", { path }),

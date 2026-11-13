@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, type Snippet } from "svelte";
   import { api, fileImg } from "./api";
   import Modal from "./Modal.svelte";
 
-  let { path, onclose }: { path: string; onclose: () => void } = $props();
+  let { path, page = $bindable(0), onclose, actions }: { path: string; page?: number; onclose: () => void; actions?: Snippet<[number]> } = $props();
 
   let pages = $state(1);
-  let page = $state(0);
   let error = $state("");
+  let noImage = $state<number | null>(null);
 
   onMount(async () => {
     try {
@@ -40,14 +40,17 @@
         <button class="ghost" disabled={page >= pages - 1} onclick={() => page++}>›</button>
       </span>
     {/if}
+    {@render actions?.(page)}
     <button class="ghost" onclick={onclose}>Close</button>
   </header>
   <div class="stage">
     {#if error}
       <p class="error">{error}</p>
+    {:else if noImage === page}
+      <p class="error">This page has no scanned image to preview.</p>
     {:else}
       {#key page}
-        <img src={fileImg(path, page)} alt="Page {page + 1}" onerror={() => (error = "This page has no scanned image to preview.")} />
+        <img src={fileImg(path, page)} alt="Page {page + 1}" onerror={() => (noImage = page)} />
       {/key}
     {/if}
   </div>

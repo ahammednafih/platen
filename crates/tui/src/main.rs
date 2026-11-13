@@ -47,9 +47,12 @@ struct Cli {
     /// Copies when printing.
     #[arg(long, default_value_t = 1)]
     copies: u32,
-    /// Shrink any PDF to fit under a size limit: IN OUT MB
-    #[arg(long, num_args = 3, value_names = ["IN", "OUT", "MB"])]
+    /// Shrink any PDF to fit under a size limit: IN OUT MB. Leave out MB to only --skip pages.
+    #[arg(long, num_args = 2..=3, value_names = ["IN", "OUT", "MB"])]
     shrink: Option<Vec<String>>,
+    /// Pages to leave out with --shrink, e.g. 11-18 or 2,5-7,20-
+    #[arg(long, value_name = "PAGES", requires = "shrink")]
+    skip: Option<String>,
     /// List saved drafts (sessions that can be resumed).
     #[arg(long)]
     list: bool,
@@ -87,10 +90,25 @@ fn main() -> Result<()> {
 
     if let Some(a) = cli.shrink {
         let t = std::time::Instant::now();
-        let mb: f32 = a[2].parse().context("MB must be a number, e.g. 1 or 0.5")?;
+        let mb: Option<f32> = a.get(2).map(|m| m.parse().context("MB must be a number, e.g. 1 or 0.5")).transpose()?;
+        if mb.is_none() && cli.skip.is_none() {
+            anyhow::bail!("give a size limit in MB, or pages to --skip");
+        }
         let input = std::fs::read(&a[0])?;
-        let r = platen_core::pdfedit::shrink(&input, (mb * 1_000_000.0) as u64)?;
+        let kept = match &cli.skip {
+            Some(spec) => {
+                let count = platen_core::pdfedit::page_count(&input)? as u32;
+                platen_core::pdfedit::drop_pages(&input, &platen_core::pdfedit::parse_pages(spec, count)?)?
+            }
+            None => input.clone(),
+        };
+        let r = platen_core::pdfedit::shrink(&kept, mb.map_or(u64::MAX, |mb| (mb * 1_000_000.0) as u64))?;
         std::fs::write(&a[1], &r.data)?;
+        if mb.is_none() {
+            let pages = platen_core::pdfedit::page_count(&r.data)?;
+            println!("{:.2} MB → {:.2} MB ({pages} pages)", input.len() as f32 / 1e6, r.data.len() as f32 / 1e6);
+            return Ok(());
+        }
         println!(
             "{:.2} MB → {:.2} MB ({}; images at {:.0}% size, quality {}) in {:.1}s",
             input.len() as f32 / 1e6,

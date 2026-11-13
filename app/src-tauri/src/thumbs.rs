@@ -51,7 +51,7 @@ pub fn serve_file<R: Runtime>(ctx: UriSchemeContext<'_, R>, req: Request<Vec<u8>
 }
 
 /// `<cache>/scan/previews/<hash>.jpg`; a changed file gets a new name, so stale entries are never served.
-fn cache_path(path: &Path, page: usize, w: u32) -> Option<PathBuf> {
+pub(crate) fn cache_path(path: &Path, page: usize, w: u32) -> Option<PathBuf> {
     use std::hash::{Hash, Hasher};
     let meta = std::fs::metadata(path).ok()?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
