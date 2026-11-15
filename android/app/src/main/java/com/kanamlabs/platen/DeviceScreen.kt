@@ -236,6 +236,18 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                 }
             }
 
+            Section("Print from other apps") {
+                Text(
+                    "Turn on Platen in Android's print settings, then choose your printer from the Print option in any app, like Docs, Word, Chrome or Photos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val context = androidx.compose.ui.platform.LocalContext.current
+                FilledTonalButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_PRINT_SETTINGS)) } }, shapes = ButtonDefaults.shapes()) {
+                    Text("Open print settings")
+                }
+            }
+
             Section("Where scans are saved") {
                 Text(state.folder, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

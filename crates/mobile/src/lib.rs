@@ -335,6 +335,25 @@ impl Platen {
         Ok(self.stopped(res)?.len() as u32)
     }
 
+    /// What the printer at `base` offers, without making it the app's current device.
+    pub fn print_caps_on(&self, base: String) -> Result<PrintCaps> {
+        Ok(Printer::for_host(Scanner::at(&base).host()).caps()?.into())
+    }
+
+    /// Print to the printer at `base` without making it the app's current device (the system print service).
+    pub fn print_on(&self, base: String, job: PrintJob, progress: Arc<dyn PrintProgress>) -> Result<u32> {
+        let p = Printer::for_host(Scanner::at(&base).host());
+        let job: printjob::PrintJob = job.into();
+        self.stop.store(false, Ordering::Relaxed);
+        let res = job.run_until(&p, "Platen", &self.stop, |done, total| progress.progress(done as u32, total as u32));
+        Ok(self.stopped(res)?.len() as u32)
+    }
+
+    /// Stop sending sheets for the print in progress, without needing a current device.
+    pub fn stop_sending(&self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+
     /// Stop the copy or print in progress: no more sheets, the scan aborts, queued jobs are cancelled.
     pub fn stop_job(&self) -> Result<u32> {
         self.stop.store(true, Ordering::Relaxed);

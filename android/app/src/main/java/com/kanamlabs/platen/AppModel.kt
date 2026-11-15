@@ -284,7 +284,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-private fun loadPrinters(prefs: android.content.SharedPreferences): List<SavedPrinter> {
+internal fun loadPrinters(prefs: android.content.SharedPreferences): List<SavedPrinter> {
     val raw = prefs.getString("printers", null)
     if (raw == null) {
         val base = prefs.getString("base", null) ?: return emptyList()
