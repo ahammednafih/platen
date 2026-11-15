@@ -31,6 +31,12 @@ Code: `crates/core/src/ipp.rs`. Pages are rendered locally and sent as JPEG, one
 is what makes page picking, several pages per sheet and manual two-sided printing possible on any
 printer. Ink levels come from the `marker-levels` attribute.
 
+Paper type and borderless printing go in a `media-col` collection instead of the plain `media`
+keyword: `media-size` (`x-dimension`, `y-dimension` in hundredths of a millimetre), `media-type`
+(from `media-type-supported`, e.g. `stationery`, `stationery-inkjet`, `photographic-glossy`, plus a
+vendor keyword for its own photo paper) and, for borderless, all four `media-*-margin` members set to
+0. The printer advertises borderless by listing 0 in `media-bottom-margin-supported`.
+
 ## The Scan button
 
 Code: `crates/core/src/button.rs`, `snmp.rs`, `pushscan.rs`.
@@ -56,3 +62,17 @@ Code: `crates/core/src/webui.rs`, `pushscan.rs`. HTTPS only, with a self-signed 
 - Settings forms need a `Referer` from the device's own page, or they answer 403.
 - A change that needs a restart returns a confirmation page; its hidden fields are posted back with
   `?pc=2`, and the device restarts about a minute later.
+
+### Maintenance pages
+
+Found on the test device (read only so far; nothing below has been submitted).
+
+- `/general/head_cleaning.html` has one form per button. Each posts `pageid=21`, its own `CSRFToken`
+  and `btn_def` to `/general/head_cleaning_confirm.html`. `btn_def`: 1–3 black only (normal, strong,
+  strongest), 4–6 colour only (same), 7–9 all colours (same), 10 all colours "special" (the most ink).
+  The page warns that cleaning with little ink left can damage the machine.
+- `/general/checkprintquality.html` prints the nozzle check pattern on A4/Letter plain paper.
+- `/general/alignment.html` prints and applies print head alignment.
+- What `head_cleaning_confirm.html` answers, and what it posts to start cleaning, is still unknown:
+  finding out runs a clean, which uses ink.
+
