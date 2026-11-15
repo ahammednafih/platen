@@ -3,6 +3,9 @@ package com.kanamlabs.platen
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -123,7 +126,7 @@ fun BusyPill(label: String, modifier: Modifier = Modifier, trailing: @Composable
     }
 }
 
-enum class Glyph { One, TwoInOne, IdCard, Long, Empty }
+enum class Glyph { One, TwoInOne, FourInOne, IdCard, Long, Empty }
 
 @Composable
 fun SheetGlyph(kind: Glyph, active: Boolean, modifier: Modifier = Modifier, width: Dp = 40.dp) {
@@ -147,6 +150,13 @@ fun SheetGlyph(kind: Glyph, active: Boolean, modifier: Modifier = Modifier, widt
                 val half = (w - pad * 0.6f) / 2
                 lines(ink, Offset(pad, pad), Size(half, h * 0.62f), 4)
                 lines(ink, Offset(pad + half + pad * 0.6f, pad), Size(half, h * 0.62f), 4)
+            }
+            Glyph.FourInOne -> {
+                val half = (w - pad * 0.6f) / 2
+                val tall = (h - pad * 0.6f) / 2
+                for (row in 0..1) for (col in 0..1) {
+                    lines(ink, Offset(pad + col * (half + pad * 0.6f), pad + row * (tall + pad * 0.6f)), Size(half, tall * 0.8f), 3)
+                }
             }
             Glyph.IdCard -> {
                 val cw = w * 0.72f
@@ -241,5 +251,21 @@ fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+    }
+}
+
+@Composable
+fun LowInk(state: AppState) {
+    val low = state.status?.printer?.ink?.filter { it.level in 0..15 }.orEmpty()
+    AnimatedVisibility(low.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                low.forEach { Box(Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(inkColor(it.name, false))) }
+                Text(
+                    low.joinToString(" and ") { "${it.name.replaceFirstChar { c -> c.uppercase() }} (${it.level}%)" } + if (low.size == 1) " ink is low" else " inks are low",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+        }
     }
 }

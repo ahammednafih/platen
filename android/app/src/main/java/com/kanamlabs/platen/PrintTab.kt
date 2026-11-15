@@ -168,6 +168,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
     val tick = rememberTick()
     Box(Modifier.fillMaxSize().padding(padding)) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 104.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            LowInk(state)
             if (files.isEmpty()) {
                 GlassBed(Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {

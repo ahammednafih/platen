@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -63,6 +64,15 @@ private enum class CopyKind(val title: String, val short: String, val glyph: Gly
     TwoInOne(
         "2 in 1", "Two pages side by side", Glyph.TwoInOne,
         listOf("Put the first page face down on the glass. It goes on the left of the sheet." to "Scan first page", "Put the second page face down on the glass. The copy prints right after this scan." to "Scan second page"),
+    ),
+    FourInOne(
+        "4 in 1", "Four pages on one sheet", Glyph.FourInOne,
+        listOf(
+            "Put the first page face down on the glass. It goes top left on the sheet." to "Scan page 1",
+            "Put the second page face down on the glass. It goes top right." to "Scan page 2",
+            "Put the third page face down on the glass. It goes bottom left." to "Scan page 3",
+            "Put the fourth page face down on the glass. The copy prints right after this scan." to "Scan page 4",
+        ),
     ),
     IdCard(
         "ID card", "Both sides, actual size", Glyph.IdCard,
@@ -133,7 +143,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                     CopyKind.IdCard -> Scale.Actual
                     else -> Scale.Fit
                 }
-                val job = PrintJob(files, "", Subset.ALL, false, if (kind == CopyKind.TwoInOne) 2u else 1u, scale, true, false, PrintOpts(copies.toUInt(), color, media, "fit", quality))
+                val job = PrintJob(files, "", Subset.ALL, false, when (kind) { CopyKind.TwoInOne -> 2u; CopyKind.FourInOne -> 4u; else -> 1u }, scale, true, false, PrintOpts(copies.toUInt(), color, media, "fit", quality))
                 model.platen.print(job, object : PrintProgress {
                     override fun progress(done: UInt, total: UInt) {
                         busy = "Printing $done of $total"
@@ -151,6 +161,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
 
     val tick = rememberTick()
     Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        LowInk(state)
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CopyKind.entries.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -172,6 +183,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                             }
                         }
                     }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -213,7 +225,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
         }
 
         Section("Copy") {
-            if (kind == CopyKind.One || kind == CopyKind.TwoInOne) {
+            if (kind == CopyKind.One || kind == CopyKind.TwoInOne || kind == CopyKind.FourInOne) {
                 Labeled("Original size") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         (state.caps?.sizes?.map { it.id to it.name } ?: listOf(SizeId.A4 to "A4", SizeId.LETTER to "Letter", SizeId.A5 to "A5")).forEach { (id, name) ->
