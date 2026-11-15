@@ -26,6 +26,11 @@ val uniffiBindings by tasks.registering(Exec::class) {
 
 tasks.named("preBuild") { dependsOn(uniffiBindings) }
 
+val releaseKeystore = providers.environmentVariable("ANDROID_KEYSTORE").orNull?.let(::file)
+
+fun commitCount(): Int =
+    providers.exec { commandLine("git", "rev-list", "--count", "HEAD") }.standardOutput.asText.get().trim().toInt()
+
 android {
     namespace = "com.kanamlabs.platen"
     compileSdk = 37
@@ -34,8 +39,18 @@ android {
         applicationId = "com.kanamlabs.platen"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: commitCount()
+        versionName = providers.gradleProperty("versionName").orNull ?: "0.0.0-dev"
+    }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").get()
+            }
+        }
     }
     buildTypes {
         debug {
@@ -45,6 +60,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     buildFeatures {
