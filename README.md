@@ -1,6 +1,6 @@
 # Platen
 
-Scan, copy and print on a network printer from your Mac, without the vendor's app.
+Scan, copy and print on a network printer from your Mac or Android phone, without the vendor's app.
 
 Platen talks to the printer directly over the standard driverless protocols (AirScan and AirPrint), so
 there is nothing to install on the printer side and no account to sign in to. It started as a
@@ -45,6 +45,18 @@ it wouldn't.
 - Ink levels and status at a glance.
 - Page counters, maintenance and network details, read from the printer's web page.
 
+**On Android**
+
+The Android app shares the same core, so scanning, page tools, long pages, export, shrink, copy, print
+and device details work the same way. It differs in a few places:
+
+- Not available: searchable PDFs and copying text out of a scan (no OCR on the phone), and the
+  printer's Scan button.
+- Added: several printers saved with your own names for them, 4 in 1 copies, and a warning when ink
+  runs low.
+- Scans are saved to Documents/Platen, or a folder you choose. PDFs and images shared from other apps
+  open straight in Print.
+
 ## Will it work with my printer?
 
 | Feature | Needs |
@@ -56,10 +68,13 @@ it wouldn't.
 Platen has been developed and tested against one Brother inkjet all-in-one. The standard features
 should work elsewhere, but they are untested on other makes. Reports and fixes are welcome.
 
-Platen runs on macOS 13 or later. The core is plain Rust, so Linux and Windows are possible, but
-nobody has done that work yet.
+Platen runs on macOS 13 or later and on Android 12 or later (64-bit ARM phones, which is nearly all
+of them). The core is plain Rust, so iOS, Linux and Windows are possible, but nobody has done that work
+yet.
 
 ## Install
+
+### Mac
 
 1. Download the latest `.dmg` from [Releases](../../releases).
 2. Drag Platen into Applications.
@@ -69,6 +84,16 @@ nobody has done that work yet.
    ```sh
    xattr -dr com.apple.quarantine /Applications/Platen.app
    ```
+
+### Android
+
+1. On the phone, download the latest `platen-…-android.apk` from [Releases](../../releases).
+2. Open it. Android asks to allow installs from your browser or file manager the first time; allow it.
+3. On first launch Platen asks to connect to a device on your local network. Pick your printer.
+
+Updates install over the old version the same way, keeping your scans and settings.
+
+### Searchable PDFs (Mac)
 
 For searchable PDFs, install Tesseract. Everything else works without it.
 
@@ -120,7 +145,8 @@ Run `platen --help` for the rest.
 ## Security and privacy
 
 - Everything stays on your network. Platen makes no connections other than to your printer.
-- The printer's admin password, if you enter one for Device details, is stored in the macOS Keychain.
+- The printer's admin password, if you enter one for Device details, is stored in the macOS Keychain,
+  or on Android encrypted with a key held in the Android Keystore.
 - The printer's web page uses a self-signed certificate, so Platen cannot verify it is really talking
   to your printer. On a network you don't trust, someone could pose as the printer and capture that
   password. Use Device details on your own network.
@@ -148,6 +174,12 @@ cargo run -p platen-cli -- --help # the CLI
 cd app && pnpm check              # frontend type check
 ```
 
+The Android app also needs the Android SDK and NDK and `cargo-ndk`; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```sh
+cd android && ./gradlew :app:assembleDebug   # builds the Rust core for Android and the app
+```
+
 ### Layout
 
 | Path | What |
@@ -155,6 +187,8 @@ cd app && pnpm check              # frontend type check
 | `crates/core` | The library: scanning (eSCL and the native protocol), printing (IPP), stitching, PDF writing, OCR, sessions, the Scan button. |
 | `crates/tui` | The `platen` command-line app. |
 | `app` | The desktop app: Tauri 2 with a Svelte 5 frontend. Commands live in `app/src-tauri/src`. |
+| `crates/mobile` | The phone apps' shared core, bound to Kotlin (and later Swift) with UniFFI. |
+| `android` | The Android app: Kotlin and Jetpack Compose. |
 | `docs/protocols.md` | How the device protocols behave, including the vendor-specific ones. |
 
 ### Releasing
