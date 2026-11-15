@@ -1,0 +1,18 @@
+[package]
+name = "platen-mobile"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "platen_mobile"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true
+platen-core.workspace = true
+uniffi = { version = "0.32.2", features = ["cli"] }
