@@ -40,12 +40,12 @@ export type Quality = "Draft" | "Normal" | "High";
 export type Scale = "Fit" | "Actual" | { Percent: number };
 export type Subset = "All" | "Odd" | "Even";
 export type Area = { Size: SizeId } | "HalfTop";
-export interface PrintOpts { copies: number; color: boolean; media: string; scaling: string; quality: Quality }
+export interface PrintOpts { copies: number; color: boolean; media: string; scaling: string; quality: Quality; media_type?: string | null; borderless?: boolean }
 export interface PrintJob {
   files: string[]; ranges: string; subset: Subset; reverse: boolean;
   nup: number; scale: Scale; collate: boolean; clean?: boolean; opts: PrintOpts;
 }
-export interface PrintCaps { media: string[]; media_default: string; color: boolean; qualities: Quality[]; max_copies: number; duplex: boolean }
+export interface PrintCaps { media: string[]; media_default: string; color: boolean; qualities: Quality[]; max_copies: number; duplex: boolean; media_types: string[]; borderless: boolean }
 export type SnmpMode = "ReadWrite" | "ReadOnly" | "Off";
 export interface ButtonStatus { snmp: SnmpMode; destination: string | null; name: string; on: boolean }
 export interface Press { func: string; seq: number }

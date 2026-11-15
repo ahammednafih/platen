@@ -22,6 +22,9 @@ const T_CHARSET: u8 = 0x47;
 const T_LANGUAGE: u8 = 0x48;
 const T_MIME: u8 = 0x49;
 const T_NAME: u8 = 0x42;
+const T_BEGIN_COLLECTION: u8 = 0x34;
+const T_END_COLLECTION: u8 = 0x37;
+const T_MEMBER_NAME: u8 = 0x4A;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -86,11 +89,17 @@ pub struct PrintOpts {
     /// `fit` (shrink long pages onto the sheet), `fill`, `none`, `auto`.
     pub scaling: String,
     pub quality: Quality,
+    /// IPP `media-type`, e.g. `stationery` or `photographic-glossy`; the printer's default when unset.
+    #[serde(default)]
+    pub media_type: Option<String>,
+    /// Print to the edges of the paper, where the printer allows it.
+    #[serde(default)]
+    pub borderless: bool,
 }
 
 impl Default for PrintOpts {
     fn default() -> Self {
-        PrintOpts { copies: 1, color: true, media: "iso_a4_210x297mm".into(), scaling: "fit".into(), quality: Quality::Normal }
+        PrintOpts { copies: 1, color: true, media: "iso_a4_210x297mm".into(), scaling: "fit".into(), quality: Quality::Normal, media_type: None, borderless: false }
     }
 }
 
@@ -104,6 +113,10 @@ pub struct PrintCaps {
     pub max_copies: i32,
     /// True when the printer reports two-sided printing (otherwise use odd/even sheets).
     pub duplex: bool,
+    /// Paper types the printer takes, e.g. `stationery`, `photographic-glossy`.
+    pub media_types: Vec<String>,
+    /// True when the printer can print without margins.
+    pub borderless: bool,
 }
 
 impl Printer {
@@ -145,7 +158,10 @@ impl Printer {
     }
 
     pub fn caps(&self) -> Result<PrintCaps> {
-        let a = self.attributes(&["media-supported", "media-default", "print-color-mode-supported", "print-quality-supported", "copies-supported", "sides-supported"])?;
+        let a = self.attributes(&[
+            "media-supported", "media-default", "print-color-mode-supported", "print-quality-supported", "copies-supported", "sides-supported",
+            "media-type-supported", "media-bottom-margin-supported",
+        ])?;
         let strs = |k: &str| -> Vec<String> { a.get(k).map(|v| v.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default() };
         let qualities = a.get("print-quality-supported").map(|v| v.iter().filter_map(Value::as_int).filter_map(quality).collect()).unwrap_or_default();
         let max_copies = match a.get("copies-supported").and_then(|v| v.first()) {
@@ -159,6 +175,8 @@ impl Printer {
             qualities,
             max_copies,
             duplex: strs("sides-supported").iter().any(|s| s.starts_with("two-sided")),
+            media_types: strs("media-type-supported"),
+            borderless: a.get("media-bottom-margin-supported").is_some_and(|v| v.iter().any(|m| m.as_int() == Some(0))),
         })
     }
 
@@ -170,8 +188,11 @@ impl Printer {
         req.group(0x02);
         req.attr(T_INTEGER, "copies", &(o.copies.max(1) as i32).to_be_bytes());
         req.attr(T_KEYWORD, "print-color-mode", if o.color { b"color" as &[u8] } else { b"monochrome" });
-        req.attr(T_KEYWORD, "media", o.media.as_bytes());
-        req.attr(T_KEYWORD, "print-scaling", o.scaling.as_bytes());
+        match crate::sheet::Paper::from_media(&o.media).filter(|_| o.media_type.is_some() || o.borderless) {
+            Some(paper) => req.media_col(paper, o.media_type.as_deref(), o.borderless),
+            None => req.attr(T_KEYWORD, "media", o.media.as_bytes()),
+        }
+        req.attr(T_KEYWORD, "print-scaling", if o.borderless { b"fill" as &[u8] } else { o.scaling.as_bytes() });
         let q: i32 = match o.quality {
             Quality::Draft => 3,
             Quality::Normal => 4,
@@ -269,6 +290,34 @@ impl Request {
         self.0.extend_from_slice(value);
     }
 
+    /// `media-col` instead of `media`: the paper size plus a paper type and/or zero margins.
+    fn media_col(&mut self, paper: crate::sheet::Paper, media_type: Option<&str>, borderless: bool) {
+        let hundredths = |mm: f32| ((mm * 100.0).round() as i32).to_be_bytes();
+        self.attr(T_BEGIN_COLLECTION, "media-col", b"");
+        self.member("media-size");
+        self.attr(T_BEGIN_COLLECTION, "", b"");
+        self.member("x-dimension");
+        self.attr(T_INTEGER, "", &hundredths(paper.w_mm));
+        self.member("y-dimension");
+        self.attr(T_INTEGER, "", &hundredths(paper.h_mm));
+        self.attr(T_END_COLLECTION, "", b"");
+        if let Some(t) = media_type {
+            self.member("media-type");
+            self.attr(T_KEYWORD, "", t.as_bytes());
+        }
+        if borderless {
+            for m in ["media-bottom-margin", "media-left-margin", "media-right-margin", "media-top-margin"] {
+                self.member(m);
+                self.attr(T_INTEGER, "", &0i32.to_be_bytes());
+            }
+        }
+        self.attr(T_END_COLLECTION, "", b"");
+    }
+
+    fn member(&mut self, name: &str) {
+        self.attr(T_MEMBER_NAME, "", name.as_bytes());
+    }
+
     fn keywords(&mut self, name: &str, values: &[&str]) {
         for (i, v) in values.iter().enumerate() {
             self.attr(T_KEYWORD, if i == 0 { name } else { "" }, v.as_bytes());
@@ -327,3 +376,34 @@ fn parse(b: &[u8]) -> Result<(u16, Groups)> {
     }
     Ok((status, groups))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn find(b: &[u8], needle: &[u8]) -> Option<usize> {
+        b.windows(needle.len()).position(|w| w == needle)
+    }
+
+    #[test]
+    fn media_col_carries_size_type_and_zero_margins() {
+        let mut r = Request(Vec::new());
+        r.media_col(crate::sheet::Paper { w_mm: 101.6, h_mm: 152.4 }, Some("photographic-glossy"), true);
+        let b = r.0;
+        assert_eq!(b[0], T_BEGIN_COLLECTION);
+        assert!(find(&b, b"media-col").is_some());
+        let x = find(&b, b"x-dimension").unwrap();
+        assert_eq!(&b[x + 11 + 5..x + 11 + 5 + 4], &10160i32.to_be_bytes());
+        assert!(find(&b, b"photographic-glossy").is_some());
+        assert!(find(&b, b"media-top-margin").is_some());
+        assert_eq!(b.iter().filter(|&&t| t == T_END_COLLECTION).count(), 2);
+    }
+
+    #[test]
+    fn plain_jobs_still_send_media_keyword() {
+        let o = PrintOpts::default();
+        let paper = crate::sheet::Paper::from_media(&o.media).filter(|_| o.media_type.is_some() || o.borderless);
+        assert!(paper.is_none());
+    }
+}
+

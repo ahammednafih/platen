@@ -336,6 +336,8 @@ pub struct PrintCaps {
     pub qualities: Vec<Quality>,
     pub max_copies: i32,
     pub duplex: bool,
+    pub media_types: Vec<String>,
+    pub borderless: bool,
 }
 
 impl From<ipp::PrintCaps> for PrintCaps {
@@ -347,6 +349,8 @@ impl From<ipp::PrintCaps> for PrintCaps {
             qualities: c.qualities.into_iter().map(Into::into).collect(),
             max_copies: c.max_copies,
             duplex: c.duplex,
+            media_types: c.media_types,
+            borderless: c.borderless,
         }
     }
 }
@@ -358,6 +362,8 @@ pub struct PrintOpts {
     pub media: String,
     pub scaling: String,
     pub quality: Quality,
+    pub media_type: Option<String>,
+    pub borderless: bool,
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -384,7 +390,15 @@ impl From<PrintJob> for printjob::PrintJob {
             scale: j.scale.into(),
             collate: j.collate,
             clean: j.clean,
-            opts: ipp::PrintOpts { copies: j.opts.copies, color: j.opts.color, media: j.opts.media, scaling: j.opts.scaling, quality: j.opts.quality.into() },
+            opts: ipp::PrintOpts {
+                copies: j.opts.copies,
+                color: j.opts.color,
+                media: j.opts.media,
+                scaling: j.opts.scaling,
+                quality: j.opts.quality.into(),
+                media_type: j.opts.media_type,
+                borderless: j.opts.borderless,
+            },
         }
     }
 }

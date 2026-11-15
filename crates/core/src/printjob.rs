@@ -162,7 +162,7 @@ mod tests {
                 f
             })
             .collect();
-        let opts = PrintOpts { copies: 2, color: false, media: "iso_a4_210x297mm".into(), scaling: "fit".into(), quality: Quality::Normal };
+        let opts = PrintOpts { copies: 2, color: false, media: "iso_a4_210x297mm".into(), scaling: "fit".into(), quality: Quality::Normal, ..Default::default() };
         let job = PrintJob { files, ranges: "1-5".into(), subset: Subset::Even, reverse: false, nup: 2, scale: Scale::Fit, collate: true, clean: false, opts };
 
         let plan = job.plan().unwrap();
