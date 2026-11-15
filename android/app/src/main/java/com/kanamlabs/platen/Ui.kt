@@ -126,7 +126,7 @@ fun BusyPill(label: String, modifier: Modifier = Modifier, trailing: @Composable
     }
 }
 
-enum class Glyph { One, TwoInOne, FourInOne, IdCard, Long, Empty }
+enum class Glyph { One, TwoInOne, FourInOne, IdCard, Long, Poster, Empty }
 
 @Composable
 fun SheetGlyph(kind: Glyph, active: Boolean, modifier: Modifier = Modifier, width: Dp = 40.dp) {
@@ -156,6 +156,15 @@ fun SheetGlyph(kind: Glyph, active: Boolean, modifier: Modifier = Modifier, widt
                 val tall = (h - pad * 0.6f) / 2
                 for (row in 0..1) for (col in 0..1) {
                     lines(ink, Offset(pad + col * (half + pad * 0.6f), pad + row * (tall + pad * 0.6f)), Size(half, tall * 0.8f), 3)
+                }
+            }
+            Glyph.Poster -> {
+                lines(ink.copy(alpha = 0.35f), Offset(pad, pad), Size(w, h), 6)
+                val third = w / 3f
+                val tall = h / 3f
+                for (i in 1..2) {
+                    drawLine(ink, Offset(pad + i * third, pad), Offset(pad + i * third, pad + h), 1.5.dp.toPx())
+                    drawLine(ink, Offset(pad, pad + i * tall), Offset(pad + w, pad + i * tall), 1.5.dp.toPx())
                 }
             }
             Glyph.IdCard -> {

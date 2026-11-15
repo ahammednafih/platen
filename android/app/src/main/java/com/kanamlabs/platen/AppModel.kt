@@ -52,6 +52,7 @@ data class AppState(
     val printers: List<SavedPrinter> = emptyList(),
     val current: String? = null,
     val searching: Boolean = false,
+    val keepDays: Int = 0,
 )
 
 class AppModel(app: Application) : AndroidViewModel(app) {
@@ -67,6 +68,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             accent = prefs.getString("accent", null)?.let { a -> Accent.entries.firstOrNull { it.name == a } } ?: Accent.Ink,
             printers = loadPrinters(app.getSharedPreferences("platen", Context.MODE_PRIVATE)),
             current = app.getSharedPreferences("platen", Context.MODE_PRIVATE).getString("base", null),
+            keepDays = app.getSharedPreferences("platen", Context.MODE_PRIVATE).getInt("keepDays", 0),
         ),
     )
     val state: StateFlow<AppState> = _state
@@ -79,6 +81,23 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     init {
         find()
+        cleanOldDrafts()
+    }
+
+    fun setKeepDays(days: Int) {
+        prefs.edit().putInt("keepDays", days).apply()
+        _state.update { it.copy(keepDays = days) }
+        cleanOldDrafts()
+    }
+
+    private fun cleanOldDrafts() {
+        val days = _state.value.keepDays
+        if (days <= 0) return
+        val cutoff = System.currentTimeMillis() / 1000 - days * 86_400L
+        work(null, {
+            platen.drafts().filter { it.modified.toLong() < cutoff }.forEach { runCatching { platen.deleteDraft(it.name) } }
+            platen.drafts()
+        }) { d -> _state.update { it.copy(drafts = d) } }
     }
 
     fun find() {

@@ -256,6 +256,11 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                 }
             }
 
+            Section("Drafts") {
+                Text("Delete unfinished scans you haven't touched for a while. Exported files in your scans folder are never removed.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Choice(listOf(0 to "Keep all", 30 to "After 30 days", 90 to "After 90 days"), state.keepDays, model::setKeepDays)
+            }
+
             Section("Accent colour") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Accent.entries.forEach { a ->

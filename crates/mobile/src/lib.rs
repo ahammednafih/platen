@@ -388,6 +388,13 @@ impl Platen {
         Ok(copy::id_card(Path::new(&front), Path::new(&back), &dir)?.to_string_lossy().into_owned())
     }
 
+    /// One scan enlarged across `n`×`n` sheets of the paper named by the IPP `media` keyword.
+    pub fn copy_poster(&self, path: String, n: u32, media: String) -> Result<Vec<String>> {
+        let dir = self.copy_dir()?;
+        let paper = platen_core::sheet::Paper::from_media(&media).unwrap_or(platen_core::sheet::Paper::A4);
+        Ok(copy::poster(Path::new(&path), n, paper, &dir)?.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
+    }
+
     pub fn copy_tone(&self, files: Vec<String>, density: i32, background: u8) -> Result<Vec<String>> {
         let dir = self.copy_dir()?;
         files.iter().map(|f| Ok(copy::tone(Path::new(f), density, background, &dir)?.to_string_lossy().into_owned())).collect()

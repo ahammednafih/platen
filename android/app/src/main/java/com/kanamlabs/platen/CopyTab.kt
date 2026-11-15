@@ -78,6 +78,10 @@ private enum class CopyKind(val title: String, val short: String, val glyph: Gly
         "ID card", "Both sides, actual size", Glyph.IdCard,
         listOf("Put the card face down in the top half of the glass, a little away from the corner." to "Scan front", "Turn the card over and put it back in the same spot. The copy prints right after this scan." to "Scan back"),
     ),
+    Poster(
+        "Poster", "One page across several sheets", Glyph.Poster,
+        listOf("Put the page face down on the glass, top edge against the far edge. It prints across several sheets." to "Scan and print poster"),
+    ),
     Long(
         "Long page", "Taller than the glass", Glyph.Long,
         listOf("Put the top of the page face down on the glass, top edge against the far edge." to "Scan top half", "Turn the page around so the bottom is on the glass. Leave a few centimetres of overlap." to "Scan bottom half"),
@@ -99,6 +103,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
     var media by rememberSaveable { mutableStateOf(state.printCaps?.mediaDefault ?: "iso_a4_210x297mm") }
     var quality by rememberSaveable { mutableStateOf(Quality.NORMAL) }
     var mediaType by rememberSaveable { mutableStateOf<String?>(null) }
+    var posterSize by rememberSaveable { mutableIntStateOf(3) }
     var step by remember { mutableIntStateOf(0) }
     val scans = remember { mutableListOf<String>() }
     var top by remember { mutableStateOf<TopHalf?>(null) }
@@ -136,6 +141,10 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                     busy = "Placing front and back"
                     files = listOf(model.platen.copyIdCard(scans[0], scans[1]))
                 }
+                if (kind == CopyKind.Poster) {
+                    busy = "Making the poster"
+                    files = model.platen.copyPoster(files.first(), posterSize.toUInt(), media)
+                }
                 if (density != 0 || background != 0) {
                     busy = "Adjusting"
                     files = model.platen.copyTone(files, density, background.toUByte())
@@ -153,7 +162,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                     }
                 })
             }
-            log = "Sent $copies ${if (copies == 1) "copy" else "copies"} to the printer."
+            log = if (kind == CopyKind.Poster) "Sent the poster: ${posterSize * posterSize} sheets, row by row from the top left." else "Sent $copies ${if (copies == 1) "copy" else "copies"} to the printer."
             reset()
         } catch (e: PlatenException) {
             log = if (e.message == "stopped") "Stopped. Nothing else will print." else e.message
@@ -228,7 +237,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
         }
 
         Section("Copy") {
-            if (kind == CopyKind.One || kind == CopyKind.TwoInOne || kind == CopyKind.FourInOne) {
+            if (kind == CopyKind.One || kind == CopyKind.TwoInOne || kind == CopyKind.FourInOne || kind == CopyKind.Poster) {
                 Labeled("Original size") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         (state.caps?.sizes?.map { it.id to it.name } ?: listOf(SizeId.A4 to "A4", SizeId.LETTER to "Letter", SizeId.A5 to "A5")).forEach { (id, name) ->
@@ -238,6 +247,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                 }
             }
             if (kind == CopyKind.One) ScalePicker(scaleMode, percent, { scaleMode = it }, { percent = it })
+            if (kind == CopyKind.Poster) Labeled("Poster size") { Choice(listOf(2 to "2 × 2 sheets", 3 to "3 × 3 sheets"), posterSize, { posterSize = it }) }
             Stepper("Copies", copies, 1..99) { copies = it }
             Labeled("Colour") { Choice(listOf(false to "Black and white", true to "Colour"), color, { color = it }) }
             Labeled("Density: ${if (density > 0) "+$density darker" else if (density < 0) "$density lighter" else "normal"}") {

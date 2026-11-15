@@ -1,7 +1,8 @@
 //! Copying: scan to a scratch folder, then print the scans as a `PrintJob`.
 //!
 //! Normal = one scan of the original's size; 2-in-1 = two scans on one sheet; ID card = front and back, each on
-//! the top half of the glass, stacked at actual size; long = the two-pass stitched page.
+//! the top half of the glass, stacked at actual size; long = the two-pass stitched page; poster = one
+//! scan enlarged across a grid of sheets.
 use crate::capture::{self, Settings, TopHalf};
 use crate::escl::{self, ColorMode, ScanOpts, Scanner, Size, SizeId};
 use crate::fill::Fill;
@@ -66,6 +67,41 @@ pub fn id_card(front: &Path, back: &Path, dir: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// One scan enlarged across `n`×`n` sheets of `paper`, centred and as large as fits. Returns the
+/// tiles row by row. Each tile is cut and scaled from the scan on its own, so the whole poster is
+/// never held in memory.
+pub fn poster(src: &Path, n: u32, paper: crate::sheet::Paper, dir: &Path) -> Result<Vec<PathBuf>> {
+    let img = session::load_rgb(src)?;
+    let n = n.clamp(2, 5);
+    let (pw, ph) = paper.px(COPY_DPI);
+    let (cw, ch) = ((pw * n) as f32, (ph * n) as f32);
+    let scale = (cw / img.width() as f32).min(ch / img.height() as f32);
+    let (sw, sh) = (img.width() as f32 * scale, img.height() as f32 * scale);
+    let (ox, oy) = ((cw - sw) / 2.0, (ch - sh) / 2.0);
+    let stem = Session::new_stem();
+    let mut out = Vec::new();
+    for row in 0..n {
+        for col in 0..n {
+            let (tx, ty) = ((col * pw) as f32, (row * ph) as f32);
+            let mut tile = image::RgbImage::from_pixel(pw, ph, image::Rgb([255, 255, 255]));
+            let (x0, y0) = (tx.max(ox), ty.max(oy));
+            let (x1, y1) = ((tx + pw as f32).min(ox + sw), (ty + ph as f32).min(oy + sh));
+            if x1 - x0 >= 1.0 && y1 - y0 >= 1.0 {
+                let (sx, sy) = (((x0 - ox) / scale) as u32, ((y0 - oy) / scale) as u32);
+                let sw_src = (((x1 - x0) / scale).ceil() as u32).clamp(1, img.width() - sx);
+                let sh_src = (((y1 - y0) / scale).ceil() as u32).clamp(1, img.height() - sy);
+                let part = imageops::crop_imm(&img, sx, sy, sw_src, sh_src).to_image();
+                let part = imageops::resize(&part, (x1 - x0) as u32, (y1 - y0) as u32, imageops::FilterType::Triangle);
+                imageops::replace(&mut tile, &part, (x0 - tx) as i64, (y0 - ty) as i64);
+            }
+            let path = dir.join(format!("{stem}_poster_{}_{}.jpg", row + 1, col + 1));
+            std::fs::write(&path, session::encode_rgb(&tile, 90)?).context("can't save a poster tile")?;
+            out.push(path);
+        }
+    }
+    Ok(out)
+}
+
 /// Density/background-removed copy of a scan; the original is returned untouched when both are off.
 pub fn tone(src: &Path, density: i32, background: u8, dir: &Path) -> Result<PathBuf> {
     if density == 0 && background == 0 {
@@ -93,6 +129,27 @@ mod tests {
 
         assert_eq!((out.width(), out.height()), (40, 40));
         assert!(out.get_pixel(20, 5)[0] < 30 && out.get_pixel(20, 35)[0] > 225);
+    }
+
+    #[test]
+    fn poster_splits_the_scan_into_paper_sized_tiles() {
+        let dir = std::env::temp_dir().join(format!("scan-poster-{}", Session::new_stem()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("s.jpg");
+        let img = image::RgbImage::from_fn(200, 280, |x, y| if (x < 100) == (y < 140) { image::Rgb([0, 0, 0]) } else { image::Rgb([255, 255, 255]) });
+        std::fs::write(&src, session::encode_rgb(&img, 95).unwrap()).unwrap();
+        let paper = crate::sheet::Paper { w_mm: 50.0, h_mm: 70.0 };
+
+        let tiles = poster(&src, 2, paper, &dir).unwrap();
+        let first = session::load_rgb(&tiles[0]).unwrap();
+        let second = session::load_rgb(&tiles[1]).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+
+        assert_eq!(tiles.len(), 4);
+        assert_eq!((first.width(), first.height()), paper.px(COPY_DPI));
+        let (w, h) = paper.px(COPY_DPI);
+        assert!(first.get_pixel(w / 2, h / 2)[0] < 40, "top-left quarter of the scan is black");
+        assert!(second.get_pixel(w / 2, h / 2)[0] > 215, "top-right quarter is white");
     }
 
     #[test]
