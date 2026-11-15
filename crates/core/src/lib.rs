@@ -6,6 +6,7 @@ pub mod copy;
 pub mod device;
 pub mod escl;
 pub mod fill;
+pub mod history;
 pub mod ipp;
 pub mod native;
 pub mod ocr;

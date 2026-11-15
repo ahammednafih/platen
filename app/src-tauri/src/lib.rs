@@ -3,7 +3,6 @@ mod button;
 mod commands;
 mod dock;
 mod files;
-mod history;
 mod printing;
 mod thumbs;
 
@@ -27,7 +26,7 @@ pub struct AppState {
     /// Stop flag of the Scan-button listener, while one runs.
     button: Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
     /// Undo/redo steps for the open scan.
-    history: Mutex<history::History>,
+    history: Mutex<platen_core::history::History>,
 }
 
 type Res<T> = Result<T, String>;

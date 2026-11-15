@@ -10,8 +10,25 @@ const APP_DIR: &str = "Platen";
 /// Folder name before the rename; moved over once so settings and presets survive.
 const OLD_APP_DIR: &str = "scan";
 
+/// Where settings, cache and scans go on platforms without the usual user folders (Android).
+pub struct Dirs {
+    pub config: PathBuf,
+    pub cache: PathBuf,
+    pub scans: PathBuf,
+}
+
+static DIRS: std::sync::OnceLock<Dirs> = std::sync::OnceLock::new();
+
+/// Set once at startup, before anything reads a folder; later calls are ignored.
+pub fn set_dirs(dirs: Dirs) {
+    let _ = DIRS.set(dirs);
+}
+
 /// Settings, presets and the cached device host.
 pub fn config_dir() -> PathBuf {
+    if let Some(d) = DIRS.get() {
+        return d.config.clone();
+    }
     let base = dirs::config_dir().unwrap_or_default();
     let dir = base.join(APP_DIR);
     let old = base.join(OLD_APP_DIR);
@@ -23,6 +40,9 @@ pub fn config_dir() -> PathBuf {
 
 /// Rebuildable files: page previews and shrink drafts.
 pub fn cache_dir() -> PathBuf {
+    if let Some(d) = DIRS.get() {
+        return d.cache.clone();
+    }
     dirs::cache_dir().unwrap_or_default().join(APP_DIR)
 }
 
@@ -53,6 +73,9 @@ pub fn connect(host: Option<&str>) -> Result<Scanner> {
 
 /// Default parent folder for sessions.
 pub fn default_root() -> PathBuf {
+    if let Some(d) = DIRS.get() {
+        return d.scans.clone();
+    }
     expand("~/Documents/scans")
 }
 

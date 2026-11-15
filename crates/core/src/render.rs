@@ -24,6 +24,15 @@ pub fn pages(files: &[PathBuf]) -> Result<Vec<SrcPage>> {
     Ok(out)
 }
 
+/// Rasterizes page `index` of a PDF at a dpi, where CoreGraphics isn't available (Android).
+pub type Renderer = Box<dyn Fn(&Path, usize, u32) -> Result<image::RgbImage> + Send + Sync>;
+
+static RENDERER: std::sync::OnceLock<Renderer> = std::sync::OnceLock::new();
+
+pub fn set_renderer(r: Renderer) {
+    let _ = RENDERER.set(r);
+}
+
 pub fn page_count(pdf: &Path) -> Result<usize> {
     #[cfg(target_os = "macos")]
     return cg::count(pdf);
@@ -40,7 +49,10 @@ pub fn load(p: &SrcPage, dpi: u32) -> Result<Src> {
     #[cfg(target_os = "macos")]
     return Ok(Src { img: cg::render(&p.path, p.index, dpi)?, dpi: dpi as f32 });
     #[cfg(not(target_os = "macos"))]
-    anyhow::bail!("printing PDFs needs macOS");
+    match RENDERER.get() {
+        Some(render) => Ok(Src { img: render(&p.path, p.index, dpi)?, dpi: dpi as f32 }),
+        None => anyhow::bail!("printing PDFs isn't supported on this system yet"),
+    }
 }
 
 #[cfg(target_os = "macos")]
