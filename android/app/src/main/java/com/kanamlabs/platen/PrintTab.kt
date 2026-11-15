@@ -102,6 +102,9 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
     var tone by remember { mutableStateOf(Tone.Colour) }
     var media by remember { mutableStateOf(state.printCaps?.mediaDefault ?: "iso_a4_210x297mm") }
     var quality by remember { mutableStateOf(Quality.NORMAL) }
+    var mediaType by remember { mutableStateOf<String?>(null) }
+    var borderless by remember { mutableStateOf(false) }
+    var cropping by remember { mutableStateOf<File?>(null) }
     var twoSided by remember { mutableStateOf(false) }
     var plan by remember { mutableStateOf<Plan?>(null) }
     var sheets by remember { mutableStateOf<List<Bitmap?>>(emptyList()) }
@@ -115,7 +118,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
 
     fun job(subset: Subset = Subset.ALL, rev: Boolean = reverse) = PrintJob(
         files.map { it.path }, ranges, subset, rev, nup.toUInt(), scale, collate, tone == Tone.Clean,
-        PrintOpts(copies.toUInt(), tone == Tone.Colour, media, "fit", quality),
+        PrintOpts(copies.toUInt(), tone == Tone.Colour, media, "fit", quality, mediaType, borderless),
     )
 
     LaunchedEffect(files) {
@@ -125,7 +128,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
         sel = pages.map { true }
         ranges = ""
     }
-    LaunchedEffect(files, ranges, nup, scale, reverse, tone, media) {
+    LaunchedEffect(files, ranges, nup, scale, reverse, tone, media, borderless) {
         if (files.isEmpty()) {
             plan = null
             sheets = emptyList()
@@ -193,6 +196,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Paper(Modifier.size(36.dp, 48.dp)) { FileImage(f.path, 120, null, Modifier.fillMaxSize()) }
                         Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                        if (!f.extension.equals("pdf", true)) TextButton(onClick = { cropping = f }, shapes = ButtonDefaults.shapes()) { Text("Crop") }
                         IconButton(onClick = { onFiles(files - f) }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.Close, contentDescription = "Remove ${f.name}") }
                     }
                 }
@@ -254,7 +258,10 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                 Toggle("Whole sets (1 2 3, 1 2 3)", collate, enabled = copies > 1) { collate = it }
                 Labeled("Colour") { Choice(Tone.entries.map { it to it.label }, tone, { tone = it }) }
             }
-            Section("Paper") { PaperAndQuality(state, media, { media = it }, quality, { quality = it }) }
+            Section("Paper") {
+                PaperAndQuality(state, media, { media = it }, quality, { quality = it }, mediaType, { mediaType = it })
+                if (state.printCaps?.borderless == true) Toggle("Borderless (to the edges of the paper)", borderless) { borderless = it }
+            }
             log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
 
@@ -292,6 +299,10 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
               }
             }
         }
+    }
+
+    cropping?.let { f ->
+        ImageCropDialog(f, onDismiss = { cropping = null }) { out -> onFiles(files.map { if (it == f) out else it }); cropping = null }
     }
 
     if (flip) {

@@ -13,6 +13,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
@@ -445,21 +448,27 @@ private fun ExportSheet(model: AppModel, onDismiss: () -> Unit) {
 @Composable
 fun Check(label: String, detail: String? = null, checked: Boolean, onChange: (Boolean) -> Unit) {
     val tick = rememberTick()
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).toggleable(checked, role = Role.Checkbox) { tick(); onChange(it) }.padding(vertical = 4.dp),
+    ) {
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.titleSmall)
             detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Checkbox(checked, { tick(); onChange(it) })
+        Checkbox(checked, null)
     }
 }
 
 @Composable
 fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val tick = rememberTick()
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).toggleable(checked, enabled = enabled, role = Role.Switch) { tick(); onChange(it) }.padding(vertical = 4.dp),
+    ) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-        Switch(checked, { tick(); onChange(it) }, enabled = enabled)
+        Switch(checked, null, enabled = enabled)
     }
 }
 

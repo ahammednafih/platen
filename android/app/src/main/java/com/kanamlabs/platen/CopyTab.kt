@@ -98,6 +98,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
     var percent by rememberSaveable { mutableIntStateOf(100) }
     var media by rememberSaveable { mutableStateOf(state.printCaps?.mediaDefault ?: "iso_a4_210x297mm") }
     var quality by rememberSaveable { mutableStateOf(Quality.NORMAL) }
+    var mediaType by rememberSaveable { mutableStateOf<String?>(null) }
     var step by remember { mutableIntStateOf(0) }
     val scans = remember { mutableListOf<String>() }
     var top by remember { mutableStateOf<TopHalf?>(null) }
@@ -145,7 +146,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                     CopyKind.IdCard -> Scale.Actual
                     else -> Scale.Fit
                 }
-                val job = PrintJob(files, "", Subset.ALL, false, when (kind) { CopyKind.TwoInOne -> 2u; CopyKind.FourInOne -> 4u; else -> 1u }, scale, true, false, PrintOpts(copies.toUInt(), color, media, "fit", quality))
+                val job = PrintJob(files, "", Subset.ALL, false, when (kind) { CopyKind.TwoInOne -> 2u; CopyKind.FourInOne -> 4u; else -> 1u }, scale, true, false, PrintOpts(copies.toUInt(), color, media, "fit", quality, mediaType, false))
                 model.platen.print(job, object : PrintProgress {
                     override fun progress(done: UInt, total: UInt) {
                         busy = "Printing $done of $total"
@@ -244,18 +245,31 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
             }
             Labeled("Background") { Choice(listOf(0 to "Keep", 1 to "Low", 2 to "Medium", 3 to "High"), background, { background = it }) }
         }
-        Section("Paper") { PaperAndQuality(state, media, { media = it }, quality, { quality = it }) }
+        Section("Paper") { PaperAndQuality(state, media, { media = it }, quality, { quality = it }, mediaType, { mediaType = it }) }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PaperAndQuality(state: AppState, media: String, onMedia: (String) -> Unit, quality: Quality, onQuality: (Quality) -> Unit) {
+fun PaperAndQuality(
+    state: AppState, media: String, onMedia: (String) -> Unit, quality: Quality, onQuality: (Quality) -> Unit,
+    mediaType: String?, onMediaType: (String?) -> Unit,
+) {
+    val tick = rememberTick()
     val papers = (state.printCaps?.media ?: listOf("iso_a4_210x297mm", "na_letter_8.5x11in")).filter { !it.startsWith("custom_") }
     val qualities = state.printCaps?.qualities?.takeIf { it.isNotEmpty() } ?: Quality.entries
-    Labeled("Paper") {
+    val types = state.printCaps?.mediaTypes.orEmpty()
+    Labeled("Paper size") {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            papers.forEach { p -> FilterChip(selected = media == p, onClick = { onMedia(p) }, label = { Text(paperName(p)) }) }
+            papers.forEach { p -> FilterChip(selected = media == p, onClick = { tick(); onMedia(p) }, label = { Text(paperName(p)) }) }
+        }
+    }
+    if (types.isNotEmpty()) {
+        Labeled("Paper type") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = mediaType == null, onClick = { tick(); onMediaType(null) }, label = { Text("Printer default") })
+                types.forEach { t -> FilterChip(selected = mediaType == t, onClick = { tick(); onMediaType(t) }, label = { Text(paperTypeName(t)) }) }
+            }
         }
     }
     Labeled("Quality") { Choice(qualities.map { it to it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }, quality, onQuality, Modifier.fillMaxWidth()) }

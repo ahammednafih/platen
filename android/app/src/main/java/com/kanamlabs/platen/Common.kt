@@ -109,7 +109,12 @@ fun dur(secs: Float): String {
 }
 
 fun paperName(kw: String): String {
-    val named = mapOf("iso_a4" to "A4", "iso_a5" to "A5", "iso_a6" to "A6", "na_letter" to "Letter", "na_legal" to "Legal", "jis_b5" to "B5", "na_index" to "Index card", "na_5x7" to "5×7 in", "om_photo" to "Photo")
+    val named = mapOf(
+        "iso_a4" to "A4", "iso_a5" to "A5", "iso_a6" to "A6", "na_letter" to "Letter", "na_legal" to "Legal", "jis_b5" to "B5",
+        "na_executive" to "Executive", "iso_dl" to "DL envelope", "iso_c5" to "C5 envelope", "na_number-10" to "No. 10 envelope",
+        "na_monarch" to "Monarch envelope", "na_foolscap" to "Foolscap", "na_oficio" to "Oficio", "om_india-legal" to "India legal",
+        "na_index-4x6" to "Photo 4×6 in", "na_5x7" to "Photo 5×7 in", "oe_photo-l" to "Photo 3.5×5 in", "na_index-5x8" to "Card 5×8 in",
+    )
     val key = kw.split("_").take(2).joinToString("_")
     val dims = kw.substringAfterLast('_')
     return named[key] ?: dims.replace("x", " × ").replace(Regex("(mm|in)$"), " $1")
@@ -138,4 +143,18 @@ fun ScalePicker(mode: ScaleMode, percent: Int, onMode: (ScaleMode) -> Unit, onPe
 @Composable
 private fun PercentStepper(percent: Int, onPercent: (Int) -> Unit) {
     Stepper("Scale, %", percent, 25..400) { onPercent(if (it > percent) (percent / 5 + 1) * 5 else ((percent - 1) / 5) * 5) }
+}
+
+fun paperTypeName(kw: String): String = when (kw) {
+    "stationery" -> "Plain"
+    "stationery-inkjet" -> "Inkjet"
+    "photographic-glossy" -> "Glossy photo"
+    "photographic-matte" -> "Matte photo"
+    "photographic" -> "Photo"
+    "photographic-high-gloss" -> "High-gloss photo"
+    "photographic-semi-gloss" -> "Semi-gloss photo"
+    "envelope" -> "Envelope"
+    "labels" -> "Labels"
+    "cardstock" -> "Card"
+    else -> if (kw.startsWith("com.") || kw.startsWith("org.")) "Printer's photo paper" else kw.replace('-', ' ').replaceFirstChar { it.uppercase() }
 }

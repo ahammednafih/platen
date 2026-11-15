@@ -27,6 +27,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -165,7 +167,7 @@ private fun CropDialog(model: AppModel, page: Page, index: Int, onDismiss: () ->
 }
 
 @Composable
-private fun CropOverlay(rect: FloatArray, onChange: (FloatArray) -> Unit) {
+fun CropOverlay(rect: FloatArray, onChange: (FloatArray) -> Unit) {
     val accent = MaterialTheme.colorScheme.primary
     var grabbed by remember { mutableStateOf(-1) }
     var current by remember { mutableStateOf(rect) }
@@ -258,3 +260,74 @@ private fun levels(b: Float, c: Float): ColorMatrix {
     val k = b * c
     return ColorMatrix(floatArrayOf(k, 0f, 0f, 0f, offset, 0f, k, 0f, 0f, offset, 0f, 0f, k, 0f, offset, 0f, 0f, 0f, 1f, 0f))
 }
+
+private val PhotoAspects = listOf("Free" to null, "4×6" to (2f / 3f), "5×7" to (5f / 7f), "Square" to 1f)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ImageCropDialog(file: java.io.File, onDismiss: () -> Unit, onDone: (java.io.File) -> Unit) {
+    val tick = rememberTick()
+    val preview = produceState<Bitmap?>(null, file) { value = withContext(Dispatchers.IO) { thumbnail(file.path, 1400) } }.value
+    var rect by remember { mutableStateOf(floatArrayOf(0f, 0f, 1f, 1f)) }
+    var aspect by remember { mutableStateOf("Free") }
+    var saving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Crop before printing") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PhotoAspects.forEach { (name, ratio) ->
+                        FilterChip(selected = aspect == name, onClick = {
+                            tick()
+                            aspect = name
+                            val b = preview ?: return@FilterChip
+                            rect = if (ratio == null) floatArrayOf(0f, 0f, 1f, 1f) else centred(b.width.toFloat(), b.height.toFloat(), ratio)
+                        }, label = { Text(name) })
+                    }
+                }
+                preview?.let { b ->
+                    Box(Modifier.fillMaxWidth().aspectRatio(b.width.toFloat() / b.height.toFloat())) {
+                        Image(b.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
+                        CropOverlay(rect) { rect = it; aspect = "Free" }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !saving && preview != null, onClick = {
+                saving = true
+                scope.launch {
+                    val out = withContext(Dispatchers.IO) { cropImage(file, rect) }
+                    saving = false
+                    if (out != null) onDone(out)
+                }
+            }) { Text(if (saving) "Cropping…" else "Crop") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+private fun centred(w: Float, h: Float, ratio: Float): FloatArray {
+    val target = if (w < h) ratio else 1f / ratio
+    return if (w / h > target) {
+        val cw = h * target / w
+        floatArrayOf((1f - cw) / 2f, 0f, (1f + cw) / 2f, 1f)
+    } else {
+        val ch = w / target / h
+        floatArrayOf(0f, (1f - ch) / 2f, 1f, (1f + ch) / 2f)
+    }
+}
+
+private fun cropImage(file: java.io.File, rect: FloatArray): java.io.File? = runCatching {
+    val decoder = android.graphics.BitmapRegionDecoder.newInstance(file.path)
+    val (l, t, r, b) = rect.toList()
+    val region = android.graphics.Rect((l * decoder.width).toInt(), (t * decoder.height).toInt(), (r * decoder.width).toInt(), (b * decoder.height).toInt())
+    val bitmap = decoder.decodeRegion(region, null)
+    decoder.recycle()
+    val out = java.io.File(file.parentFile, file.nameWithoutExtension + "_cropped.jpg")
+    out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+    bitmap.recycle()
+    out
+}.getOrNull()

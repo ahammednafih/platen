@@ -29,6 +29,7 @@ class SaveFolder(private val context: Context) {
         get() = tree?.let { DocumentsContract.getTreeDocumentId(it).substringAfter(':').ifEmpty { "Storage" } } ?: DEFAULT
 
     fun save(file: File, subfolder: String?): Uri {
+        list().filter { it.name == file.name && it.folder == (subfolder ?: "") }.forEach { runCatching { delete(it) } }
         val mime = mimeOf(file.name)
         val uri = tree?.let { createInTree(it, subfolder, file.name, mime) } ?: createInDocuments(subfolder, file.name, mime)
         resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } } ?: error("Can't write to ${file.name}")
