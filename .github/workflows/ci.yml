@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# A new push to the same branch or pull request cancels the run still going for the old commit.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: macos-latest
@@ -30,3 +35,16 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm check
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the build number is the commit count
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: ./.github/actions/android-setup
+      - name: Build the Android app
+        working-directory: android
+        run: ./gradlew :app:assembleDebug
+

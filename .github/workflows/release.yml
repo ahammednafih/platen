@@ -1,4 +1,4 @@
-# Push a tag like v0.3.0 to build the app and publish a GitHub release with the .dmg and the CLI.
+# Push a tag like v0.3.0 to build the apps and publish a GitHub release with the .dmg, the CLI and the Android APK.
 # Tests run in CI on main, not here; the release stops if CI hasn't passed on the tagged commit.
 # If a tag's run gets stuck, start it by hand: Actions → Release → Run workflow, with the tag.
 name: Release
@@ -20,13 +20,12 @@ permissions:
   checks: read
 
 jobs:
-  release:
-    runs-on: macos-latest
+  checks:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
-          fetch-depth: 0 # the release notes read history back to the previous tag
 
       - name: Tag must match the app version
         run: |
@@ -47,6 +46,48 @@ jobs:
             echo "::error::CI hasn't passed on $sha. Wait for it, or fix it, then run this again."
             exit 1
           fi
+
+  android:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0 # the build number is the commit count
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: ./.github/actions/android-setup
+
+      - name: Build the signed APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          export ANDROID_KEYSTORE="$RUNNER_TEMP/release.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE"
+          ./gradlew :app:assembleRelease -PversionName="${TAG#v}"
+          rm "$ANDROID_KEYSTORE"
+          mv app/build/outputs/apk/release/app-release.apk "../platen-$TAG-android.apk"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android
+          path: platen-*-android.apk
+
+  release:
+    needs: [checks, android]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0 # the release notes read history back to the previous tag
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android
 
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -82,4 +123,5 @@ jobs:
           .github/release-notes.sh "$TAG" > notes.md
           gh release create "$TAG" --notes-file notes.md \
             target/universal-apple-darwin/release/bundle/dmg/*.dmg \
-            platen-cli-*.tar.gz
+            platen-cli-*.tar.gz \
+            platen-*-android.apk
