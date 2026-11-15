@@ -6,6 +6,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
@@ -184,14 +191,57 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
                         Text("Put a page face down on the glass, then tap Scan.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
+                    val grid = rememberLazyGridState()
+                    var dragFrom by remember { mutableStateOf<Int?>(null) }
+                    var dragTo by remember { mutableStateOf<Int?>(null) }
+                    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+                    val tick = rememberTick()
+                    fun target(from: Int): Int? {
+                        val items = grid.layoutInfo.visibleItemsInfo
+                        val start = items.firstOrNull { it.index == from } ?: return null
+                        val point = Offset(start.offset.x + start.size.width / 2f, start.offset.y + start.size.height / 2f) + dragOffset
+                        return items.firstOrNull { point.x >= it.offset.x && point.x <= it.offset.x + it.size.width && point.y >= it.offset.y && point.y <= it.offset.y + it.size.height }?.index
+                    }
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(140.dp),
+                        state = grid,
                         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 120.dp),
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         itemsIndexed(session.pages, key = { _, p -> p.file }) { i, p ->
-                            PageSheet(i, p, fresh = p.file == state.fresh, onOpen = { viewing = i }, onTools = { click(); tools = i }, modifier = Modifier.animateItem())
+                            val lifted = dragFrom == i
+                            PageSheet(
+                                i, p, fresh = p.file == state.fresh, dropHere = dragTo == i && dragFrom != i,
+                                onOpen = { viewing = i }, onTools = { click(); tools = i },
+                                modifier = (if (lifted) Modifier.zIndex(1f) else Modifier.animateItem())
+                                    .graphicsLayer {
+                                        if (lifted) {
+                                            translationX = dragOffset.x
+                                            translationY = dragOffset.y
+                                            scaleX = 1.06f
+                                            scaleY = 1.06f
+                                        }
+                                    }
+                                    .pointerInput(p.file) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = { dragFrom = i; dragTo = i; dragOffset = Offset.Zero; tick() },
+                                            onDrag = { change, amount ->
+                                                change.consume()
+                                                dragOffset += amount
+                                                val t = dragFrom?.let(::target)
+                                                if (t != null && t != dragTo) { dragTo = t; tick() }
+                                            },
+                                            onDragEnd = {
+                                                val from = dragFrom
+                                                val to = dragTo
+                                                if (from != null && to != null && from != to) { model.movePage(from, to); click() }
+                                                dragFrom = null; dragTo = null; dragOffset = Offset.Zero
+                                            },
+                                            onDragCancel = { dragFrom = null; dragTo = null; dragOffset = Offset.Zero },
+                                        )
+                                    },
+                            )
                         }
                     }
                 }
@@ -266,9 +316,14 @@ private fun SettingsChips(state: AppState, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PageSheet(index: Int, p: Page, fresh: Boolean, onOpen: () -> Unit, onTools: () -> Unit, modifier: Modifier = Modifier) {
+private fun PageSheet(index: Int, p: Page, fresh: Boolean, dropHere: Boolean, onOpen: () -> Unit, onTools: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(onClick = onOpen, color = androidx.compose.ui.graphics.Color.Transparent) {
+        Surface(
+            onClick = onOpen,
+            color = androidx.compose.ui.graphics.Color.Transparent,
+            border = if (dropHere) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
+            shape = RoundedCornerShape(6.dp),
+        ) {
             Paper(Modifier.fillMaxWidth().aspectRatio(p.w.toFloat() / p.h.toFloat()), fresh = fresh) {
                 FileImage(p.path, 420, "Page ${index + 1}", Modifier.fillMaxSize())
             }
