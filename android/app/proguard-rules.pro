@@ -1,0 +1,4 @@
+-keep class com.sun.jna.** { *; }
+-keep class * extends com.sun.jna.** { *; }
+-keep class com.kanamlabs.platen.core.** { *; }
+-dontwarn java.awt.**

@@ -12,6 +12,8 @@ Contribution rules: `CONTRIBUTING.md`.
   (ad-hoc signed, not notarized).
 - CLI: `mise exec -- cargo run -p platen-cli -- --help`. Offline checks: `platen --stitch TOP BOTTOM OUT`,
   `platen --fill-file IN OUT`.
+- Android: `cd android && ./gradlew :app:assembleDebug` (needs the NDK and `cargo-ndk`), then
+  `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Test on a real phone; there's no emulator setup.
 - The printer is on the LAN; network commands from a sandbox need the sandbox off.
 
 ## Layout
@@ -19,6 +21,11 @@ Contribution rules: `CONTRIBUTING.md`.
 - `crates/core` — the library (crate `platen-core`): `escl`, `native`, `ipp`, `stitch`, `fill`, `pdf`,
   `ocr`, `session`, `copy`, `webui`, `pushscan`, `button`, `snmp`.
 - `crates/tui` — the `platen` CLI.
+- `crates/mobile` — the phone apps' shared core (crate `platen-mobile`): app state and commands over
+  `platen-core`, bound to Kotlin (and later Swift) with UniFFI. Platform work stays in the apps through
+  small callback traits (PDF rendering); discovery and the device password live in each app.
+- `android` — the Android app, Kotlin + Jetpack Compose (Material 3 Expressive). Gradle builds
+  `platen-mobile` with `cargo ndk` and generates the bindings; nothing else needs to be run by hand.
 - `app` — Tauri 2 + Svelte 5. Commands in `app/src-tauri/src/*.rs`, typed wrappers in
   `app/src/lib/api.ts`; keep the two in sync.
 

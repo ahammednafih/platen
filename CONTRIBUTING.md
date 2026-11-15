@@ -31,6 +31,15 @@ cd app && pnpm check
 
 CI runs the same two checks.
 
+For the Android app you also need the Android SDK and NDK, `cargo-ndk`
+(`cargo install cargo-ndk`) and a phone with USB debugging:
+
+```sh
+rustup target add aarch64-linux-android
+cd android && ./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Where things go
 
 | Change | Place |
@@ -38,6 +47,8 @@ CI runs the same two checks.
 | Talking to the device, image work, PDFs | `crates/core`, with a test beside the code |
 | A new app command | `app/src-tauri/src`, registered in `lib.rs`, with a typed wrapper in `app/src/lib/api.ts` |
 | Screens and dialogs | `app/src/lib` |
+| A command the phone apps share | `crates/mobile/src/lib.rs`, with its records in `types.rs` |
+| Android screens and platform code | `android/app/src/main/java/com/kanamlabs/platen` |
 | How a device protocol behaves | `docs/protocols.md`, so the next person doesn't rediscover it |
 
 ## Ground rules
