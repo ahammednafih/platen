@@ -52,8 +52,9 @@ and device details work the same way. It differs in a few places:
 
 - Not available: searchable PDFs and copying text out of a scan (no OCR on the phone), and the
   printer's Scan button.
-- Added: several printers saved with your own names for them, 4 in 1 copies, and a warning when ink
-  runs low.
+- Added: print from any app through Platen once it's turned on in Android's print settings; several
+  printers saved with your own names for them; paper type and borderless printing; photos cropped to
+  4×6, 5×7 or square before printing; 4 in 1 and poster copies; and a warning when ink runs low.
 - Scans are saved to Documents/Platen, or a folder you choose. PDFs and images shared from other apps
   open straight in Print.
 
