@@ -118,3 +118,24 @@ fun paperName(kw: String): String {
 val Padding = PaddingValues(16.dp)
 
 fun Modifier.screenPadding() = padding(horizontal = 16.dp)
+
+enum class ScaleMode(val label: String) { Fit("Fit to sheet"), Actual("Actual size"), Percent("Percent") }
+
+fun scaleOf(mode: ScaleMode, percent: Int): com.kanamlabs.platen.core.Scale = when (mode) {
+    ScaleMode.Fit -> com.kanamlabs.platen.core.Scale.Fit
+    ScaleMode.Actual -> com.kanamlabs.platen.core.Scale.Actual
+    ScaleMode.Percent -> com.kanamlabs.platen.core.Scale.Percent(percent.toUInt())
+}
+
+@Composable
+fun ScalePicker(mode: ScaleMode, percent: Int, onMode: (ScaleMode) -> Unit, onPercent: (Int) -> Unit) {
+    Labeled("Size") {
+        Choice(ScaleMode.entries.map { it to it.label }, mode, onMode)
+        if (mode == ScaleMode.Percent) PercentStepper(percent, onPercent)
+    }
+}
+
+@Composable
+private fun PercentStepper(percent: Int, onPercent: (Int) -> Unit) {
+    Stepper("Scale, %", percent, 25..400) { onPercent(if (it > percent) (percent / 5 + 1) * 5 else ((percent - 1) / 5) * 5) }
+}

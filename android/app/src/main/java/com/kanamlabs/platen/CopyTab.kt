@@ -94,6 +94,8 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
     var color by rememberSaveable { mutableStateOf(false) }
     var density by rememberSaveable { mutableIntStateOf(0) }
     var background by rememberSaveable { mutableIntStateOf(0) }
+    var scaleMode by rememberSaveable { mutableStateOf(ScaleMode.Actual) }
+    var percent by rememberSaveable { mutableIntStateOf(100) }
     var media by rememberSaveable { mutableStateOf(state.printCaps?.mediaDefault ?: "iso_a4_210x297mm") }
     var quality by rememberSaveable { mutableStateOf(Quality.NORMAL) }
     var step by remember { mutableIntStateOf(0) }
@@ -139,7 +141,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                 }
                 busy = "Printing"
                 val scale = when (kind) {
-                    CopyKind.One -> Scale.Actual
+                    CopyKind.One -> scaleOf(scaleMode, percent)
                     CopyKind.IdCard -> Scale.Actual
                     else -> Scale.Fit
                 }
@@ -234,6 +236,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                     }
                 }
             }
+            if (kind == CopyKind.One) ScalePicker(scaleMode, percent, { scaleMode = it }, { percent = it })
             Stepper("Copies", copies, 1..99) { copies = it }
             Labeled("Colour") { Choice(listOf(false to "Black and white", true to "Colour"), color, { color = it }) }
             Labeled("Density: ${if (density > 0) "+$density darker" else if (density < 0) "$density lighter" else "normal"}") {

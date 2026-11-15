@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -103,23 +104,52 @@ private fun Tool(label: String, enabled: Boolean = true, onClick: () -> Unit) {
 @Composable
 private fun pageBitmap(page: Page): Bitmap? = produceState<Bitmap?>(null, page.path) { value = withContext(Dispatchers.IO) { thumbnail(page.path, 1200) } }.value
 
+private val CropSizes = listOf("A4" to (210f to 297f), "A5" to (148f to 210f), "A6" to (105f to 148f), "B5" to (176f to 250f), "Letter" to (216f to 279f), "Photo 10×15" to (102f to 152f), "Card" to (86f to 54f))
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CropDialog(model: AppModel, page: Page, index: Int, onDismiss: () -> Unit, onDone: () -> Unit) {
     val bitmap = pageBitmap(page)
-    var rect by remember { mutableStateOf(floatArrayOf(0.05f, 0.05f, 0.95f, 0.95f)) }
-    LaunchedEffect(index) {
-        val b = withContext(Dispatchers.IO) { runCatching { model.platen.paperBounds(index.toUInt()) }.getOrNull() }
-        if (b != null) rect = floatArrayOf(b.x, b.y, b.x + b.w, b.y + b.h)
+    val tick = rememberTick()
+    var rect by remember { mutableStateOf(floatArrayOf(0f, 0f, 1f, 1f)) }
+    var picked by remember { mutableStateOf("Whole page") }
+    var note by remember { mutableStateOf<String?>(null) }
+    val pageW = page.w.toFloat() * 25.4f / page.dpi.toFloat()
+    val pageH = page.h.toFloat() * 25.4f / page.dpi.toFloat()
+    val auto = {
+        picked = "Auto"
+        note = null
+        model.work(null, { model.platen.paperBounds(index.toUInt()) }) { b ->
+            if (b != null) rect = floatArrayOf(b.x, b.y, b.x + b.w, b.y + b.h)
+            else note = "No dark border around the paper to find. Pick a size or drag the corners."
+        }
     }
+    LaunchedEffect(index) { auto() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Crop") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Drag the corners or the middle.", style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = picked == "Whole page", onClick = { tick(); picked = "Whole page"; note = null; rect = floatArrayOf(0f, 0f, 1f, 1f) }, label = { Text("Whole page") })
+                    FilterChip(selected = picked == "Auto", onClick = { tick(); auto() }, label = { Text("Auto") })
+                    CropSizes.filter { (_, s) -> s.first <= pageW + 2 && s.second <= pageH + 2 }.forEach { (name, s) ->
+                        FilterChip(
+                            selected = picked == name,
+                            onClick = {
+                                tick()
+                                picked = name
+                                note = null
+                                rect = floatArrayOf(0f, 0f, (s.first / pageW).coerceAtMost(1f), (s.second / pageH).coerceAtMost(1f))
+                            },
+                            label = { Text(name) },
+                        )
+                    }
+                }
+                note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Box(Modifier.fillMaxWidth().aspectRatio(page.w.toFloat() / page.h.toFloat())) {
                     bitmap?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize()) }
-                    CropOverlay(rect) { rect = it }
+                    CropOverlay(rect) { rect = it; picked = "Custom" }
                 }
             }
         },
@@ -128,7 +158,7 @@ private fun CropDialog(model: AppModel, page: Page, index: Int, onDismiss: () ->
                 val (l, t, r, b) = rect.toList()
                 model.edit(index, Edit.CropTo(l, t, r - l, b - t))
                 onDone()
-            }) { Text("Crop") }
+            }, enabled = !(rect[0] == 0f && rect[1] == 0f && rect[2] == 1f && rect[3] == 1f)) { Text("Crop") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

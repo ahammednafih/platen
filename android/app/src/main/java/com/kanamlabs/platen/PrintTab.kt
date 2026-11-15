@@ -93,7 +93,9 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
     var sel by remember { mutableStateOf<List<Boolean>>(emptyList()) }
     var ranges by remember { mutableStateOf("") }
     var nup by remember { mutableIntStateOf(1) }
-    var scale by remember { mutableStateOf<Scale>(Scale.Fit) }
+    var scaleMode by remember { mutableStateOf(ScaleMode.Fit) }
+    var percent by remember { mutableIntStateOf(100) }
+    val scale = scaleOf(scaleMode, percent)
     var reverse by remember { mutableStateOf(false) }
     var copies by remember { mutableIntStateOf(1) }
     var collate by remember { mutableStateOf(true) }
@@ -243,7 +245,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
 
             Section("Layout") {
                 Labeled("Pages per sheet") { Choice(listOf(1, 2, 4, 6, 9, 16).map { it to "$it" }, nup, { nup = it }) }
-                Labeled("Size") { Choice(listOf<Pair<Scale, String>>(Scale.Fit to "Fit to sheet", Scale.Actual to "Actual size"), scale, { scale = it }) }
+                ScalePicker(scaleMode, percent, { scaleMode = it }, { percent = it })
                 Toggle("Reverse order", reverse) { reverse = it }
                 Toggle("Two-sided by hand", twoSided) { twoSided = it }
             }
