@@ -21,7 +21,7 @@ section() {
 
 section "New" ✨
 section "Fixed" 🐛
-section "Improved" ⚡️ 💄 🍱
+section "Improved" ⚡️ 💄 🍱 📱
 section "Security" 🔒️
 
 if [ -n "$prev" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
