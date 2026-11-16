@@ -60,6 +60,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
@@ -109,8 +111,8 @@ fun ScanActions(model: AppModel, state: AppState) {
     Box {
         IconButton(onClick = { menu = true }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
         DropdownMenu(menu, { menu = false }) {
-            DropdownMenuItem({ Text("Rename") }, { menu = false; renaming = true })
-            DropdownMenuItem({ Text("Close scan") }, { menu = false; model.closeScan() })
+            DropdownMenuItem({ Text("Rename") }, { menu = false; renaming = true }, leadingIcon = { Icon(Icons.Outlined.Edit, null) })
+            DropdownMenuItem({ Text("Close scan") }, { menu = false; model.closeScan() }, leadingIcon = { Icon(Icons.Outlined.Close, null) })
         }
     }
     if (renaming) NameDialog("Rename scan", s.name, onDismiss = { renaming = false }) { model.rename(it); renaming = false }

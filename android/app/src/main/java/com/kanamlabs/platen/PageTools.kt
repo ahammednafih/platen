@@ -16,10 +16,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.RotateLeft
+import androidx.compose.material.icons.automirrored.outlined.RotateRight
+import androidx.compose.material.icons.outlined.AutoFixHigh
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.BrightnessMedium
+import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.Crop
+import androidx.compose.material.icons.outlined.CropFree
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FormatColorFill
+import androidx.compose.material.icons.outlined.InvertColors
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -52,55 +69,41 @@ import com.kanamlabs.platen.core.Page
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PageTools(model: AppModel, page: Page, index: Int, count: Int, onView: () -> Unit, onDismiss: () -> Unit) {
     var cropping by remember { mutableStateOf(false) }
     var levels by remember { mutableStateOf(false) }
     val act = { block: () -> Unit -> block(); onDismiss() }
     Sheet(onDismiss) {
-        run {
-            Text("Page ${index + 1}", style = MaterialTheme.typography.headlineSmall)
-            Group("Page") {
-                Tool("View", onClick = onView)
-                Tool("Retake") { act { model.scan(replace = index) } }
-                Tool("Move earlier", enabled = index > 0) { act { model.movePage(index, index - 1) } }
-                Tool("Move later", enabled = index < count - 1) { act { model.movePage(index, index + 1) } }
-                Tool("Delete") { act { model.deletePage(index) } }
-            }
-            Group("Turn and trim") {
-                Tool("Rotate left") { act { model.edit(index, Edit.RotateLeft) } }
-                Tool("Rotate right") { act { model.edit(index, Edit.RotateRight) } }
-                Tool("Rotate 180°") { act { model.edit(index, Edit.Rotate180) } }
-                Tool("Straighten") { act { model.edit(index, Edit.Straighten) } }
-                Tool("Trim to paper") { act { model.edit(index, Edit.Crop) } }
-                Tool("Crop…") { cropping = true }
-            }
-            Group("Clean up") {
-                Tool("Brightness and contrast…") { levels = true }
-                Tool("Remove specks") { act { model.edit(index, Edit.Despeckle(page.dpi)) } }
-                Tool("Fill torn edges") { act { model.fill(index) } }
-            }
-            Group("Colour") {
-                Tool("Gray") { act { model.edit(index, Edit.Gray) } }
-                Tool("Black and white") { act { model.edit(index, Edit.BlackWhite) } }
-                if (page.color != null) Tool("Back to colour") { act { model.edit(index, Edit.Colour) } }
-            }
+        Text("Page ${index + 1}", style = MaterialTheme.typography.headlineSmall)
+        OptionGroup("Page") {
+            OptionRow(Icons.Outlined.Visibility, "View", onClick = onView)
+            OptionRow(Icons.Outlined.Refresh, "Retake") { act { model.scan(replace = index) } }
+            OptionRow(Icons.AutoMirrored.Outlined.ArrowBack, "Move earlier", enabled = index > 0) { act { model.movePage(index, index - 1) } }
+            OptionRow(Icons.AutoMirrored.Outlined.ArrowForward, "Move later", enabled = index < count - 1) { act { model.movePage(index, index + 1) } }
+            OptionRow(Icons.Outlined.Delete, "Delete", destructive = true) { act { model.deletePage(index) } }
+        }
+        OptionGroup("Turn and trim") {
+            OptionRow(Icons.AutoMirrored.Outlined.RotateLeft, "Rotate left") { act { model.edit(index, Edit.RotateLeft) } }
+            OptionRow(Icons.AutoMirrored.Outlined.RotateRight, "Rotate right") { act { model.edit(index, Edit.RotateRight) } }
+            OptionRow(Icons.Outlined.Autorenew, "Rotate 180°") { act { model.edit(index, Edit.Rotate180) } }
+            OptionRow(Icons.Outlined.Straighten, "Straighten") { act { model.edit(index, Edit.Straighten) } }
+            OptionRow(Icons.Outlined.Crop, "Trim to paper") { act { model.edit(index, Edit.Crop) } }
+            OptionRow(Icons.Outlined.CropFree, "Crop…") { cropping = true }
+        }
+        OptionGroup("Clean up") {
+            OptionRow(Icons.Outlined.BrightnessMedium, "Brightness and contrast…") { levels = true }
+            OptionRow(Icons.Outlined.AutoFixHigh, "Remove specks") { act { model.edit(index, Edit.Despeckle(page.dpi)) } }
+            OptionRow(Icons.Outlined.FormatColorFill, "Fill torn edges") { act { model.fill(index) } }
+        }
+        OptionGroup("Colour") {
+            OptionRow(Icons.Outlined.Contrast, "Gray") { act { model.edit(index, Edit.Gray) } }
+            OptionRow(Icons.Outlined.InvertColors, "Black and white") { act { model.edit(index, Edit.BlackWhite) } }
+            if (page.color != null) OptionRow(Icons.Outlined.Palette, "Back to colour") { act { model.edit(index, Edit.Colour) } }
         }
     }
     if (cropping) CropDialog(model, page, index, onDismiss = { cropping = false }, onDone = { cropping = false; onDismiss() })
     if (levels) LevelsDialog(model, page, index, onDismiss = { levels = false }, onDone = { levels = false; onDismiss() })
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Group(title: String, content: @Composable () -> Unit) {
-    Labeled(title) { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } }
-}
-
-@Composable
-private fun Tool(label: String, enabled: Boolean = true, onClick: () -> Unit) {
-    FilledTonalButton(onClick = onClick, enabled = enabled, shapes = ButtonDefaults.shapes()) { Text(label) }
 }
 
 @Composable

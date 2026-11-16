@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -125,16 +129,16 @@ fun FilesTab(model: AppModel, state: AppState, padding: PaddingValues, onPrint: 
                     Box {
                         IconButton(onClick = { menu = true }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.MoreVert, contentDescription = "More for ${f.name}") }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text("Share") }, { menu = false; shareUri(context, f.uri, f.mime) })
+                            DropdownMenuItem({ Text("Share") }, { menu = false; shareUri(context, f.uri, f.mime) }, leadingIcon = { Icon(Icons.Outlined.Share, null) })
                             if (printable) DropdownMenuItem({ Text("Print") }, {
                                 menu = false
                                 model.work("Opening", { model.saveFolder.copyToCache(f.uri, f.name) }, onPrint)
-                            })
+                            }, leadingIcon = { Icon(Icons.Outlined.Print, null) })
                             if (f.mime == "application/pdf") DropdownMenuItem({ Text("Shrink") }, {
                                 menu = false
                                 model.work("Opening", { model.saveFolder.copyToCache(f.uri, f.name) }) { onShrink(it, f.folder.ifEmpty { null }) }
-                            })
-                            DropdownMenuItem({ Text("Delete", color = MaterialTheme.colorScheme.error) }, { menu = false; model.deleteFile(f) })
+                            }, leadingIcon = { Icon(Icons.Outlined.Compress, null) })
+                            DropdownMenuItem({ Text("Delete", color = MaterialTheme.colorScheme.error) }, { menu = false; model.deleteFile(f) }, leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) })
                         }
                     }
                 }
