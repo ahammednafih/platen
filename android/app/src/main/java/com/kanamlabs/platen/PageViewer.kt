@@ -2,6 +2,10 @@ package com.kanamlabs.platen
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -54,8 +58,8 @@ fun PageViewer(pages: List<String>, start: Int, onClose: () -> Unit) {
         val pager = rememberPagerState(start) { pages.size }
         var zoomed by remember { mutableStateOf(false) }
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed, key = { pages[it] }) { i ->
-                ZoomableImage({ thumbnail(pages[i], 2600) }, pages[i], onZoomChange = { if (i == pager.currentPage) zoomed = it })
+            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1, key = { pages[it] }) { i ->
+                ZoomableImage({ thumbnail(pages[i], ViewerCache.WIDTH) }, pages[i], onZoomChange = { if (i == pager.currentPage) zoomed = it })
             }
             FilledTonalIconButton(
                 onClick = onClose,
@@ -79,7 +83,10 @@ fun PageViewer(pages: List<String>, start: Int, onClose: () -> Unit) {
 
 @Composable
 fun ZoomableImage(load: suspend () -> Bitmap?, key: Any, onZoomChange: (Boolean) -> Unit) {
-    val bitmap by produceState<Bitmap?>(null, key) { value = withContext(Dispatchers.IO) { load() } }
+    val bitmap by produceState(ViewerCache.get(key.toString()), key) {
+        if (value == null) value = withContext(Dispatchers.IO) { load()?.also { ViewerCache.put(key.toString(), it) } }
+    }
+    val shown by animateFloatAsState(if (bitmap != null) 1f else 0f, tween(180), label = "fade")
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     fun zoomTo(s: Float, o: Offset) {
@@ -114,13 +121,14 @@ fun ZoomableImage(load: suspend () -> Bitmap?, key: Any, onZoomChange: (Boolean)
     ) {
         val b = bitmap
         if (b == null) {
-            LoadingIndicator()
+            Box(Modifier.fillMaxWidth(0.86f).aspectRatio(0.707f).background(Color.White.copy(alpha = 0.08f)))
         } else {
             Image(
                 b.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = shown
                     scaleX = scale
                     scaleY = scale
                     translationX = offset.x
@@ -139,8 +147,8 @@ fun PdfCompare(files: List<String>, start: Int, onClose: () -> Unit) {
         val pager = rememberPagerState { count }
         var zoomed by remember { mutableStateOf(false) }
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed) { i ->
-                ZoomableImage({ AndroidPdf.preview(java.io.File(files[shown]), i, 2000) }, "$shown/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
+            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
+                ZoomableImage({ AndroidPdf.preview(java.io.File(files[shown]), i, ViewerCache.WIDTH) }, "$shown/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
             }
             FilledTonalIconButton(
                 onClick = onClose,
@@ -167,9 +175,9 @@ fun FilePagesViewer(pages: List<Pair<java.io.File, Int>>, start: Int, onClose: (
         val pager = rememberPagerState(start) { pages.size }
         var zoomed by remember { mutableStateOf(false) }
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed) { i ->
+            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
                 val (file, page) = pages[i]
-                ZoomableImage({ load(file, page, 2000) }, "${file.path}/$page", onZoomChange = { if (i == pager.currentPage) zoomed = it })
+                ZoomableImage({ load(file, page, ViewerCache.WIDTH) }, "${file.path}/$page", onZoomChange = { if (i == pager.currentPage) zoomed = it })
             }
             FilledTonalIconButton(
                 onClick = onClose,
@@ -193,7 +201,7 @@ fun SheetsViewer(count: Int, start: Int, render: (Int) -> android.graphics.Bitma
         val pager = rememberPagerState(start) { count }
         var zoomed by remember { mutableStateOf(false) }
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed) { i ->
+            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
                 ZoomableImage({ render(i) }, "sheet/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
             }
             FilledTonalIconButton(
@@ -209,5 +217,18 @@ fun SheetsViewer(count: Int, start: Int, render: (Int) -> android.graphics.Bitma
                 Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
         }
+    }
+}
+
+object ViewerCache {
+    const val WIDTH = 1600
+    private val cache = object : android.util.LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 8).toInt()) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+    }
+
+    fun get(key: String): Bitmap? = cache.get(key)
+
+    fun put(key: String, bitmap: Bitmap) {
+        cache.put(key, bitmap)
     }
 }
