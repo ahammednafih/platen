@@ -4,7 +4,11 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
@@ -92,9 +96,18 @@ fun ZoomableImage(load: suspend () -> Bitmap?, key: Any, onZoomChange: (Boolean)
                 })
             }
             .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    val s = (scale * zoom).coerceIn(1f, 8f)
-                    if (s > 1f || zoom != 1f) zoomTo(s, offset + pan)
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    do {
+                        val event = awaitPointerEvent()
+                        val fingers = event.changes.count { it.pressed }
+                        if (fingers > 1 || scale > 1f) {
+                            val zoom = event.calculateZoom()
+                            val pan = event.calculatePan()
+                            zoomTo((scale * zoom).coerceIn(1f, 8f), offset + pan)
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                    } while (event.changes.any { it.pressed })
                 }
             },
         contentAlignment = Alignment.Center,
@@ -143,6 +156,57 @@ fun PdfCompare(files: List<String>, start: Int, onClose: () -> Unit) {
                     Choice(listOf(0 to "Original", 1 to "Shrunk"), shown, { shown = it }, Modifier.width(260.dp))
                     Text("Page ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun FilePagesViewer(pages: List<Pair<java.io.File, Int>>, start: Int, onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val pager = rememberPagerState(start) { pages.size }
+        var zoomed by remember { mutableStateOf(false) }
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            HorizontalPager(pager, userScrollEnabled = !zoomed) { i ->
+                val (file, page) = pages[i]
+                ZoomableImage({ load(file, page, 2000) }, "${file.path}/$page", onZoomChange = { if (i == pager.currentPage) zoomed = it })
+            }
+            FilledTonalIconButton(
+                onClick = onClose,
+                shapes = IconButtonDefaults.shapes(),
+                modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
+            ) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
+            ) {
+                Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun SheetsViewer(count: Int, start: Int, render: (Int) -> android.graphics.Bitmap?, onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val pager = rememberPagerState(start) { count }
+        var zoomed by remember { mutableStateOf(false) }
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            HorizontalPager(pager, userScrollEnabled = !zoomed) { i ->
+                ZoomableImage({ render(i) }, "sheet/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
+            }
+            FilledTonalIconButton(
+                onClick = onClose,
+                shapes = IconButtonDefaults.shapes(),
+                modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
+            ) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
+            ) {
+                Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
         }
     }
