@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -123,6 +125,11 @@ fun paperName(kw: String): String {
 val Padding = PaddingValues(16.dp)
 
 fun Modifier.screenPadding() = padding(horizontal = 16.dp)
+
+fun Modifier.readable() = widthIn(max = 600.dp).fillMaxWidth()
+
+@Composable
+fun isWide() = LocalConfiguration.current.screenWidthDp >= 600
 
 enum class ScaleMode(val label: String) { Fit("Fit to sheet"), Actual("Actual size"), Percent("Percent") }
 

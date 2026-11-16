@@ -122,9 +122,9 @@ fun ScanTab(model: AppModel, state: AppState, padding: PaddingValues, onPrint: (
 @Composable
 private fun StartPane(model: AppModel, state: AppState, padding: PaddingValues) {
     var name by rememberSaveable { mutableStateOf("") }
-    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         item {
-            GlassBed(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            GlassBed(Modifier.readable().padding(bottom = 8.dp)) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     SheetGlyph(Glyph.Empty, active = false, width = 88.dp, modifier = Modifier.padding(top = 8.dp))
                     Text("Put a page on the glass", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
@@ -143,18 +143,18 @@ private fun StartPane(model: AppModel, state: AppState, padding: PaddingValues) 
             }
         }
         if (state.drafts.isNotEmpty()) {
-            item { Text("Pick up where you left off", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp, top = 8.dp)) }
-            items(state.drafts, key = { it.name }) { d -> DraftRow(model, d.name, d.pages.toInt(), d.modified.toLong()) }
+            item { Text("Pick up where you left off", style = MaterialTheme.typography.titleMedium, modifier = Modifier.readable().padding(start = 4.dp, top = 8.dp)) }
+            items(state.drafts, key = { it.name }) { d -> DraftRow(model, d.name, d.pages.toInt(), d.modified.toLong(), Modifier.readable()) }
         }
     }
 }
 
 @Composable
-private fun DraftRow(model: AppModel, name: String, pages: Int, modified: Long) {
+private fun DraftRow(model: AppModel, name: String, pages: Int, modified: Long, modifier: Modifier = Modifier) {
     val cover = remember(name, pages) {
         File(model.scansDir, "$name/pages").listFiles()?.filter { it.extension == "jpg" || it.extension == "png" }?.minByOrNull { it.lastModified() }?.path
     }
-    Surface(onClick = { model.newScan(name) }, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+    Surface(onClick = { model.newScan(name) }, modifier = modifier, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(Modifier.size(52.dp, 70.dp), contentAlignment = Alignment.Center) {
                 if (cover != null) Paper(Modifier.fillMaxSize()) { FileImage(cover, 160, null, Modifier.fillMaxSize()) }
@@ -206,7 +206,7 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
                         return items.firstOrNull { point.x >= it.offset.x && point.x <= it.offset.x + it.size.width && point.y >= it.offset.y && point.y <= it.offset.y + it.size.height }?.index
                     }
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(140.dp),
+                        columns = GridCells.Adaptive(if (isWide()) 200.dp else 140.dp),
                         state = grid,
                         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 120.dp),
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
