@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -122,30 +124,54 @@ fun ScanTab(model: AppModel, state: AppState, padding: PaddingValues, onPrint: (
 @Composable
 private fun StartPane(model: AppModel, state: AppState, padding: PaddingValues) {
     var name by rememberSaveable { mutableStateOf("") }
-    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        item {
-            GlassBed(Modifier.readable().padding(bottom = 8.dp)) {
-                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    SheetGlyph(Glyph.Empty, active = false, width = 88.dp, modifier = Modifier.padding(top = 8.dp))
-                    Text("Put a page on the glass", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-                    OutlinedTextField(name, { name = it }, placeholder = { Text("Name this scan (optional)") }, singleLine = true, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
-                    Button(
-                        onClick = { model.newScan(name.ifBlank { null }); name = "" },
-                        shapes = ButtonDefaults.shapes(),
-                        contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.MediumContainerHeight),
-                        modifier = Modifier.fillMaxWidth().heightIn(ButtonDefaults.MediumContainerHeight),
-                    ) {
-                        Icon(painterResource(R.drawable.ic_scan), contentDescription = null, Modifier.size(ButtonDefaults.iconSizeFor(ButtonDefaults.MediumContainerHeight)))
-                        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(ButtonDefaults.MediumContainerHeight)))
-                        Text("Start a scan", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
-                    }
-                }
-            }
+    val prompt: @Composable () -> Unit = {
+        SheetGlyph(Glyph.Empty, active = false, width = 88.dp, modifier = Modifier.padding(top = 8.dp))
+        Text("Put a page on the glass", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+    }
+    val start: @Composable () -> Unit = {
+        OutlinedTextField(name, { name = it }, placeholder = { Text("Name this scan (optional)") }, singleLine = true, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+        Button(
+            onClick = { model.newScan(name.ifBlank { null }); name = "" },
+            shapes = ButtonDefaults.shapes(),
+            contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.MediumContainerHeight),
+            modifier = Modifier.fillMaxWidth().heightIn(ButtonDefaults.MediumContainerHeight),
+        ) {
+            Icon(painterResource(R.drawable.ic_scan), contentDescription = null, Modifier.size(ButtonDefaults.iconSizeFor(ButtonDefaults.MediumContainerHeight)))
+            Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(ButtonDefaults.MediumContainerHeight)))
+            Text("Start a scan", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
         }
+    }
+    val drafts: LazyListScope.() -> Unit = {
         if (state.drafts.isNotEmpty()) {
             item { Text("Pick up where you left off", style = MaterialTheme.typography.titleMedium, modifier = Modifier.readable().padding(start = 4.dp, top = 8.dp)) }
             items(state.drafts, key = { it.name }) { d -> DraftRow(model, d.name, d.pages.toInt(), d.modified.toLong(), Modifier.readable()) }
         }
+    }
+    if (isTabletop()) {
+        TabletopSplit(
+            Modifier.fillMaxSize().padding(padding),
+            top = {
+                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) { prompt() }
+            },
+            bottom = {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    item { Column(Modifier.readable(), verticalArrangement = Arrangement.spacedBy(12.dp)) { start() } }
+                    drafts()
+                }
+            },
+        )
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        item {
+            GlassBed(Modifier.readable().padding(bottom = 8.dp)) {
+                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    prompt()
+                    start()
+                }
+            }
+        }
+        drafts()
     }
 }
 
@@ -184,113 +210,123 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
     var showSettings by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().padding(padding)) {
-        Column(Modifier.fillMaxSize()) {
-            SettingsChips(state, onClick = { showSettings = true })
-            GlassBed(Modifier.weight(1f).fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
-                if (session.pages.isEmpty()) {
-                    Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SheetGlyph(Glyph.Empty, active = false, width = 72.dp)
-                        Text("Put a page face down on the glass, then tap Scan.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    val grid = rememberLazyGridState()
-                    var dragFrom by remember { mutableStateOf<Int?>(null) }
-                    var dragTo by remember { mutableStateOf<Int?>(null) }
-                    var dragOffset by remember { mutableStateOf(Offset.Zero) }
-                    val tick = rememberTick()
-                    fun target(from: Int): Int? {
-                        val items = grid.layoutInfo.visibleItemsInfo
-                        val start = items.firstOrNull { it.index == from } ?: return null
-                        val point = Offset(start.offset.x + start.size.width / 2f, start.offset.y + start.size.height / 2f) + dragOffset
-                        return items.firstOrNull { point.x >= it.offset.x && point.x <= it.offset.x + it.size.width && point.y >= it.offset.y && point.y <= it.offset.y + it.size.height }?.index
-                    }
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(if (isWide()) 200.dp else 140.dp),
-                        state = grid,
-                        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 120.dp),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        itemsIndexed(session.pages, key = { _, p -> p.file }) { i, p ->
-                            val lifted = dragFrom == i
-                            PageSheet(
-                                i, p, fresh = p.file == state.fresh, dropHere = dragTo == i && dragFrom != i,
-                                onOpen = { viewing = i }, onTools = { click(); tools = i },
-                                modifier = (if (lifted) Modifier.zIndex(1f) else Modifier.animateItem())
-                                    .graphicsLayer {
-                                        if (lifted) {
-                                            translationX = dragOffset.x
-                                            translationY = dragOffset.y
-                                            scaleX = 1.06f
-                                            scaleY = 1.06f
-                                        }
+    val pages: @Composable ColumnScope.() -> Unit = {
+        SettingsChips(state, onClick = { showSettings = true })
+        GlassBed(Modifier.weight(1f).fillMaxWidth(), shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
+            if (session.pages.isEmpty()) {
+                Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    SheetGlyph(Glyph.Empty, active = false, width = 72.dp)
+                    Text("Put a page face down on the glass, then tap Scan.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                val grid = rememberLazyGridState()
+                var dragFrom by remember { mutableStateOf<Int?>(null) }
+                var dragTo by remember { mutableStateOf<Int?>(null) }
+                var dragOffset by remember { mutableStateOf(Offset.Zero) }
+                val tick = rememberTick()
+                fun target(from: Int): Int? {
+                    val items = grid.layoutInfo.visibleItemsInfo
+                    val start = items.firstOrNull { it.index == from } ?: return null
+                    val point = Offset(start.offset.x + start.size.width / 2f, start.offset.y + start.size.height / 2f) + dragOffset
+                    return items.firstOrNull { point.x >= it.offset.x && point.x <= it.offset.x + it.size.width && point.y >= it.offset.y && point.y <= it.offset.y + it.size.height }?.index
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(if (isWide()) 200.dp else 140.dp),
+                    state = grid,
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = if (isTabletop()) 20.dp else 120.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    itemsIndexed(session.pages, key = { _, p -> p.file }) { i, p ->
+                        val lifted = dragFrom == i
+                        PageSheet(
+                            i, p, fresh = p.file == state.fresh, dropHere = dragTo == i && dragFrom != i,
+                            onOpen = { viewing = i }, onTools = { click(); tools = i },
+                            modifier = (if (lifted) Modifier.zIndex(1f) else Modifier.animateItem())
+                                .graphicsLayer {
+                                    if (lifted) {
+                                        translationX = dragOffset.x
+                                        translationY = dragOffset.y
+                                        scaleX = 1.06f
+                                        scaleY = 1.06f
                                     }
-                                    .pointerInput(p.file) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = { dragFrom = i; dragTo = i; dragOffset = Offset.Zero; tick() },
-                                            onDrag = { change, amount ->
-                                                change.consume()
-                                                dragOffset += amount
-                                                val t = dragFrom?.let(::target)
-                                                if (t != null && t != dragTo) { dragTo = t; tick() }
-                                            },
-                                            onDragEnd = {
-                                                val from = dragFrom
-                                                val to = dragTo
-                                                if (from != null && to != null && from != to) { model.movePage(from, to); click() }
-                                                dragFrom = null; dragTo = null; dragOffset = Offset.Zero
-                                            },
-                                            onDragCancel = { dragFrom = null; dragTo = null; dragOffset = Offset.Zero },
-                                        )
-                                    },
-                            )
-                        }
+                                }
+                                .pointerInput(p.file) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { dragFrom = i; dragTo = i; dragOffset = Offset.Zero; tick() },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragOffset += amount
+                                            val t = dragFrom?.let(::target)
+                                            if (t != null && t != dragTo) { dragTo = t; tick() }
+                                        },
+                                        onDragEnd = {
+                                            val from = dragFrom
+                                            val to = dragTo
+                                            if (from != null && to != null && from != to) { model.movePage(from, to); click() }
+                                            dragFrom = null; dragTo = null; dragOffset = Offset.Zero
+                                        },
+                                        onDragCancel = { dragFrom = null; dragTo = null; dragOffset = Offset.Zero },
+                                    )
+                                },
+                        )
                     }
                 }
             }
         }
-        Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AnimatedVisibility(state.busy != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                BusyPill("${state.busy ?: ""}…", Modifier.padding(horizontal = 16.dp)) {
-                    if (state.busy?.startsWith("Scanning") == true) {
-                        TextButton(onClick = { model.cancelScan() }, shapes = ButtonDefaults.shapes()) { Text("Cancel", color = MaterialTheme.colorScheme.inverseOnSurface) }
+    }
+    val controls: @Composable ColumnScope.() -> Unit = {
+        AnimatedVisibility(state.busy != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            BusyPill("${state.busy ?: ""}…", Modifier.padding(horizontal = 16.dp)) {
+                if (state.busy?.startsWith("Scanning") == true) {
+                    TextButton(onClick = { model.cancelScan() }, shapes = ButtonDefaults.shapes()) { Text("Cancel", color = MaterialTheme.colorScheme.inverseOnSurface) }
+                }
+            }
+        }
+        AnimatedVisibility(state.top != null && state.busy == null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Top half done", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("Turn the page around so the bottom is on the glass, bottom edge against the far edge. Leave a few centimetres of overlap.", style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = model::scanBottom, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f)) { Text("Scan bottom half") }
+                        TextButton(onClick = model::cancelLong, shapes = ButtonDefaults.shapes()) { Text("Cancel") }
                     }
                 }
             }
-            AnimatedVisibility(state.top != null && state.busy == null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Top half done", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text("Turn the page around so the bottom is on the glass, bottom edge against the far edge. Leave a few centimetres of overlap.", style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = model::scanBottom, shapes = ButtonDefaults.shapes(), modifier = Modifier.weight(1f)) { Text("Scan bottom half") }
-                            TextButton(onClick = model::cancelLong, shapes = ButtonDefaults.shapes()) { Text("Cancel") }
-                        }
-                    }
+        }
+        val idle = state.busy == null && state.top == null
+        HorizontalFloatingToolbar(
+            expanded = true,
+            floatingActionButton = {
+                FloatingToolbarDefaults.VibrantFloatingActionButton(
+                    onClick = { if (idle && state.device != null) model.scan() },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Icon(painterResource(R.drawable.ic_scan), contentDescription = "Scan a page")
                 }
+            },
+            colors = FloatingToolbarDefaults.standardFloatingToolbarColors(toolbarContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+        ) {
+            ToolbarButton(R.drawable.ic_tune, "Scan settings") { showSettings = true }
+            ToolbarButton(R.drawable.ic_long_page, "Scan a long page", enabled = idle && state.device != null) { model.scanTop() }
+            ToolbarButton(R.drawable.ic_export, "Export", enabled = session.pages.isNotEmpty()) { showExport = true }
+            ToolbarButton(R.drawable.ic_print, "Print", enabled = session.pages.isNotEmpty() && idle) {
+                model.work("Making a PDF", { File(model.platen.scanToPdf()) }, onPrint)
             }
-            val idle = state.busy == null && state.top == null
-            HorizontalFloatingToolbar(
-                expanded = true,
-                floatingActionButton = {
-                    FloatingToolbarDefaults.VibrantFloatingActionButton(
-                        onClick = { if (idle && state.device != null) model.scan() },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ) {
-                        Icon(painterResource(R.drawable.ic_scan), contentDescription = "Scan a page")
-                    }
-                },
-                colors = FloatingToolbarDefaults.standardFloatingToolbarColors(toolbarContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-            ) {
-                ToolbarButton(R.drawable.ic_tune, "Scan settings") { showSettings = true }
-                ToolbarButton(R.drawable.ic_long_page, "Scan a long page", enabled = idle && state.device != null) { model.scanTop() }
-                ToolbarButton(R.drawable.ic_export, "Export", enabled = session.pages.isNotEmpty()) { showExport = true }
-                ToolbarButton(R.drawable.ic_print, "Print", enabled = session.pages.isNotEmpty() && idle) {
-                    model.work("Making a PDF", { File(model.platen.scanToPdf()) }, onPrint)
-                }
-            }
+        }
+    }
+    if (isTabletop()) {
+        TabletopSplit(
+            Modifier.fillMaxSize().padding(padding),
+            top = { Column(Modifier.fillMaxSize(), content = pages) },
+            bottom = { Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), content = controls) },
+        )
+    } else {
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize(), content = pages)
+            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), content = controls)
         }
     }
 

@@ -86,5 +86,6 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.window)
     implementation("${libs.jna.get()}@aar")
 }

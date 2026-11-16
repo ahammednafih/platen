@@ -174,7 +174,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
     }
 
     val tick = rememberTick()
-    val action: @Composable ColumnScope.() -> Unit = {
+    val modes: @Composable ColumnScope.() -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CopyKind.entries.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -200,7 +200,8 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                 }
             }
         }
-
+    }
+    val runCopy: @Composable ColumnScope.() -> Unit = {
         GlassBed(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (kind.steps.size > 1) {
@@ -259,18 +260,36 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
         }
         Section("Paper") { PaperAndQuality(state, media, { media = it }, quality, { quality = it }, mediaType, { mediaType = it }) }
     }
-    if (isWide()) {
+    if (isTabletop()) {
+        TabletopSplit(
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            top = {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    LowInk(state)
+                    modes()
+                }
+            },
+            bottom = {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), content = runCopy)
+                    Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { settings() }
+                }
+            },
+        )
+    } else if (isWide()) {
         Row(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 LowInk(state)
-                action()
+                modes()
+                runCopy()
             }
             Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { settings() }
         }
     } else {
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             LowInk(state)
-            action()
+            modes()
+            runCopy()
             settings()
         }
     }

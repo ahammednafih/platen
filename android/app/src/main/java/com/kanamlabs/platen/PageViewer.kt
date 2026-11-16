@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -54,29 +55,35 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun PageViewer(pages: List<String>, start: Int, onClose: () -> Unit) {
+    val pager = rememberPagerState(start) { pages.size }
+    var zoomed by remember { mutableStateOf(false) }
+    ViewerFrame(onClose, pager = {
+        HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1, key = { pages[it] }) { i ->
+            ZoomableImage({ thumbnail(pages[i], ViewerCache.WIDTH) }, pages[i], onZoomChange = { if (i == pager.currentPage) zoomed = it })
+        }
+    }) {
+        Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    }
+}
+
+@Composable
+private fun ViewerFrame(onClose: () -> Unit, pager: @Composable () -> Unit, footer: @Composable () -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val pager = rememberPagerState(start) { pages.size }
-        var zoomed by remember { mutableStateOf(false) }
+        val label: @Composable () -> Unit = {
+            Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) { footer() }
+        }
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1, key = { pages[it] }) { i ->
-                ZoomableImage({ thumbnail(pages[i], ViewerCache.WIDTH) }, pages[i], onZoomChange = { if (i == pager.currentPage) zoomed = it })
+            if (isTabletop()) {
+                TabletopSplit(Modifier.fillMaxSize(), top = { Box(Modifier.statusBarsPadding()) { pager() } }, bottom = { Box(Modifier.align(Alignment.Center)) { label() } })
+            } else {
+                pager()
+                Box(Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp)) { label() }
             }
             FilledTonalIconButton(
                 onClick = onClose,
                 shapes = IconButtonDefaults.shapes(),
                 modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
             ) { Icon(Icons.Default.Close, contentDescription = "Close") }
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
-            ) {
-                Text(
-                    "Page ${pager.currentPage + 1} of ${pages.size}",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
         }
     }
 }
@@ -141,82 +148,46 @@ fun ZoomableImage(load: suspend () -> Bitmap?, key: Any, onZoomChange: (Boolean)
 
 @Composable
 fun PdfCompare(files: List<String>, start: Int, onClose: () -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        var shown by remember { mutableStateOf(start) }
-        val count by produceState(0, files) { value = withContext(Dispatchers.IO) { files.minOf { runCatching { AndroidPdf.pageCount(java.io.File(it)) }.getOrDefault(0) } } }
-        val pager = rememberPagerState { count }
-        var zoomed by remember { mutableStateOf(false) }
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
-                ZoomableImage({ AndroidPdf.preview(java.io.File(files[shown]), i, ViewerCache.WIDTH) }, "$shown/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
-            }
-            FilledTonalIconButton(
-                onClick = onClose,
-                shapes = IconButtonDefaults.shapes(),
-                modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
-            ) { Icon(Icons.Default.Close, contentDescription = "Close") }
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
-            ) {
-                Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Choice(listOf(0 to "Original", 1 to "Shrunk"), shown, { shown = it }, Modifier.width(260.dp))
-                    Text("Page ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                }
-            }
+    var shown by remember { mutableStateOf(start) }
+    val count by produceState(0, files) { value = withContext(Dispatchers.IO) { files.minOf { runCatching { AndroidPdf.pageCount(java.io.File(it)) }.getOrDefault(0) } } }
+    val pager = rememberPagerState { count }
+    var zoomed by remember { mutableStateOf(false) }
+    ViewerFrame(onClose, pager = {
+        HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
+            ZoomableImage({ AndroidPdf.preview(java.io.File(files[shown]), i, ViewerCache.WIDTH) }, "$shown/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
+        }
+    }) {
+        Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Choice(listOf(0 to "Original", 1 to "Shrunk"), shown, { shown = it }, Modifier.width(260.dp))
+            Text("Page ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
 
 @Composable
 fun FilePagesViewer(pages: List<Pair<java.io.File, Int>>, start: Int, onClose: () -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val pager = rememberPagerState(start) { pages.size }
-        var zoomed by remember { mutableStateOf(false) }
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
-                val (file, page) = pages[i]
-                ZoomableImage({ load(file, page, ViewerCache.WIDTH) }, "${file.path}/$page", onZoomChange = { if (i == pager.currentPage) zoomed = it })
-            }
-            FilledTonalIconButton(
-                onClick = onClose,
-                shapes = IconButtonDefaults.shapes(),
-                modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
-            ) { Icon(Icons.Default.Close, contentDescription = "Close") }
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
-            ) {
-                Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            }
+    val pager = rememberPagerState(start) { pages.size }
+    var zoomed by remember { mutableStateOf(false) }
+    ViewerFrame(onClose, pager = {
+        HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
+            val (file, page) = pages[i]
+            ZoomableImage({ load(file, page, ViewerCache.WIDTH) }, "${file.path}/$page", onZoomChange = { if (i == pager.currentPage) zoomed = it })
         }
+    }) {
+        Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     }
 }
 
 @Composable
 fun SheetsViewer(count: Int, start: Int, render: (Int) -> android.graphics.Bitmap?, onClose: () -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val pager = rememberPagerState(start) { count }
-        var zoomed by remember { mutableStateOf(false) }
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
-                ZoomableImage({ render(i) }, "sheet/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
-            }
-            FilledTonalIconButton(
-                onClick = onClose,
-                shapes = IconButtonDefaults.shapes(),
-                modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp),
-            ) { Icon(Icons.Default.Close, contentDescription = "Close") }
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
-            ) {
-                Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            }
+    val pager = rememberPagerState(start) { count }
+    var zoomed by remember { mutableStateOf(false) }
+    ViewerFrame(onClose, pager = {
+        HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
+            ZoomableImage({ render(i) }, "sheet/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
         }
+    }) {
+        Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     }
 }
 
