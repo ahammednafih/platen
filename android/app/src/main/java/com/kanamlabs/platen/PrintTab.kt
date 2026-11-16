@@ -313,7 +313,23 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                 }
             }
         }
-        if (isWide()) {
+        if (isTabletop()) {
+            TabletopSplit(
+                Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                top = {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        LowInk(state)
+                        source()
+                    }
+                },
+                bottom = {
+                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { settings() }
+                        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) { printBar() }
+                    }
+                },
+            )
+        } else if (isWide()) {
             Row(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     LowInk(state)

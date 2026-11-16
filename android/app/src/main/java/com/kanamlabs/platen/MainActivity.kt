@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +71,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
             PlatenTheme(state.accent) {
-                AppRoot(model, state, incoming.value) { incoming.value = emptyList() }
+                CompositionLocalProvider(LocalHinge provides rememberTabletopHinge(this)) {
+                    AppRoot(model, state, incoming.value) { incoming.value = emptyList() }
+                }
             }
         }
     }
