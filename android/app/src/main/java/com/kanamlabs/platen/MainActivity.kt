@@ -13,7 +13,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -90,6 +95,7 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
     var showDevice by rememberSaveable { mutableStateOf(false) }
     var printFiles by remember { mutableStateOf<List<File>>(emptyList()) }
     var shrinkFile by remember { mutableStateOf<Pair<File, String?>?>(null) }
+    var switching by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { model.outcomes.collect { ok -> if (ok) Haptics.confirm(view) else Haptics.reject(view) } }
     LaunchedEffect(incoming) {
@@ -116,6 +122,8 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
         return
     }
 
+    if (switching) PrinterSheet(model, state, onSettings = { switching = false; showDevice = true }, onDismiss = { switching = false })
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
@@ -130,15 +138,21 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
                     )
                 },
                 subtitle = {
-                    Text(
-                        when {
-                            state.finding -> "Looking for the printer…"
-                            state.device != null -> state.device.name
-                            else -> "No printer found"
-                        },
-                        maxLines = 1,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(
+                        Modifier.clip(MaterialTheme.shapes.small).clickable { Haptics.tick(view); switching = true }.padding(end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            when {
+                                state.finding -> "Looking for the printer…"
+                                state.device != null -> state.device.name
+                                else -> "No printer found"
+                            },
+                            maxLines = 1,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch printer", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 },
                 actions = {
                     if (tab == Tab.Scan) ScanActions(model, state)

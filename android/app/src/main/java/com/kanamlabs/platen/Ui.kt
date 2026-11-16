@@ -31,6 +31,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.rememberScrollState
@@ -277,4 +284,47 @@ fun LowInk(state: AppState) {
             }
         }
     }
+}
+
+@Composable
+fun PrinterSheet(model: AppModel, state: AppState, onSettings: () -> Unit, onDismiss: () -> Unit) {
+    val tick = rememberTick()
+    var renaming by remember { mutableStateOf<SavedPrinter?>(null) }
+    Sheet(onDismiss) {
+        Text("Printers", style = MaterialTheme.typography.headlineSmall)
+        if (state.printers.isEmpty()) Text("No printers saved yet. Look for one on this Wi-Fi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        state.printers.forEach { p ->
+            val current = p.base == state.current
+            Surface(
+                onClick = { if (!current) { tick(); model.usePrinter(p); onDismiss() } },
+                shape = MaterialTheme.shapes.large,
+                color = if (current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(p.label, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                        Text(
+                            listOfNotNull(p.model.takeIf { p.nickname != null }, p.base.substringAfter("//").substringBefore('/').substringBefore(':')).joinToString(", "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    if (current) Text("In use", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp))
+                    IconButton(onClick = { renaming = p }, shapes = IconButtonDefaults.shapes()) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Rename ${p.label}")
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.FilledTonalButton(onClick = { tick(); model.searchPrinters() }, enabled = !state.searching, shapes = androidx.compose.material3.ButtonDefaults.shapes()) {
+                Text("Look for printers")
+            }
+            if (state.searching) LoadingIndicator(Modifier.size(32.dp))
+            Spacer(Modifier.weight(1f))
+            androidx.compose.material3.TextButton(onClick = onSettings, shapes = androidx.compose.material3.ButtonDefaults.shapes()) { Text("Printer settings") }
+        }
+    }
+    renaming?.let { p -> NameDialog("Rename printer", p.nickname ?: p.model, onDismiss = { renaming = null }) { model.renamePrinter(p, it); renaming = null } }
 }
