@@ -2,6 +2,13 @@ package com.kanamlabs.platen
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +73,7 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val host = state.device?.host?.substringBefore(':')
     var details by remember { mutableStateOf<List<DetailGroup>?>(null) }
+    var detailsOpen by remember { mutableStateOf(true) }
     var loading by remember { mutableStateOf(false) }
     var askPassword by remember { mutableStateOf(false) }
     var wrong by remember { mutableStateOf(false) }
@@ -85,6 +93,7 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
         scope.launch {
             try {
                 details = withContext(Dispatchers.IO) { model.platen.deviceDetails(pw) }
+                detailsOpen = true
                 if (typed != null) model.secrets.savePassword(h, typed)
                 askPassword = false
                 wrong = false
@@ -197,42 +206,54 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                 }
             }
 
-            if (details == null) {
-                Surface(
-                    onClick = { tick(); load(null) },
-                    enabled = host != null && !loading,
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                if (loading) LoadingIndicator(Modifier.size(32.dp))
-                                else Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Surface(
+                onClick = { tick(); if (details == null) load(null) else detailsOpen = !detailsOpen },
+                enabled = host != null && !loading,
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (loading) LoadingIndicator(Modifier.size(32.dp))
+                            else Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("Counters, maintenance and network", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            when {
+                                loading -> "Reading the printer's pages…"
+                                details == null -> "Read from the printer's own web page"
+                                detailsOpen -> "Tap to hide"
+                                else -> "Tap to show"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val turn by animateFloatAsState(if (details != null && detailsOpen) 90f else 0f, label = "chevron")
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = if (details != null && detailsOpen) "Hide details" else "Show details",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.rotate(turn),
+                    )
+                }
+            }
+            AnimatedVisibility(details != null && detailsOpen, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    details.orEmpty().forEach { g ->
+                        Section(g.title.ifBlank { null }) {
+                            g.rows.forEachIndexed { i, r ->
+                                if (i > 0 && !r.sub) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                DetailLine(r.label, r.value, r.sub)
                             }
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text("Counters, maintenance and network", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                if (loading) "Reading the printer's pages…" else "Read from the printer's own web page",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                }
-            } else {
-                details!!.forEach { g ->
-                    Section(g.title.ifBlank { null }) {
-                        g.rows.forEachIndexed { i, r ->
-                            if (i > 0 && !r.sub) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            DetailLine(r.label, r.value, r.sub)
-                        }
+                    if (host != null) {
+                        TextButton(onClick = { model.secrets.forget(host); details = null }, shapes = ButtonDefaults.shapes()) { Text("Forget the printer password") }
                     }
-                }
-                if (host != null) {
-                    TextButton(onClick = { model.secrets.forget(host); details = null }, shapes = ButtonDefaults.shapes()) { Text("Forget the printer password") }
                 }
             }
 
