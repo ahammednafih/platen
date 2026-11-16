@@ -354,7 +354,7 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                FilledTonalButton(onClick = { tick(); ask(HeadAction.Check) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Print nozzle check") }
+                Button(onClick = { tick(); ask(HeadAction.Check) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Print nozzle check") }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Labeled("Inks") { Choice(listOf(Inks.BLACK to "Black", Inks.COLOUR to "Colour", Inks.ALL to "All"), inks, { inks = it }, enabled = !headBusy) }
                 Labeled("Strength") {

@@ -169,9 +169,9 @@
         <div class="group-title">Print head</div>
         <p class="faint small">For faint, streaky or missing colours. Print a nozzle check first and clean only the colours with gaps.</p>
         <div class="actions">
-          <button onclick={() => ask("check")} disabled={headBusy || !!confirming}>Print nozzle check…</button>
+          <button class="primary" onclick={() => ask("check")} disabled={headBusy || !!confirming}>Print nozzle check…</button>
         </div>
-        <div class="actions">
+        <div class="actions clean">
           <select bind:value={inks} disabled={headBusy || !!confirming} aria-label="Inks to clean">
             <option value="Black">Black only</option>
             <option value="Colour">Colour only</option>
@@ -251,6 +251,7 @@
   .head { display: grid; gap: 8px; }
   .head p { margin: 0; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .clean select { width: auto; flex: 1; min-width: 0; }
   .confirm { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
   .steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   dd { font-variant-numeric: tabular-nums; text-align: right; }
