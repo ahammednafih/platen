@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ButtonDefaults
@@ -60,8 +62,14 @@ fun FilesTab(model: AppModel, state: AppState, padding: PaddingValues, onPrint: 
         if (uri != null) model.work("Opening", { model.saveFolder.copyToCache(uri, "file.pdf") }) { onShrink(it, null) }
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
+    LazyVerticalGrid(
+        GridCells.Adaptive(360.dp),
+        Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Saved in", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -75,12 +83,14 @@ fun FilesTab(model: AppModel, state: AppState, padding: PaddingValues, onPrint: 
             }
         }
         if (state.files.isEmpty()) {
-            item {
-                GlassBed(Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        SheetGlyph(Glyph.Empty, active = false, width = 64.dp)
-                        Text("Nothing saved yet", style = MaterialTheme.typography.titleLarge)
-                        Text("Export a scan and its PDFs and images land here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    GlassBed(Modifier.readable()) {
+                        Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            SheetGlyph(Glyph.Empty, active = false, width = 64.dp)
+                            Text("Nothing saved yet", style = MaterialTheme.typography.titleLarge)
+                            Text("Export a scan and its PDFs and images land here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        }
                     }
                 }
             }

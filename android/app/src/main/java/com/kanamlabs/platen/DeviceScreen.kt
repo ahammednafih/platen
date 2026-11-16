@@ -31,6 +31,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -247,166 +249,179 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            LowInk(state)
-            GlassBed(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column {
-                        Text(state.device?.name ?: "No printer", style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            state.status?.let { s -> listOfNotNull("Scanner ${s.scanner.lowercase()}", s.printer?.let { "printer ${it.state.lowercase()}" }).joinToString(", ") }
-                                ?: state.device?.host ?: "Make sure it's on and this phone is on the same Wi-Fi.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        state.status?.printer?.reasons?.filter { it != "none" }?.takeIf { it.isNotEmpty() }?.let {
-                            Text(it.joinToString().replace('-', ' '), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                    state.status?.printer?.ink?.takeIf { it.isNotEmpty() }?.let { inks ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            inks.forEach { InkTank(it.name, it.level) }
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilledTonalButton(onClick = { model.refreshDevice() }, shapes = ButtonDefaults.shapes()) { Text("Refresh") }
-                    }
-                }
-            }
-
-            Section("Printers") {
-                state.printers.forEach { p ->
-                    val current = p.base == state.current
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        RadioButton(selected = current, onClick = { if (!current) { tick(); model.usePrinter(p) } })
-                        Column(Modifier.weight(1f)) {
-                            Text(p.label, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                            if (p.nickname != null) Text(p.model, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                            Text(p.base.substringAfter("//").substringBefore('/').substringBefore(':'), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                        }
-                        IconButton(onClick = { renaming = p }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.Edit, contentDescription = "Rename ${p.label}") }
-                        IconButton(onClick = { model.forgetPrinter(p) }, shapes = IconButtonDefaults.shapes()) {
-                            Icon(Icons.Default.Delete, contentDescription = "Forget ${p.label}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-                if (state.printers.isEmpty()) Text("No printers saved yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FilledTonalButton(onClick = { tick(); model.searchPrinters() }, enabled = !state.searching, shapes = ButtonDefaults.shapes()) { Text("Look for printers") }
-                    if (state.searching) LoadingIndicator(Modifier.size(32.dp))
-                }
-            }
-
-            Surface(
-                onClick = { tick(); if (details == null) load(null) else detailsOpen = !detailsOpen },
-                enabled = host != null && !loading,
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-            ) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (loading) LoadingIndicator(Modifier.size(32.dp))
-                            else Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text("Counters, maintenance and network", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            when {
-                                loading -> "Reading the printer's pages…"
-                                details == null -> "Read from the printer's own web page"
-                                detailsOpen -> "Tap to hide"
-                                else -> "Tap to show"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    val turn by animateFloatAsState(if (details != null && detailsOpen) 90f else 0f, label = "chevron")
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = if (details != null && detailsOpen) "Hide details" else "Show details",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.rotate(turn),
+        val printer: @Composable ColumnScope.() -> Unit = {
+        LowInk(state)
+        GlassBed(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column {
+                    Text(state.device?.name ?: "No printer", style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        state.status?.let { s -> listOfNotNull("Scanner ${s.scanner.lowercase()}", s.printer?.let { "printer ${it.state.lowercase()}" }).joinToString(", ") }
+                            ?: state.device?.host ?: "Make sure it's on and this phone is on the same Wi-Fi.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-            }
-            AnimatedVisibility(details != null && detailsOpen, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    details.orEmpty().forEach { g ->
-                        Section(g.title.ifBlank { null }) {
-                            g.rows.forEachIndexed { i, r ->
-                                if (i > 0 && !r.sub) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                DetailLine(r.label, r.value, r.sub)
-                            }
-                        }
-                    }
-                    if (host != null) {
-                        TextButton(onClick = { model.secrets.forget(host); details = null }, shapes = ButtonDefaults.shapes()) { Text("Forget the printer password") }
+                    state.status?.printer?.reasons?.filter { it != "none" }?.takeIf { it.isNotEmpty() }?.let {
+                        Text(it.joinToString().replace('-', ' '), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
-            }
-
-            Section("Print head") {
-                Text(
-                    "For faint, streaky or missing colours. Print a nozzle check first and clean only the colours with gaps.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(onClick = { tick(); ask(HeadAction.Check) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Print nozzle check") }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Labeled("Inks") { Choice(listOf(Inks.BLACK to "Black", Inks.COLOUR to "Colour", Inks.ALL to "All"), inks, { inks = it }, enabled = !headBusy) }
-                Labeled("Strength") {
-                    Choice(
-                        listOfNotNull(Strength.NORMAL to "Normal", Strength.STRONG to "Strong", Strength.STRONGEST to "Strongest", (Strength.SPECIAL to "Special").takeIf { inks == Inks.ALL }),
-                        strength, { strength = it }, enabled = !headBusy,
-                    )
+                state.status?.printer?.ink?.takeIf { it.isNotEmpty() }?.let { inks ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        inks.forEach { InkTank(it.name, it.level) }
+                    }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FilledTonalButton(onClick = { tick(); ask(HeadAction.Clean) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Clean print head") }
-                    if (headBusy) LoadingIndicator(Modifier.size(32.dp))
-                }
-                headNote?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-            }
-
-            Section("Print from other apps") {
-                Text(
-                    "Turn on Platen in Android's print settings, then choose your printer from the Print option in any app, like Docs, Word, Chrome or Photos.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val context = androidx.compose.ui.platform.LocalContext.current
-                FilledTonalButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_PRINT_SETTINGS)) } }, shapes = ButtonDefaults.shapes()) {
-                    Text("Open print settings")
-                }
-            }
-
-            Section("Where scans are saved") {
-                Text(state.folder, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = { chooseFolder.launch(null) }, shapes = ButtonDefaults.shapes()) { Text("Choose folder") }
-                    if (state.folder != SaveFolder.DEFAULT) TextButton(onClick = { model.setFolder(null) }, shapes = ButtonDefaults.shapes()) { Text("Use ${SaveFolder.DEFAULT}") }
+                    FilledTonalButton(onClick = { model.refreshDevice() }, shapes = ButtonDefaults.shapes()) { Text("Refresh") }
                 }
             }
+        }
 
-            Section("Drafts") {
-                Text("Delete unfinished scans you haven't touched for a while. Exported files in your scans folder are never removed.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Choice(listOf(0 to "Keep all", 30 to "After 30 days", 90 to "After 90 days"), state.keepDays, model::setKeepDays)
+        Section("Printers") {
+            state.printers.forEach { p ->
+                val current = p.base == state.current
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    RadioButton(selected = current, onClick = { if (!current) { tick(); model.usePrinter(p) } })
+                    Column(Modifier.weight(1f)) {
+                        Text(p.label, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                        if (p.nickname != null) Text(p.model, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text(p.base.substringAfter("//").substringBefore('/').substringBefore(':'), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                    IconButton(onClick = { renaming = p }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.Edit, contentDescription = "Rename ${p.label}") }
+                    IconButton(onClick = { model.forgetPrinter(p) }, shapes = IconButtonDefaults.shapes()) {
+                        Icon(Icons.Default.Delete, contentDescription = "Forget ${p.label}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
+            if (state.printers.isEmpty()) Text("No printers saved yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = { tick(); model.searchPrinters() }, enabled = !state.searching, shapes = ButtonDefaults.shapes()) { Text("Look for printers") }
+                if (state.searching) LoadingIndicator(Modifier.size(32.dp))
+            }
+        }
 
-            Section("Accent colour") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Accent.entries.forEach { a ->
-                        val dark = isSystemInDarkTheme()
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Surface(onClick = { tick(); model.setAccent(a) }, shape = CircleShape, color = Color.Transparent) {
-                                Swatch(if (a == Accent.Wallpaper) MaterialTheme.colorScheme.primary.takeIf { state.accent == a } ?: (if (dark) a.dark else a.light) else if (dark) a.dark else a.light, selected = state.accent == a)
-                            }
+        Surface(
+            onClick = { tick(); if (details == null) load(null) else detailsOpen = !detailsOpen },
+            enabled = host != null && !loading,
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (loading) LoadingIndicator(Modifier.size(32.dp))
+                        else Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Counters, maintenance and network", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        when {
+                            loading -> "Reading the printer's pages…"
+                            details == null -> "Read from the printer's own web page"
+                            detailsOpen -> "Tap to hide"
+                            else -> "Tap to show"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val turn by animateFloatAsState(if (details != null && detailsOpen) 90f else 0f, label = "chevron")
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = if (details != null && detailsOpen) "Hide details" else "Show details",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(turn),
+                )
+            }
+        }
+        AnimatedVisibility(details != null && detailsOpen, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                details.orEmpty().forEach { g ->
+                    Section(g.title.ifBlank { null }) {
+                        g.rows.forEachIndexed { i, r ->
+                            if (i > 0 && !r.sub) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            DetailLine(r.label, r.value, r.sub)
                         }
                     }
                 }
-                Text(state.accent.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (host != null) {
+                    TextButton(onClick = { model.secrets.forget(host); details = null }, shapes = ButtonDefaults.shapes()) { Text("Forget the printer password") }
+                }
+            }
+        }
+
+        Section("Print head") {
+            Text(
+                "For faint, streaky or missing colours. Print a nozzle check first and clean only the colours with gaps.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(onClick = { tick(); ask(HeadAction.Check) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Print nozzle check") }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Labeled("Inks") { Choice(listOf(Inks.BLACK to "Black", Inks.COLOUR to "Colour", Inks.ALL to "All"), inks, { inks = it }, enabled = !headBusy) }
+            Labeled("Strength") {
+                Choice(
+                    listOfNotNull(Strength.NORMAL to "Normal", Strength.STRONG to "Strong", Strength.STRONGEST to "Strongest", (Strength.SPECIAL to "Special").takeIf { inks == Inks.ALL }),
+                    strength, { strength = it }, enabled = !headBusy,
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = { tick(); ask(HeadAction.Clean) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Clean print head") }
+                if (headBusy) LoadingIndicator(Modifier.size(32.dp))
+            }
+            headNote?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        }
+
+        }
+        val settings: @Composable ColumnScope.() -> Unit = {
+        Section("Print from other apps") {
+            Text(
+                "Turn on Platen in Android's print settings, then choose your printer from the Print option in any app, like Docs, Word, Chrome or Photos.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            val context = androidx.compose.ui.platform.LocalContext.current
+            FilledTonalButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_PRINT_SETTINGS)) } }, shapes = ButtonDefaults.shapes()) {
+                Text("Open print settings")
+            }
+        }
+
+        Section("Where scans are saved") {
+            Text(state.folder, style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { chooseFolder.launch(null) }, shapes = ButtonDefaults.shapes()) { Text("Choose folder") }
+                if (state.folder != SaveFolder.DEFAULT) TextButton(onClick = { model.setFolder(null) }, shapes = ButtonDefaults.shapes()) { Text("Use ${SaveFolder.DEFAULT}") }
+            }
+        }
+
+        Section("Drafts") {
+            Text("Delete unfinished scans you haven't touched for a while. Exported files in your scans folder are never removed.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Choice(listOf(0 to "Keep all", 30 to "After 30 days", 90 to "After 90 days"), state.keepDays, model::setKeepDays)
+        }
+
+        Section("Accent colour") {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Accent.entries.forEach { a ->
+                    val dark = isSystemInDarkTheme()
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(onClick = { tick(); model.setAccent(a) }, shape = CircleShape, color = Color.Transparent) {
+                            Swatch(if (a == Accent.Wallpaper) MaterialTheme.colorScheme.primary.takeIf { state.accent == a } ?: (if (dark) a.dark else a.light) else if (dark) a.dark else a.light, selected = state.accent == a)
+                        }
+                    }
+                }
+            }
+            Text(state.accent.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        }
+        if (isWide()) {
+            Row(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { printer() }
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { settings() }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                printer()
+                settings()
             }
         }
     }

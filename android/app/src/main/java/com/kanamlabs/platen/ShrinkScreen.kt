@@ -97,8 +97,8 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
         },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface) {
-                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
-                    AnimatedContent(Triple(state.busy, result, target), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "shrink") { (busy, r, t) ->
+                Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), contentAlignment = Alignment.Center) {
+                    AnimatedContent(Triple(state.busy, result, target), Modifier.readable(), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "shrink") { (busy, r, t) ->
                         when {
                             busy != null -> BusyPill("$busy…", Modifier.fillMaxWidth())
                             r != null -> ResultBar(
@@ -134,7 +134,7 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
         },
     ) { padding ->
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(104.dp),
+            columns = GridCells.Adaptive(if (isWide()) 150.dp else 104.dp),
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
