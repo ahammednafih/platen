@@ -46,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -130,7 +129,7 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
 
     if (switching) PrinterSheet(model, state, onSettings = { switching = false; showDevice = true }, onDismiss = { switching = false })
 
-    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val wide = isWide()
     fun select(t: Tab) {
         if (tab != t) Haptics.tick(view)
         tab = t
