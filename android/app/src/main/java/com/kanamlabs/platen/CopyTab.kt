@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -172,8 +174,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
     }
 
     val tick = rememberTick()
-    Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        LowInk(state)
+    val action: @Composable ColumnScope.() -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CopyKind.entries.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -235,7 +236,8 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                 log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
-
+    }
+    val settings: @Composable ColumnScope.() -> Unit = {
         Section("Copy") {
             if (kind == CopyKind.One || kind == CopyKind.TwoInOne || kind == CopyKind.FourInOne || kind == CopyKind.Poster) {
                 Labeled("Original size") {
@@ -256,6 +258,21 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
             Labeled("Background") { Choice(listOf(0 to "Keep", 1 to "Low", 2 to "Medium", 3 to "High"), background, { background = it }) }
         }
         Section("Paper") { PaperAndQuality(state, media, { media = it }, quality, { quality = it }, mediaType, { mediaType = it }) }
+    }
+    if (isWide()) {
+        Row(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                LowInk(state)
+                action()
+            }
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { settings() }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            LowInk(state)
+            action()
+            settings()
+        }
     }
 }
 
