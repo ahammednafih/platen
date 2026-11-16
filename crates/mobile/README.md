@@ -1,12 +1,12 @@
 # platen-mobile
 
 The phone apps' shared core: app state (the open scan, undo history, settings, the copy in progress)
-and commands over `platen-core`, exposed to Kotlin, and later Swift, with
+and commands over `platen-core`, exposed to Kotlin and Swift with
 [UniFFI](https://mozilla.github.io/uniffi-rs/).
 
 The Android app builds this with `cargo ndk` from Gradle and generates its bindings there; see
 [`android/README.md`](../../android/README.md). Kotlin package: `com.kanamlabs.platen.core`
-(`uniffi.toml`).
+(`uniffi.toml`). The iOS app builds it as a static library from Xcode; see [`ios/README.md`](../../ios/README.md).
 
 ## Shape
 

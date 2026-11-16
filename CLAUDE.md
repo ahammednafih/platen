@@ -14,6 +14,8 @@ Contribution rules: `CONTRIBUTING.md`.
   `platen --fill-file IN OUT`.
 - Android: `cd android && ./gradlew :app:assembleDebug` (needs the NDK and `cargo-ndk`), then
   `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Test on a real phone; there's no emulator setup.
+- iOS: `cd ios && xcodegen generate`, then `xcodebuild` for the connected iPhone 16 Pro and
+  `xcrun devicectl device install app` (see `ios/README.md`). Real device only, no simulator.
 - The printer is on the LAN; network commands from a sandbox need the sandbox off.
 
 ## Layout
@@ -26,6 +28,8 @@ Contribution rules: `CONTRIBUTING.md`.
   small callback traits (PDF rendering); discovery and the device password live in each app.
 - `android` — the Android app, Kotlin + Jetpack Compose (Material 3 Expressive). Gradle builds
   `platen-mobile` with `cargo ndk` and generates the bindings; nothing else needs to be run by hand.
+- `ios` — the iPhone app, SwiftUI. XcodeGen spec in `project.yml`; `build-rust.sh` builds `platen-mobile`
+  as a static lib and generates the Swift bindings into `ios/Generated` (ignored, like the `.xcodeproj`).
 - `app` — Tauri 2 + Svelte 5. Commands in `app/src-tauri/src/*.rs`, typed wrappers in
   `app/src/lib/api.ts`; keep the two in sync.
 
