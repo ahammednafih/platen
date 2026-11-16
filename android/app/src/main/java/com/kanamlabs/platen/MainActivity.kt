@@ -17,6 +17,9 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
@@ -25,6 +28,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -41,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -124,71 +130,90 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
 
     if (switching) PrinterSheet(model, state, onSettings = { switching = false; showDevice = true }, onDismiss = { switching = false })
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
-        topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                title = {
-                    Text(
-                        if (tab == Tab.Scan) state.session?.name ?: "Platen" else tab.label,
-                        style = MaterialTheme.typography.headlineSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                subtitle = {
-                    Row(
-                        Modifier.clip(MaterialTheme.shapes.small).clickable { Haptics.tick(view); switching = true }.padding(end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            when {
-                                state.finding -> "Looking for the printer…"
-                                state.device != null -> state.device.name
-                                else -> "No printer found"
-                            },
-                            maxLines = 1,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch printer", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                actions = {
-                    if (tab == Tab.Scan) ScanActions(model, state)
-                    IconButton(onClick = { showDevice = true }, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.Default.Settings, contentDescription = "Printer and settings")
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    fun select(t: Tab) {
+        if (tab != t) Haptics.tick(view)
+        tab = t
+    }
+
+    Row(Modifier.fillMaxSize()) {
+        if (wide) {
+            NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+                Spacer(Modifier.height(12.dp))
                 Tab.entries.forEach { t ->
-                    NavigationBarItem(
+                    NavigationRailItem(
                         selected = tab == t,
-                        onClick = {
-                            if (tab != t) Haptics.tick(view)
-                            tab = t
-                        },
+                        onClick = { select(t) },
                         icon = { Icon(painterResource(t.icon), contentDescription = null) },
                         label = { Text(t.label) },
                     )
                 }
             }
-        },
-        snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = if (tab == Tab.Scan && state.session != null) 96.dp else 0.dp)) },
-    ) { padding ->
-        AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
-            when (t) {
-                Tab.Scan -> ScanTab(model, state, padding, onPrint = { printFiles = listOf(it); tab = Tab.Print })
-                Tab.Copy -> CopyTab(model, state, padding)
-                Tab.Print -> PrintTab(model, state, padding, printFiles, onFiles = { printFiles = it })
-                Tab.Files -> FilesTab(
-                    model, state, padding,
-                    onPrint = { printFiles = listOf(it); tab = Tab.Print },
-                    onShrink = { file, folder -> shrinkFile = file to folder },
+        }
+        Scaffold(
+            modifier = Modifier.weight(1f),
+            containerColor = MaterialTheme.colorScheme.surface,
+            topBar = {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                    title = {
+                        Text(
+                            if (tab == Tab.Scan) state.session?.name ?: "Platen" else tab.label,
+                            style = MaterialTheme.typography.headlineSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    subtitle = {
+                        Row(
+                            Modifier.clip(MaterialTheme.shapes.small).clickable { Haptics.tick(view); switching = true }.padding(end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                when {
+                                    state.finding -> "Looking for the printer…"
+                                    state.device != null -> state.device.name
+                                    else -> "No printer found"
+                                },
+                                maxLines = 1,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch printer", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    actions = {
+                        if (tab == Tab.Scan) ScanActions(model, state)
+                        IconButton(onClick = { showDevice = true }, shapes = IconButtonDefaults.shapes()) {
+                            Icon(Icons.Default.Settings, contentDescription = "Printer and settings")
+                        }
+                    },
                 )
+            },
+            bottomBar = {
+                if (!wide) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    Tab.entries.forEach { t ->
+                        NavigationBarItem(
+                            selected = tab == t,
+                            onClick = { select(t) },
+                            icon = { Icon(painterResource(t.icon), contentDescription = null) },
+                            label = { Text(t.label) },
+                        )
+                    }
+                }
+            },
+            snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = if (tab == Tab.Scan && state.session != null) 96.dp else 0.dp)) },
+        ) { padding ->
+            AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
+                when (t) {
+                    Tab.Scan -> ScanTab(model, state, padding, onPrint = { printFiles = listOf(it); tab = Tab.Print })
+                    Tab.Copy -> CopyTab(model, state, padding)
+                    Tab.Print -> PrintTab(model, state, padding, printFiles, onFiles = { printFiles = it })
+                    Tab.Files -> FilesTab(
+                        model, state, padding,
+                        onPrint = { printFiles = listOf(it); tab = Tab.Print },
+                        onShrink = { file, folder -> shrinkFile = file to folder },
+                    )
+                }
             }
         }
     }
