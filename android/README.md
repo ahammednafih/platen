@@ -46,6 +46,27 @@ Every release must be signed with the same key, or phones can't update.
 To build a signed APK locally, point `ANDROID_KEYSTORE`, `ANDROID_KEYSTORE_PASSWORD` and
 `ANDROID_KEY_ALIAS` at the release key and run `./gradlew :app:assembleRelease -PversionName=X.Y.Z`.
 
+### Google Play
+
+The same tag also builds an app bundle. When the `PLAY_TRACK` repository variable is set (`internal`,
+`alpha`, `beta` or `production`), the release workflow uploads it to that track, with the R8 mapping
+and "What's new" taken from the Android and shared lines of the release notes. Internal and testing
+tracks go live straight away; `production` is left as a draft to review and roll out in Play Console.
+
+One-time setup:
+
+1. Play Console → Create app, package `com.kanamlabs.platen`.
+2. App integrity → App signing: choose to use your own key and upload the release key exported with
+   Play's PEPK tool. Play then signs installs with the same key as the GitHub APKs, so people can move
+   between the two without uninstalling. The same key stays the upload key; CI needs no change.
+3. Upload the first bundle by hand (Play's API can't create the first release): with the release key
+   env vars above, `./gradlew :app:bundleRelease -PversionName=X.Y.Z`, then upload
+   `app/build/outputs/bundle/release/app-release.aab` to Internal testing.
+4. A Google Cloud service account with the Google Play Android Developer API enabled and a JSON key,
+   invited in Play Console → Users and permissions with release permissions for this app. Put the
+   JSON in the `PLAY_SERVICE_ACCOUNT_JSON` repository secret.
+5. Set the `PLAY_TRACK` repository variable, e.g. `internal`.
+
 ## Licences
 
 Inter is bundled under the SIL Open Font License; see [`licenses/Inter-OFL.txt`](licenses/Inter-OFL.txt).
