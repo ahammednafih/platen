@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,6 +75,8 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
     var customText by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<ShrinkResult?>(null) }
     var comparing by remember { mutableStateOf(false) }
+    var viewing by remember { mutableStateOf<Int?>(null) }
+    val click = rememberClick()
     LaunchedEffect(file) { count = withContext(Dispatchers.IO) { runCatching { AndroidPdf.pageCount(file) }.getOrDefault(0) } }
 
     val target = if (custom) customText.toFloatOrNull() else limit
@@ -160,7 +163,7 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    if (skip.isEmpty()) "Tap a page to leave it out" else "${plural(count - skip.size, "page")} kept, ${skip.size} left out",
+                    if (skip.isEmpty()) "Tap a page to leave it out, hold to view it" else "${plural(count - skip.size, "page")} kept, ${skip.size} left out",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp),
@@ -169,7 +172,13 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
             items((0 until count).toList()) { i ->
                 val out = i in skip
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(onClick = { tick(); skip = if (out) skip - i else skip + i; discard() }, color = Color.Transparent) {
+                    Box(
+                        Modifier.combinedClickable(
+                            onClick = { tick(); skip = if (out) skip - i else skip + i; discard() },
+                            onLongClick = { click(); viewing = i },
+                            onLongClickLabel = "View page ${i + 1}",
+                        ),
+                    ) {
                         Paper(Modifier.fillMaxWidth().aspectRatio(0.72f).graphicsLayer { alpha = if (out) 0.3f else 1f }) {
                             FileImage(file.path, 240, "Page ${i + 1}", Modifier.fillMaxSize(), page = i)
                         }
@@ -183,6 +192,7 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
             }
         }
     }
+    viewing?.let { start -> FilePagesViewer((0 until count).map { file to it }, start, onClose = { viewing = null }) }
     if (comparing) result?.let { PdfCompare(listOf(file.path, it.out), 0, onClose = { comparing = false }) }
 }
 

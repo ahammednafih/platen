@@ -5,7 +5,9 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -105,6 +107,9 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
     var mediaType by remember { mutableStateOf<String?>(null) }
     var borderless by remember { mutableStateOf(false) }
     var cropping by remember { mutableStateOf<File?>(null) }
+    var viewing by remember { mutableStateOf<Int?>(null) }
+    var viewingSheet by remember { mutableStateOf<Int?>(null) }
+    val click = rememberClick()
     var twoSided by remember { mutableStateOf(false) }
     var plan by remember { mutableStateOf<Plan?>(null) }
     var sheets by remember { mutableStateOf<List<Bitmap?>>(emptyList()) }
@@ -204,13 +209,19 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Pages, ${sel.count { it }} of ${pages.size}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+                Text("Pages, ${sel.count { it }} of ${pages.size}. Tap to pick, hold to view", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
                 GlassBed(Modifier.fillMaxWidth()) {
                     LazyRow(contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         itemsIndexed(pages) { i, p ->
                             val on = sel.getOrElse(i) { true }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Surface(onClick = { tick(); setSel(sel.toMutableList().also { it[i] = !on }) }, color = Color.Transparent) {
+                                Box(
+                                    Modifier.combinedClickable(
+                                        onClick = { tick(); setSel(sel.toMutableList().also { it[i] = !on }) },
+                                        onLongClick = { click(); viewing = i },
+                                        onLongClickLabel = "View page ${i + 1}",
+                                    ),
+                                ) {
                                     Paper(Modifier.size(84.dp, 116.dp).graphicsLayer { alpha = if (on) 1f else 0.35f }) {
                                         FileImage(p.file.path, 200, "Page ${i + 1}", Modifier.fillMaxSize(), page = p.index)
                                     }
@@ -234,12 +245,18 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
             plan?.let { p ->
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "${p.order.size} ${if (p.order.size == 1) "sheet" else "sheets"}${if (copies > 1) ", $copies copies" else ""}",
+                        "${p.order.size} ${if (p.order.size == 1) "sheet" else "sheets"}${if (copies > 1) ", $copies copies" else ""}. Tap one to see it bigger",
                         style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)) {
-                        itemsIndexed(sheets) { _, b ->
-                            Paper(Modifier.size(80.dp, 113.dp)) {
+                        itemsIndexed(sheets) { i, b ->
+                            Paper(
+                                Modifier.size(80.dp, 113.dp).combinedClickable(
+                                    onClick = { click(); viewingSheet = i },
+                                    onLongClick = { click(); viewingSheet = i },
+                                    onClickLabel = "View sheet ${i + 1}",
+                                ),
+                            ) {
                                 b?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
                             }
                         }
@@ -299,6 +316,17 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
               }
             }
         }
+    }
+
+    viewing?.takeIf { it < pages.size }?.let { start ->
+        FilePagesViewer(pages.map { it.file to it.index }, start, onClose = { viewing = null })
+    }
+
+    viewingSheet?.let { start ->
+        val j = job()
+        SheetsViewer(plan?.order?.size ?: 0, start, render = { slot ->
+            runCatching { model.platen.printPreview(j, slot.toUInt(), 120u) }.getOrNull()?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+        }, onClose = { viewingSheet = null })
     }
 
     cropping?.let { f ->
