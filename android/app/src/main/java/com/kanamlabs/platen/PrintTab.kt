@@ -22,10 +22,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -176,26 +178,25 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
     }
 
     val tick = rememberTick()
-    Box(Modifier.fillMaxSize().padding(padding)) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 104.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            LowInk(state)
-            if (files.isEmpty()) {
-                GlassBed(Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SheetGlyph(Glyph.Empty, active = false, width = 72.dp)
-                        Text("Print PDFs and photos", style = MaterialTheme.typography.headlineSmall)
-                        Text("Pick pages by tapping them, put several on a sheet, or print both sides by hand.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                        Button(
-                            onClick = { pick.launch(arrayOf("application/pdf", "image/jpeg", "image/png")) },
-                            shapes = ButtonDefaults.shapes(),
-                            contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.MediumContainerHeight),
-                            modifier = Modifier.heightIn(ButtonDefaults.MediumContainerHeight),
-                        ) { Text("Choose files", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight)) }
-                    }
+    if (files.isEmpty()) {
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.readable()) { LowInk(state) }
+            GlassBed(Modifier.readable()) {
+                Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    SheetGlyph(Glyph.Empty, active = false, width = 72.dp)
+                    Text("Print PDFs and photos", style = MaterialTheme.typography.headlineSmall)
+                    Text("Pick pages by tapping them, put several on a sheet, or print both sides by hand.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Button(
+                        onClick = { pick.launch(arrayOf("application/pdf", "image/jpeg", "image/png")) },
+                        shapes = ButtonDefaults.shapes(),
+                        contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.MediumContainerHeight),
+                        modifier = Modifier.heightIn(ButtonDefaults.MediumContainerHeight),
+                    ) { Text("Choose files", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight)) }
                 }
-                return@Column
             }
-
+        }
+    } else {
+        val source: @Composable ColumnScope.() -> Unit = {
             Section("Files") {
                 files.forEach { f ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -263,7 +264,8 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                     }
                 }
             }
-
+        }
+        val settings: @Composable ColumnScope.() -> Unit = {
             Section("Layout") {
                 Labeled("Pages per sheet") { Choice(listOf(1, 2, 4, 6, 9, 16).map { it to "$it" }, nup, { nup = it }) }
                 ScalePicker(scaleMode, percent, { scaleMode = it }, { percent = it })
@@ -281,39 +283,57 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
             }
             log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-
-        if (files.isNotEmpty()) {
-            Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-              Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                AnimatedContent(busy, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "print") { b ->
-                    if (b != null) {
-                        BusyPill("$b…", Modifier.fillMaxWidth()) {
-                            TextButton(onClick = { scope.launch(Dispatchers.IO) { runCatching { model.platen.stopJob() } } }, shapes = ButtonDefaults.shapes()) {
-                                Text("Stop", color = MaterialTheme.colorScheme.inverseOnSurface)
-                            }
-                        }
-                    } else {
-                        Button(
-                            onClick = { if (twoSided) send(job(Subset.ODD), "Printing fronts") { flip = true } else send(job(), "Printing") },
-                            enabled = state.device != null && plan != null && sel.any { it },
-                            shapes = ButtonDefaults.shapes(),
-                            contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.MediumContainerHeight),
-                            modifier = Modifier.fillMaxWidth().heightIn(ButtonDefaults.MediumContainerHeight),
-                        ) {
-                            Icon(painterResource(R.drawable.ic_print), contentDescription = null, Modifier.size(ButtonDefaults.iconSizeFor(ButtonDefaults.MediumContainerHeight)))
-                            Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(ButtonDefaults.MediumContainerHeight)))
-                            Text(
-                                when {
-                                    twoSided -> "Print fronts"
-                                    copies > 1 -> "Print $copies copies"
-                                    else -> "Print"
-                                },
-                                style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight),
-                            )
+        val printBar: @Composable () -> Unit = {
+            AnimatedContent(busy, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "print") { b ->
+                if (b != null) {
+                    BusyPill("$b…", Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { scope.launch(Dispatchers.IO) { runCatching { model.platen.stopJob() } } }, shapes = ButtonDefaults.shapes()) {
+                            Text("Stop", color = MaterialTheme.colorScheme.inverseOnSurface)
                         }
                     }
+                } else {
+                    Button(
+                        onClick = { if (twoSided) send(job(Subset.ODD), "Printing fronts") { flip = true } else send(job(), "Printing") },
+                        enabled = state.device != null && plan != null && sel.any { it },
+                        shapes = ButtonDefaults.shapes(),
+                        contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.MediumContainerHeight),
+                        modifier = Modifier.fillMaxWidth().heightIn(ButtonDefaults.MediumContainerHeight),
+                    ) {
+                        Icon(painterResource(R.drawable.ic_print), contentDescription = null, Modifier.size(ButtonDefaults.iconSizeFor(ButtonDefaults.MediumContainerHeight)))
+                        Spacer(Modifier.width(ButtonDefaults.iconSpacingFor(ButtonDefaults.MediumContainerHeight)))
+                        Text(
+                            when {
+                                twoSided -> "Print fronts"
+                                copies > 1 -> "Print $copies copies"
+                                else -> "Print"
+                            },
+                            style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight),
+                        )
+                    }
                 }
-              }
+            }
+        }
+        if (isWide()) {
+            Row(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    LowInk(state)
+                    source()
+                }
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) { settings() }
+                    Box(Modifier.padding(vertical = 12.dp)) { printBar() }
+                }
+            }
+        } else {
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 104.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    LowInk(state)
+                    source()
+                    settings()
+                }
+                Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { printBar() }
+                }
             }
         }
     }
