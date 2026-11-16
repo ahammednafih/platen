@@ -20,6 +20,8 @@ export interface PageResult { session: SessionView; index: number; note: string 
 export interface TopHalf { path: string; stem: string; secs: number }
 export interface Device { name: string; host: string }
 export interface Ink { name: string; level: number }
+export type Inks = "Black" | "Colour" | "All";
+export type Strength = "Normal" | "Strong" | "Strongest" | "Special";
 export interface PrinterStatus { model: string; state: string; reasons: string[]; ink: Ink[] }
 export interface DeviceStatus { scanner: string; printer: PrinterStatus | null }
 export interface Draft { name: string; pages: number; modified: number }
@@ -116,6 +118,9 @@ export const api = {
   copyIdCard: (front: string, back: string) => invoke<string>("copy_id_card", { front, back }),
   deviceDetails: (password?: string) => invoke<DetailGroup[]>("device_details", { password }),
   enableSnmpWrite: (password?: string) => invoke<void>("enable_snmp_write", { password }),
+  cleaningLowInks: (inks: Inks) => invoke<Ink[]>("cleaning_low_inks", { inks }),
+  cleanHead: (inks: Inks, strength: Strength, password?: string) => invoke<void>("clean_head", { inks, strength, password }),
+  nozzleCheck: (password?: string) => invoke<void>("nozzle_check", { password }),
   buttonStatus: (password?: string) => invoke<ButtonStatus>("button_status", { password }),
   buttonEnable: (password?: string) => invoke<void>("button_enable", { password }),
   buttonDisable: () => invoke<void>("button_disable"),

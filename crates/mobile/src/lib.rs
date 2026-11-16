@@ -7,7 +7,7 @@ use platen_core::escl::Scanner;
 use platen_core::history::History;
 use platen_core::ipp::Printer;
 use platen_core::session::{self, Session};
-use platen_core::{adjust, copy, device, pdfedit, presets, printjob, render, webui};
+use platen_core::{adjust, copy, device, maintenance, pdfedit, presets, printjob, render, webui};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -405,6 +405,22 @@ impl Platen {
     pub fn device_details(&self, password: String) -> Result<Vec<DetailGroup>> {
         let host = self.web_host()?;
         Ok(webui::details(&host, &password)?.into_iter().map(Into::into).collect())
+    }
+
+    /// Inks at or below the low mark that a head clean would draw from; the app warns before cleaning.
+    pub fn cleaning_low_inks(&self, inks: Inks) -> Result<Vec<Ink>> {
+        let levels = self.printer()?.status()?.ink;
+        Ok(maintenance::low_inks(&levels, inks.into()).into_iter().map(Into::into).collect())
+    }
+
+    /// Starts a head clean; the printer is busy for a minute or more and IPP keeps saying idle.
+    pub fn clean_head(&self, password: String, inks: Inks, strength: Strength) -> Result<()> {
+        Ok(maintenance::clean(&self.web_host()?, &password, inks.into(), strength.into())?)
+    }
+
+    /// Prints the nozzle check sheet on A4/Letter plain paper from the main tray.
+    pub fn nozzle_check(&self, password: String) -> Result<()> {
+        Ok(maintenance::nozzle_check(&self.web_host()?, &password)?)
     }
 }
 

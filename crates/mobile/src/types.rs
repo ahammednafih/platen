@@ -1,5 +1,5 @@
 //! Records and enums the phone apps see, converted from the core's types.
-use platen_core::{adjust, capture, copy, device, escl, fill, ipp, printjob, session, sheet, webui};
+use platen_core::{adjust, capture, copy, device, escl, fill, ipp, maintenance, printjob, session, sheet, webui};
 use std::path::PathBuf;
 
 macro_rules! mirror_enum {
@@ -28,6 +28,8 @@ mirror_enum!(Fill, fill::Fill, [Off, White, Paper]);
 mirror_enum!(Kind, session::Kind, [A4, Long]);
 mirror_enum!(Quality, ipp::Quality, [Draft, Normal, High]);
 mirror_enum!(Subset, sheet::Subset, [All, Odd, Even]);
+mirror_enum!(Inks, maintenance::Inks, [Black, Colour, All]);
+mirror_enum!(Strength, maintenance::Strength, [Normal, Strong, Strongest, Special]);
 mirror_enum!(
     SizeId,
     escl::SizeId,
@@ -54,9 +56,15 @@ pub struct PrinterStatus {
     pub ink: Vec<Ink>,
 }
 
+impl From<ipp::Ink> for Ink {
+    fn from(i: ipp::Ink) -> Self {
+        Ink { name: i.name, level: i.level }
+    }
+}
+
 impl From<ipp::Status> for PrinterStatus {
     fn from(s: ipp::Status) -> Self {
-        PrinterStatus { model: s.model, state: s.state, reasons: s.reasons, ink: s.ink.into_iter().map(|i| Ink { name: i.name, level: i.level }).collect() }
+        PrinterStatus { model: s.model, state: s.state, reasons: s.reasons, ink: s.ink.into_iter().map(Into::into).collect() }
     }
 }
 

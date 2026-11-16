@@ -17,8 +17,10 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
@@ -55,6 +57,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +66,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.kanamlabs.platen.core.DetailGroup
+import com.kanamlabs.platen.core.Ink
+import com.kanamlabs.platen.core.Inks
+import com.kanamlabs.platen.core.Strength
 import com.kanamlabs.platen.core.PlatenException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -80,6 +86,13 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
     var password by remember { mutableStateOf("") }
     val tick = rememberTick()
     var renaming by remember { mutableStateOf<SavedPrinter?>(null) }
+    var afterUnlock by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var inks by rememberSaveable { mutableStateOf(Inks.BLACK) }
+    var strength by rememberSaveable { mutableStateOf(Strength.NORMAL) }
+    var confirming by remember { mutableStateOf<HeadAction?>(null) }
+    var lowInks by remember { mutableStateOf<List<Ink>>(emptyList()) }
+    var headBusy by remember { mutableStateOf(false) }
+    var headNote by remember { mutableStateOf<String?>(null) }
     val chooseFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) model.setFolder(uri) }
 
     fun load(typed: String?) {
@@ -97,6 +110,8 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                 if (typed != null) model.secrets.savePassword(h, typed)
                 askPassword = false
                 wrong = false
+                afterUnlock?.invoke()
+                afterUnlock = null
             } catch (e: PlatenException) {
                 if (e.message == "wrong-password") {
                     askPassword = true
@@ -110,7 +125,83 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
         }
     }
 
+    fun runHead(action: HeadAction) {
+        val h = host ?: return
+        val pw = model.secrets.password(h)
+        if (pw == null) {
+            afterUnlock = { runHead(action) }
+            askPassword = true
+            return
+        }
+        headBusy = true
+        headNote = null
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { if (action == HeadAction.Clean) model.platen.cleanHead(pw, inks, strength) else model.platen.nozzleCheck(pw) }
+                headNote = when (action) {
+                    HeadAction.Clean -> "Cleaning. The printer is busy for a minute or more; print a nozzle check afterwards to see if it helped."
+                    HeadAction.Check -> "Printing. Every dotted line in the four colour blocks should be there with no gaps. If any are missing, clean that colour."
+                }
+            } catch (e: PlatenException) {
+                if (e.message == "wrong-password") {
+                    afterUnlock = { runHead(action) }
+                    askPassword = true
+                    wrong = true
+                } else {
+                    model.say(e.message ?: "The printer didn't take it")
+                }
+            } finally {
+                headBusy = false
+            }
+        }
+    }
+
+    fun ask(action: HeadAction) {
+        scope.launch {
+            lowInks = if (action == HeadAction.Clean) withContext(Dispatchers.IO) { runCatching { model.platen.cleaningLowInks(inks) }.getOrDefault(emptyList()) } else emptyList()
+            confirming = action
+        }
+    }
+
     LaunchedEffect(Unit) { model.refreshDevice() }
+    LaunchedEffect(inks) { if (inks != Inks.ALL && strength == Strength.SPECIAL) strength = Strength.NORMAL }
+
+    confirming?.let { action ->
+        val low = lowInks.isNotEmpty()
+        AlertDialog(
+            onDismissRequest = { confirming = null },
+            icon = if (action == HeadAction.Clean) { { Icon(Icons.Default.Warning, contentDescription = null, tint = if (low) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary) } } else null,
+            title = { Text(if (action == HeadAction.Clean) "Clean the print head?" else "Print a nozzle check?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (action == HeadAction.Check) {
+                        Text("Prints one sheet. Load A4 or Letter plain paper in the main tray.")
+                    } else {
+                        Text(
+                            "Cleaning uses ink" + when (strength) {
+                                Strength.NORMAL -> ""
+                                Strength.SPECIAL -> ", and Special uses the most"
+                                else -> ", and ${strength.label} uses more than Normal"
+                            } + ". The printer can't print or copy until it's done, about a minute.",
+                        )
+                        if (low) {
+                            Text(
+                                lowInks.joinToString(", ") { "${it.name} is at ${it.level}%" } + ". Cleaning with little ink left can damage the print head. Refill first.",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirming = null; runHead(action) },
+                    colors = if (low) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error) else ButtonDefaults.textButtonColors(),
+                ) { Text(if (action == HeadAction.Check) "Print" else if (low) "Clean anyway" else "Start cleaning") }
+            },
+            dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
+        )
+    }
 
     renaming?.let { p ->
         NameDialog("Rename printer", p.nickname ?: p.model, onDismiss = { renaming = null }) { model.renamePrinter(p, it); renaming = null }
@@ -257,6 +348,28 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                 }
             }
 
+            Section("Print head") {
+                Text(
+                    "For faint, streaky or missing colours. Print a nozzle check first and clean only the colours with gaps.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FilledTonalButton(onClick = { tick(); ask(HeadAction.Check) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Print nozzle check") }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Labeled("Inks") { Choice(listOf(Inks.BLACK to "Black", Inks.COLOUR to "Colour", Inks.ALL to "All"), inks, { inks = it }, enabled = !headBusy) }
+                Labeled("Strength") {
+                    Choice(
+                        listOfNotNull(Strength.NORMAL to "Normal", Strength.STRONG to "Strong", Strength.STRONGEST to "Strongest", (Strength.SPECIAL to "Special").takeIf { inks == Inks.ALL }),
+                        strength, { strength = it }, enabled = !headBusy,
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FilledTonalButton(onClick = { tick(); ask(HeadAction.Clean) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Clean print head") }
+                    if (headBusy) LoadingIndicator(Modifier.size(32.dp))
+                }
+                headNote?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            }
+
             Section("Print from other apps") {
                 Text(
                     "Turn on Platen in Android's print settings, then choose your printer from the Print option in any app, like Docs, Word, Chrome or Photos.",
@@ -298,6 +411,10 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
         }
     }
 }
+
+private enum class HeadAction { Check, Clean }
+
+private val Strength.label get() = name.lowercase().replaceFirstChar { it.uppercase() }
 
 @Composable
 private fun DetailLine(label: String, value: String, sub: Boolean) {

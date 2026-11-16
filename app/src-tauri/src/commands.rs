@@ -4,7 +4,8 @@ use platen_core::adjust::{self, Edit};
 use platen_core::capture::{self, Captured, Settings, TopHalf};
 use platen_core::device::{self, Draft};
 use platen_core::escl::{Caps, Scanner};
-use platen_core::ipp::{Printer, Status};
+use platen_core::ipp::{Ink, Printer, Status};
+use platen_core::maintenance::{self, Inks, Strength};
 use platen_core::presets::{self, Preset};
 use platen_core::session::{ExportOpts, Page, Session};
 use platen_core::{pushscan, webui};
@@ -497,6 +498,25 @@ pub(crate) fn with_password<T>(host: &str, password: Option<String>, f: impl FnO
 pub async fn enable_snmp_write(st: State<'_, AppState>, password: Option<String>) -> Res<()> {
     let host = web_host(&st)?;
     blocking(move || with_password(&host, password, |pw| pushscan::enable_snmp_write(&host, pw))).await
+}
+
+/// Inks at or below the low mark that a head clean would draw from; the UI warns before cleaning.
+#[tauri::command]
+pub async fn cleaning_low_inks(st: State<'_, AppState>, inks: Inks) -> Res<Vec<Ink>> {
+    let s = scanner(&st)?;
+    blocking(move || Ok(maintenance::low_inks(&Printer::for_host(s.host()).status()?.ink, inks))).await
+}
+
+#[tauri::command]
+pub async fn clean_head(st: State<'_, AppState>, inks: Inks, strength: Strength, password: Option<String>) -> Res<()> {
+    let host = web_host(&st)?;
+    blocking(move || with_password(&host, password, |pw| maintenance::clean(&host, pw, inks, strength))).await
+}
+
+#[tauri::command]
+pub async fn nozzle_check(st: State<'_, AppState>, password: Option<String>) -> Res<()> {
+    let host = web_host(&st)?;
+    blocking(move || with_password(&host, password, |pw| maintenance::nozzle_check(&host, pw))).await
 }
 
 /// Words on a session page for selecting and copying text; cached per page file (edits make new files).

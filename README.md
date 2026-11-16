@@ -44,6 +44,7 @@ it wouldn't.
 
 - Ink levels and status at a glance.
 - Page counters, maintenance and network details, read from the printer's web page.
+- Nozzle check and print head cleaning, with a warning when the inks a clean uses are low.
 
 **On Android**
 
@@ -64,7 +65,7 @@ and device details work the same way. It differs in a few places:
 | --- | --- |
 | Scan, copy, long pages, page tools, export | A scanner that supports AirScan (eSCL). Most network all-in-ones from the last decade do. |
 | Print, ink levels | A printer that supports AirPrint (IPP). |
-| 1200 dpi scans, device details, Scan button | Brother inkjet all-in-ones. These use the vendor's own protocols, worked out by observation. |
+| 1200 dpi scans, device details, print head cleaning, Scan button | Brother inkjet all-in-ones. These use the vendor's own protocols, worked out by observation. |
 
 Platen has been developed and tested against one Brother inkjet all-in-one. The standard features
 should work elsewhere, but they are untested on other makes. Reports and fixes are welcome.

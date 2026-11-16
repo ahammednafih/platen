@@ -65,14 +65,23 @@ Code: `crates/core/src/webui.rs`, `pushscan.rs`. HTTPS only, with a self-signed 
 
 ### Maintenance pages
 
-Found on the test device (read only so far; nothing below has been submitted).
+Every form posts with the session cookie, its own `CSRFToken` and a `Referer` from the same page.
+Tried on the test device: one black-only normal clean and one nozzle check sheet.
 
 - `/general/head_cleaning.html` has one form per button. Each posts `pageid=21`, its own `CSRFToken`
   and `btn_def` to `/general/head_cleaning_confirm.html`. `btn_def`: 1–3 black only (normal, strong,
   strongest), 4–6 colour only (same), 7–9 all colours (same), 10 all colours "special" (the most ink).
   The page warns that cleaning with little ink left can damage the machine.
-- `/general/checkprintquality.html` prints the nozzle check pattern on A4/Letter plain paper.
-- `/general/alignment.html` prints and applies print head alignment.
-- What `head_cleaning_confirm.html` answers, and what it posts to start cleaning, is still unknown:
-  finding out runs a clean, which uses ink.
+- `head_cleaning_confirm.html` only asks again ("Press [Yes] if you want to start head cleaning"). Its
+  Yes posts `pageid=22`, that page's new `CSRFToken` and the same `btn_def` to
+  `/general/head_cleaning_confirm.html?pc=12`, which starts cleaning. The reply auto-submits a form
+  back to `head_cleaning.html`. IPP stays `idle` throughout; a normal black clean runs about a minute.
+- `/general/checkprintquality.html` prints the nozzle check pattern on A4/Letter plain paper: post
+  `pageid=19`, `CSRFToken`, `postif_registration_reject=1`, `B1f7=0` to the same page. Accepted, the
+  reply's print state (between the `printstate_start` and `printstate_end` hidden inputs) reads
+  "Please wait."; while the device is busy (cleaning) the form comes back instead and nothing prints.
+  `checkprintqualitymonitor.html` serves the same print state for polling.
+- `/general/alignment.html` step 1 prints the alignment sheet the same way (`pageid=20`, `B1f9=0`,
+  about 2 minutes); step 2 needs the sheet on the glass and the panel's Mono Copy button, and
+  `alignmentmonitor.html` reports progress. Not used by Platen.
 

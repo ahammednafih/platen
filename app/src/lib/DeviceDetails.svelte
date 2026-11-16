@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type ButtonStatus, type DetailGroup } from "./api";
+  import { api, type ButtonStatus, type DetailGroup, type Ink, type Inks, type Strength } from "./api";
   import Modal from "./Modal.svelte";
 
   let { host, onclose }: { host: string; onclose: () => void } = $props();
@@ -56,6 +56,42 @@
 
   const toggle = () => act(button?.on ? "Turning off…" : "Turning on…", () => (button?.on ? api.buttonDisable() : api.buttonEnable()));
   const pointHere = () => act("Updating…", () => api.buttonEnable());
+
+  let inks = $state<Inks>("Black");
+  let strength = $state<Strength>("Normal");
+  let confirming = $state<"clean" | "check" | null>(null);
+  let lowInks = $state<Ink[]>([]);
+  let headBusy = $state(false);
+  let headNote = $state("");
+  let headError = $state("");
+
+  $effect(() => { if (inks !== "All" && strength === "Special") strength = "Normal"; });
+
+  async function ask(what: "clean" | "check") {
+    headNote = "";
+    headError = "";
+    lowInks = what === "clean" ? await api.cleaningLowInks(inks).catch(() => []) : [];
+    confirming = what;
+  }
+
+  async function runHead() {
+    const what = confirming;
+    confirming = null;
+    headBusy = true;
+    try {
+      if (what === "clean") {
+        await api.cleanHead(inks, strength);
+        headNote = "Cleaning. The printer is busy for a minute or more; print a nozzle check afterwards to see if it helped.";
+      } else {
+        await api.nozzleCheck();
+        headNote = "Printing. Every dotted line in the four colour blocks should be there with no gaps. If any are missing, clean that colour.";
+      }
+    } catch (e) {
+      headError = String(e);
+    } finally {
+      headBusy = false;
+    }
+  }
 
 
   onMount(() => load());
@@ -128,6 +164,57 @@
       </section>
     {/if}
 
+    {#if groups.length}
+      <section class="head">
+        <div class="group-title">Print head</div>
+        <p class="faint small">For faint, streaky or missing colours. Print a nozzle check first and clean only the colours with gaps.</p>
+        <div class="actions">
+          <button onclick={() => ask("check")} disabled={headBusy || !!confirming}>Print nozzle check…</button>
+        </div>
+        <div class="actions">
+          <select bind:value={inks} disabled={headBusy || !!confirming} aria-label="Inks to clean">
+            <option value="Black">Black only</option>
+            <option value="Colour">Colour only</option>
+            <option value="All">All inks</option>
+          </select>
+          <select bind:value={strength} disabled={headBusy || !!confirming} aria-label="Cleaning strength">
+            <option value="Normal">Normal</option>
+            <option value="Strong">Strong</option>
+            <option value="Strongest">Strongest</option>
+            {#if inks === "All"}<option value="Special">Special</option>{/if}
+          </select>
+          <button onclick={() => ask("clean")} disabled={headBusy || !!confirming}>Clean…</button>
+        </div>
+        {#if confirming}
+          <div class="confirm small" role="alert">
+            {#if confirming === "check"}
+              <p>Prints one sheet. Load A4 or Letter plain paper in the main tray.</p>
+            {:else}
+              <p>
+                Cleaning uses ink{strength === "Normal" ? "" : strength === "Special" ? ", and Special uses the most" : `, and ${strength} uses more than Normal`}.
+                The printer can't print or copy until it's done, about a minute.
+              </p>
+              {#if lowInks.length}
+                <p class="error">
+                  {lowInks.map((i) => `${i.name} is at ${i.level}%`).join(", ")}. Cleaning with little ink left can damage the
+                  print head. Refill first.
+                </p>
+              {/if}
+            {/if}
+            <div class="actions">
+              <button class:primary={!lowInks.length} class:danger={lowInks.length > 0} onclick={runHead}>
+                {confirming === "check" ? "Print" : lowInks.length ? "Clean anyway" : "Start cleaning"}
+              </button>
+              <button class="ghost" onclick={() => (confirming = null)}>Cancel</button>
+            </div>
+          </div>
+        {/if}
+        {#if headBusy}<p class="muted small"><span class="spinner"></span> Sending to the printer…</p>{/if}
+        {#if headNote}<p class="small">{headNote}</p>{/if}
+        {#if headError}<p class="error small">{headError}</p>{/if}
+      </section>
+    {/if}
+
     {#each groups as g, i (i)}
       <section>
         {#if g.title && g.title !== groups[i - 1]?.title}<div class="group-title">{g.title}</div>{/if}
@@ -161,6 +248,10 @@
   .snmp { display: grid; gap: 8px; }
   .snmp p { margin: 0; }
   .check { display: flex; gap: 8px; align-items: center; }
+  .head { display: grid; gap: 8px; }
+  .head p { margin: 0; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .confirm { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
   .steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   dd { font-variant-numeric: tabular-nums; text-align: right; }
 </style>
