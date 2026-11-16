@@ -8,6 +8,7 @@ pub mod escl;
 pub mod fill;
 pub mod history;
 pub mod ipp;
+pub mod maintenance;
 pub mod native;
 pub mod ocr;
 pub mod pdf;

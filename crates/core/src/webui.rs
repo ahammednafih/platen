@@ -154,6 +154,61 @@ fn decode(s: &str) -> String {
     s.replace("&#32;", " ").replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
 }
 
+/// An `<input>` in a settings form, with the text right after it (radio labels).
+#[derive(Debug)]
+pub(crate) struct Input {
+    pub kind: String,
+    pub name: String,
+    pub value: String,
+    pub checked: bool,
+    pub label: String,
+}
+
+/// Settings forms 403 without a Referer from the device's own pages.
+pub(crate) fn post(agent: &ureq::Agent, cookie: &str, url: &str, referer: &str, form: Vec<(String, String)>) -> Result<String> {
+    let req = agent.post(url).header("Cookie", cookie).header("Referer", referer);
+    let mut res = req.send_form(form).context("device didn't answer")?;
+    if !(res.status().is_success() || res.status().is_redirection()) {
+        bail!("device refused the change ({})", res.status());
+    }
+    Ok(res.body_mut().read_to_string().unwrap_or_default())
+}
+
+pub(crate) fn hidden(fields: &[Input]) -> Vec<(String, String)> {
+    fields.iter().filter(|f| f.kind == "hidden" && !f.name.is_empty()).map(|f| (f.name.clone(), f.value.clone())).collect()
+}
+
+pub(crate) fn form_of<'a>(html: &'a str, marker: &str) -> Result<&'a str> {
+    let start = html.find(marker).context("no settings form on the device page")?;
+    let form = &html[start..];
+    Ok(&form[..form.find("</form>").unwrap_or(form.len())])
+}
+
+pub(crate) fn page(host: &str, password: &str, path: &str) -> Result<(ureq::Agent, String, String)> {
+    let agent = agent();
+    let base = format!("https://{host}");
+    let cookie = login(&agent, &base, password)?;
+    let html = fetch(&agent, &base, path, &cookie)?;
+    Ok((agent, cookie, html))
+}
+
+pub(crate) fn inputs(html: &str, marker: &str) -> Result<Vec<Input>> {
+    let form = form_of(html, marker)?;
+    Ok(form.match_indices("<input").map(|(i, _)| input(&form[i..])).collect())
+}
+
+fn input(s: &str) -> Input {
+    let end = s.find('>').unwrap_or(s.len());
+    let (tag, rest) = (&s[..end], &s[end + 1.min(s.len() - end)..]);
+    let label = text(&rest[..rest.find("<input").unwrap_or(rest.len())]);
+    Input { kind: attr(tag, "type"), name: attr(tag, "name"), value: attr(tag, "value").replace('\n', ""), checked: tag.contains(" checked"), label }
+}
+
+pub(crate) fn attr(tag: &str, name: &str) -> String {
+    let key = format!(" {name}=\"");
+    tag.find(&key).map(|i| &tag[i + key.len()..]).and_then(|v| v.find('"').map(|j| v[..j].to_string())).unwrap_or_default()
+}
+
 /// Device password from the login Keychain, if saved.
 pub fn saved_password(host: &str) -> Option<String> {
     let find = |service| keychain::get(service, host);

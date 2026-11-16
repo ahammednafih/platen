@@ -7,7 +7,7 @@
 //!
 //! Panels without a screen scan to the PC picked on the web UI's Scan to PC page, so that is set to
 //! this PC once it's registered (the device only lists registered PCs).
-use crate::webui;
+use crate::webui::{self, Input, attr, form_of, hidden, inputs, page, post};
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
 
@@ -38,16 +38,6 @@ pub struct SnmpAccess {
     pub set_community: String,
 }
 
-/// An `<input>` in the SNMP form, with the text right after it (radio labels).
-#[derive(Debug)]
-struct Input {
-    kind: String,
-    name: String,
-    value: String,
-    checked: bool,
-    label: String,
-}
-
 pub fn snmp_access(host: &str, password: &str) -> Result<SnmpAccess> {
     let (_, _, html) = page(host, password, SNMP_PAGE)?;
     access(&inputs(&html, SNMP_FORM)?)
@@ -65,20 +55,6 @@ pub fn enable_snmp_write(host: &str, password: &str) -> Result<()> {
     }
     let fields = inputs(&confirm, CONFIRM_FORM)?;
     post(&agent, &cookie, &format!("https://{host}{CONFIRM_PATH}"), &page, hidden(&fields)).map(drop)
-}
-
-/// The device 403s the restart confirmation without a Referer from its own pages.
-fn post(agent: &ureq::Agent, cookie: &str, url: &str, referer: &str, form: Vec<(String, String)>) -> Result<String> {
-    let req = agent.post(url).header("Cookie", cookie).header("Referer", referer);
-    let mut res = req.send_form(form).context("device didn't answer")?;
-    if !(res.status().is_success() || res.status().is_redirection()) {
-        bail!("device refused the change ({})", res.status());
-    }
-    Ok(res.body_mut().read_to_string().unwrap_or_default())
-}
-
-fn hidden(fields: &[Input]) -> Vec<(String, String)> {
-    fields.iter().filter(|f| f.kind == "hidden" && !f.name.is_empty()).map(|f| (f.name.clone(), f.value.clone())).collect()
 }
 
 /// The PC the device's Scan button sends to, if it's a network PC (not USB).
@@ -171,20 +147,6 @@ fn unescape(s: &str) -> String {
     out + rest
 }
 
-fn form_of<'a>(html: &'a str, marker: &str) -> Result<&'a str> {
-    let start = html.find(marker).context("no settings form on the device page")?;
-    let form = &html[start..];
-    Ok(&form[..form.find("</form>").unwrap_or(form.len())])
-}
-
-fn page(host: &str, password: &str, path: &str) -> Result<(ureq::Agent, String, String)> {
-    let agent = webui::agent();
-    let base = format!("https://{host}");
-    let cookie = webui::login(&agent, &base, password)?;
-    let html = webui::fetch(&agent, &base, path, &cookie)?;
-    Ok((agent, cookie, html))
-}
-
 fn access(fields: &[Input]) -> Result<SnmpAccess> {
     let mode = fields.iter().find(|f| f.kind == "radio" && f.checked).map(|f| mode_of(&f.label)).context("no SNMP mode on the device page")?;
     let set_community = fields.iter().filter(|f| f.kind == "text").nth(1).map(|f| f.value.clone()).unwrap_or_else(|| "internal".into());
@@ -213,23 +175,6 @@ fn form_with_write(fields: &[Input]) -> Result<Vec<(String, String)>> {
     out.push((rw.name.clone(), rw.value.clone()));
     out.push((RESTART_FIELD.into(), "1".into()));
     Ok(out)
-}
-
-fn inputs(html: &str, marker: &str) -> Result<Vec<Input>> {
-    let form = form_of(html, marker)?;
-    Ok(form.match_indices("<input").map(|(i, _)| input(&form[i..])).collect())
-}
-
-fn input(s: &str) -> Input {
-    let end = s.find('>').unwrap_or(s.len());
-    let (tag, rest) = (&s[..end], &s[end + 1.min(s.len() - end)..]);
-    let label = webui::text(&rest[..rest.find("<input").unwrap_or(rest.len())]);
-    Input { kind: attr(tag, "type"), name: attr(tag, "name"), value: attr(tag, "value").replace('\n', ""), checked: tag.contains(" checked"), label }
-}
-
-fn attr(tag: &str, name: &str) -> String {
-    let key = format!(" {name}=\"");
-    tag.find(&key).map(|i| &tag[i + key.len()..]).and_then(|v| v.find('"').map(|j| v[..j].to_string())).unwrap_or_default()
 }
 
 #[cfg(test)]
