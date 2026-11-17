@@ -120,14 +120,29 @@ struct PrintTab: View {
                 Section { LowInkBanner(inks: model.lowInks) }.listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
             }
             Section("Files") {
-                ForEach(files, id: \.self) { f in
+                ForEach(Array(files.enumerated()), id: \.element) { i, f in
                     HStack(spacing: 12) {
-                        Paper { FileImage(path: f.path, width: 120, fill: true) }.frame(width: 36, height: 48)
-                        Text(f.lastPathComponent).font(.subheadline.weight(.medium)).lineLimit(2)
-                        Spacer(minLength: 0)
-                        if f.pathExtension.lowercased() != "pdf" {
-                            Button("Crop") { cropping = f }.buttonStyle(.borderless)
+                        Button { view(f) } label: {
+                            HStack(spacing: 12) {
+                                Paper { FileImage(path: f.path, width: 120, fill: true) }.frame(width: 36, height: 48)
+                                Text(f.lastPathComponent).font(.subheadline.weight(.medium)).lineLimit(2)
+                                Spacer(minLength: 0)
+                            }
+                            .contentShape(.rect)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("View \(f.lastPathComponent)")
+                        Menu {
+                            Button("View", systemImage: "eye") { view(f) }
+                            if i > 0 { Button("Move up", systemImage: "arrow.up") { moveFile(i, by: -1) } }
+                            if i < files.count - 1 { Button("Move down", systemImage: "arrow.down") { moveFile(i, by: 1) } }
+                            if f.pathExtension.lowercased() != "pdf" { Button("Crop", systemImage: "crop") { cropping = f } }
+                            Button("Remove", systemImage: "trash", role: .destructive) { model.printFiles.removeAll { $0 == f } }
+                        } label: {
+                            Image(systemName: "ellipsis.circle").font(.title3).frame(width: 36, height: 44)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("More for \(f.lastPathComponent)")
                     }
                     .swipeActions { Button("Remove", role: .destructive) { model.printFiles.removeAll { $0 == f } } }
                 }
@@ -255,6 +270,16 @@ struct PrintTab: View {
         PrintJob(files: files.map(\.path), ranges: ranges, subset: subset, reverse: rev ?? reverse, nup: UInt32(nup), scale: scaleMode.scale(percent),
                  collate: collate, clean: tone == .clean,
                  opts: PrintOpts(copies: UInt32(copies), color: tone == .colour, media: media, scaling: "fit", quality: quality, mediaType: mediaType, borderless: borderless))
+    }
+
+    private func view(_ f: URL) {
+        if let i = pages.firstIndex(where: { $0.file == f }) { viewing = i }
+    }
+
+    private func moveFile(_ i: Int, by d: Int) {
+        var list = files
+        list.swapAt(i, i + d)
+        model.printFiles = list
     }
 
     private func setSel(_ s: [Bool]) {

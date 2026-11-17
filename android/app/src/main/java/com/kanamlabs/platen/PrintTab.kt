@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -40,7 +41,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -198,11 +206,27 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
     } else {
         val source: @Composable ColumnScope.() -> Unit = {
             Section("Files") {
-                files.forEach { f ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Paper(Modifier.size(36.dp, 48.dp)) { FileImage(f.path, 120, null, Modifier.fillMaxSize()) }
-                        Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 2)
-                        if (!f.extension.equals("pdf", true)) TextButton(onClick = { cropping = f }, shapes = ButtonDefaults.shapes()) { Text("Crop") }
+                files.forEachIndexed { i, f ->
+                    val view = { pages.indexOfFirst { it.file == f }.takeIf { it >= 0 }?.let { viewing = it } }
+                    var menu by remember { mutableStateOf(false) }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            Modifier.weight(1f).clip(MaterialTheme.shapes.small).clickable(onClickLabel = "View ${f.name}") { view() }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Paper(Modifier.size(36.dp, 48.dp)) { FileImage(f.path, 120, null, Modifier.fillMaxSize()) }
+                            Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                        }
+                        Box {
+                            IconButton(onClick = { menu = true }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.MoreVert, contentDescription = "More for ${f.name}") }
+                            DropdownMenu(menu, { menu = false }) {
+                                DropdownMenuItem({ Text("View") }, { menu = false; view() }, leadingIcon = { Icon(Icons.Outlined.Visibility, null) })
+                                if (i > 0) DropdownMenuItem({ Text("Move up") }, { menu = false; onFiles(files.move(i, i - 1)) }, leadingIcon = { Icon(Icons.Default.ArrowUpward, null) })
+                                if (i < files.size - 1) DropdownMenuItem({ Text("Move down") }, { menu = false; onFiles(files.move(i, i + 1)) }, leadingIcon = { Icon(Icons.Default.ArrowDownward, null) })
+                                if (!f.extension.equals("pdf", true)) DropdownMenuItem({ Text("Crop") }, { menu = false; cropping = f }, leadingIcon = { Icon(Icons.Default.Crop, null) })
+                            }
+                        }
                         IconButton(onClick = { onFiles(files - f) }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.Close, contentDescription = "Remove ${f.name}") }
                     }
                 }
@@ -379,6 +403,8 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
         )
     }
 }
+
+private fun <T> List<T>.move(from: Int, to: Int) = toMutableList().apply { add(to, removeAt(from)) }
 
 private fun toRanges(s: List<Boolean>): String {
     val out = mutableListOf<String>()
