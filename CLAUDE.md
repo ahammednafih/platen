@@ -15,7 +15,7 @@ Contribution rules: `CONTRIBUTING.md`.
 - Android: `cd android && ./gradlew :app:assembleDebug` (needs the NDK and `cargo-ndk`), then
   `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Test on a real phone; there's no emulator setup.
 - iOS: `cd ios && xcodegen generate`, then `xcodebuild` for the connected iPhone 16 Pro and
-  `xcrun devicectl device install app` (see `ios/README.md`). Real device only, no simulator.
+  `xcrun devicectl device install app` (see `ios/README.md`). Use the real device here; this Mac doesn't have the RAM for the simulator.
 - The printer is on the LAN; network commands from a sandbox need the sandbox off.
 
 ## Layout
@@ -24,7 +24,7 @@ Contribution rules: `CONTRIBUTING.md`.
   `ocr`, `session`, `copy`, `webui`, `pushscan`, `button`, `snmp`.
 - `crates/tui` — the `platen` CLI.
 - `crates/mobile` — the phone apps' shared core (crate `platen-mobile`): app state and commands over
-  `platen-core`, bound to Kotlin (and later Swift) with UniFFI. Platform work stays in the apps through
+  `platen-core`, bound to Kotlin and Swift with UniFFI. Platform work stays in the apps through
   small callback traits (PDF rendering); discovery and the device password live in each app.
 - `android` — the Android app, Kotlin + Jetpack Compose (Material 3 Expressive). Gradle builds
   `platen-mobile` with `cargo ndk` and generates the bindings; nothing else needs to be run by hand.

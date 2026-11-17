@@ -1,6 +1,6 @@
 # Platen
 
-Scan, copy and print on a network printer from your Mac or Android phone, without the vendor's app.
+Scan, copy and print on a network printer from your Mac, iPhone or Android phone, without the vendor's app.
 
 Platen talks to the printer directly over the standard driverless protocols (AirScan and AirPrint), so
 there is nothing to install on the printer side and no account to sign in to. It started as a
@@ -46,18 +46,20 @@ it wouldn't.
 - Page counters, maintenance and network details, read from the printer's web page.
 - Nozzle check and print head cleaning, with a warning when the inks a clean uses are low.
 
-**On Android**
+**On iPhone and Android**
 
-The Android app shares the same core, so scanning, page tools, long pages, export, shrink, copy, print
-and device details work the same way. It differs in a few places:
+The phone apps share the same core, so scanning, page tools, long pages, export, shrink, copy, print
+and device details work the same way. They differ from the Mac in a few places:
 
 - Not available: searchable PDFs and copying text out of a scan (no OCR on the phone), and the
   printer's Scan button.
-- Added: print from any app through Platen once it's turned on in Android's print settings; several
-  printers saved with your own names for them; paper type and borderless printing; photos cropped to
-  4×6, 5×7 or square before printing; 4 in 1 and poster copies; and a warning when ink runs low.
-- Scans are saved to Documents/Platen, or a folder you choose. PDFs and images shared from other apps
-  open straight in Print.
+- Added: several printers saved with your own names for them; paper type and borderless printing;
+  photos cropped to 4×6, 5×7 or square before printing; 4 in 1 and poster copies; and a warning when
+  ink runs low.
+- On Android, any app can print through Platen once it's turned on in Android's print settings. Scans
+  are saved to Documents/Platen, or a folder you choose.
+- On iPhone, scans are saved in the Files app under On My iPhone › Platen.
+- PDFs and images opened or shared from other apps go straight to Print.
 
 ## Will it work with my printer?
 
@@ -70,9 +72,9 @@ and device details work the same way. It differs in a few places:
 Platen has been developed and tested against one Brother inkjet all-in-one. The standard features
 should work elsewhere, but they are untested on other makes. Reports and fixes are welcome.
 
-Platen runs on macOS 13 or later and on Android 12 or later (64-bit ARM phones, which is nearly all
-of them). The core is plain Rust, so iOS, Linux and Windows are possible, but nobody has done that work
-yet.
+Platen runs on macOS 13 or later, iOS 26 or later, and Android 12 or later (64-bit ARM phones, which
+is nearly all of them). The core is plain Rust, so Linux and Windows are possible, but nobody has done
+that work yet.
 
 ## Install
 
@@ -94,6 +96,12 @@ yet.
 3. On first launch Platen asks to connect to a device on your local network. Pick your printer.
 
 Updates install over the old version the same way, keeping your scans and settings.
+
+### iPhone
+
+There's no App Store release yet. Build it from source with Xcode onto your own iPhone; see
+[`ios/README.md`](ios/README.md). With a free Apple ID the installed app stops opening after 7 days
+until you build it again.
 
 ### Searchable PDFs (Mac)
 
@@ -147,8 +155,8 @@ Run `platen --help` for the rest.
 ## Security and privacy
 
 - Everything stays on your network. Platen makes no connections other than to your printer.
-- The printer's admin password, if you enter one for Device details, is stored in the macOS Keychain,
-  or on Android encrypted with a key held in the Android Keystore.
+- The printer's admin password, if you enter one for Device details, is stored in the Keychain on Mac
+  and iPhone, or on Android encrypted with a key held in the Android Keystore.
 - The printer's web page uses a self-signed certificate, so Platen cannot verify it is really talking
   to your printer. On a network you don't trust, someone could pose as the printer and capture that
   password. Use Device details on your own network.
@@ -182,6 +190,8 @@ The Android app also needs the Android SDK and NDK and `cargo-ndk`; see [CONTRIB
 cd android && ./gradlew :app:assembleDebug   # builds the Rust core for Android and the app
 ```
 
+The iPhone app needs Xcode and XcodeGen; see [`ios/README.md`](ios/README.md).
+
 ### Layout
 
 | Path | What |
@@ -189,8 +199,9 @@ cd android && ./gradlew :app:assembleDebug   # builds the Rust core for Android 
 | `crates/core` | The library: scanning (eSCL and the native protocol), printing (IPP), stitching, PDF writing, OCR, sessions, the Scan button. |
 | `crates/tui` | The `platen` command-line app. |
 | `app` | The desktop app: Tauri 2 with a Svelte 5 frontend. Commands live in `app/src-tauri/src`. |
-| `crates/mobile` | The phone apps' shared core, bound to Kotlin (and later Swift) with UniFFI. |
+| `crates/mobile` | The phone apps' shared core, bound to Kotlin and Swift with UniFFI. |
 | `android` | The Android app: Kotlin and Jetpack Compose. |
+| `ios` | The iPhone app: SwiftUI. |
 | `docs/protocols.md` | How the device protocols behave, including the vendor-specific ones. |
 
 ### Releasing
@@ -201,9 +212,10 @@ Bump the version in `app/package.json` and `Cargo.toml`, then push a matching ta
 git tag v0.3.0 && git push origin v0.3.0
 ```
 
-The release workflow builds a universal app (Apple silicon and Intel), and publishes the `.dmg`
-and the CLI to GitHub Releases. The release notes are written from the commit subjects since the last
-tag, grouped by their gitmoji (`.github/release-notes.sh`).
+The release workflow builds a universal app (Apple silicon and Intel), and publishes the `.dmg`,
+the CLI and the signed Android APK to GitHub Releases. It can also send the Android bundle to Google
+Play; see [`android/README.md`](android/README.md). The release notes are written from the commit
+subjects since the last tag, grouped by their gitmoji (`.github/release-notes.sh`).
 
 ## Contributing
 

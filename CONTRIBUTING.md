@@ -40,6 +40,9 @@ cd android && ./gradlew :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+For the iPhone app you need Xcode and XcodeGen, and an iPhone or the simulator. Steps are in
+[`ios/README.md`](ios/README.md).
+
 ## Where things go
 
 | Change | Place |
@@ -49,6 +52,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | Screens and dialogs | `app/src/lib` |
 | A command the phone apps share | `crates/mobile/src/lib.rs`, with its records in `types.rs` |
 | Android screens and platform code | `android/app/src/main/java/com/kanamlabs/platen` |
+| iPhone screens and platform code | `ios/Platen` |
 | How a device protocol behaves | `docs/protocols.md`, so the next person doesn't rediscover it |
 
 ## Ground rules
