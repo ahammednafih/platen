@@ -2,9 +2,11 @@
 use crate::escl::{self, ColorMode, ScanOpts, Scanner, Size, SizeId};
 use crate::fill::{self, Fill};
 use crate::pdf::jpeg_info;
+use crate::render;
 use crate::session::{self, Kind, Page, Session};
 use crate::stitch;
 use anyhow::{Context, Result, bail};
+use image::ImageDecoder;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -111,6 +113,48 @@ pub fn scan_bottom(scanner: &Scanner, s: Settings, dir: &Path, top: &TopHalf) ->
 }
 
 /// Paint torn areas on an existing page into a new file; the caller swaps it in.
+/// Pages from picked PDFs and images, stored like scanned pages. PDF pages render at 300 dpi;
+/// images keep their pixels and get the dpi that makes them A4-sized.
+pub fn import(dir: &Path, files: &[PathBuf]) -> Result<Vec<Page>> {
+    let stem = Session::new_stem();
+    let mut out = Vec::new();
+    for src in render::pages(files)? {
+        let (img, dpi) = if render::is_pdf(&src.path) {
+            (render::load(&src, 300)?.img, 300)
+        } else {
+            let img = load_upright(&src.path).with_context(|| format!("can't open {}", src.path.display()))?;
+            let dpi = a4_dpi(img.width(), img.height());
+            (img, dpi)
+        };
+        let file = format!("{stem}_{}.jpg", out.len() + 1);
+        std::fs::write(dir.join("pages").join(&file), session::encode_rgb(&img, 92)?)?;
+        out.push(Page { file, kind: Kind::A4, dpi, w: img.width(), h: img.height(), secs: 0.0, color: None });
+    }
+    Ok(out)
+}
+
+/// Phone photos are stored sideways with an EXIF turn; transparent PNG areas become white paper.
+fn load_upright(path: &Path) -> Result<image::RgbImage> {
+    let mut decoder = image::ImageReader::open(path)?.with_guessed_format()?.into_decoder()?;
+    let orientation = decoder.orientation()?;
+    let mut img = image::DynamicImage::from_decoder(decoder)?;
+    img.apply_orientation(orientation);
+    if !img.color().has_alpha() {
+        return Ok(img.to_rgb8());
+    }
+    let rgba = img.to_rgba8();
+    Ok(image::RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+        let p = rgba.get_pixel(x, y).0;
+        let a = p[3] as u32;
+        image::Rgb([0, 1, 2].map(|c| ((p[c] as u32 * a + 255 * (255 - a)) / 255) as u8))
+    }))
+}
+
+fn a4_dpi(w: u32, h: u32) -> u32 {
+    let (long, short) = (w.max(h) as f32, w.min(h) as f32);
+    (long * 25.4 / 297.0).max(short * 25.4 / 210.0).round().max(72.0) as u32
+}
+
 pub fn fill_page(dir: &Path, page: &Page, mode: Fill) -> Result<Captured> {
     let mode = if mode == Fill::Off { Fill::White } else { mode };
     let mut img = session::load_rgb(&dir.join("pages").join(&page.file))?;
@@ -194,5 +238,24 @@ mod tests {
         assert_eq!(bw.get_pixel(5, 5)[0], 255);
         assert_eq!(bw.get_pixel(5, 20)[0], 0);
         assert!(bw.pixels().all(|p| p[0] == 0 || p[0] == 255));
+    }
+
+    #[test]
+    fn imported_images_become_a4_pages_with_transparency_on_white() {
+        let dir = std::env::temp_dir().join(format!("import-{}", Session::new_stem()));
+        std::fs::create_dir_all(dir.join("pages")).unwrap();
+        let png = dir.join("photo.png");
+        let mut img = image::RgbaImage::from_pixel(2480, 3508, image::Rgba([0, 0, 0, 0]));
+        img.put_pixel(10, 10, image::Rgba([200, 30, 30, 255]));
+        img.save(&png).unwrap();
+
+        let pages = import(&dir, &[png.clone(), png]).unwrap();
+        let first = session::load_rgb(&dir.join("pages").join(&pages[0].file)).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        assert_eq!(pages.len(), 2);
+        assert_ne!(pages[0].file, pages[1].file);
+        assert_eq!((pages[0].dpi, pages[0].mm()), (300, (210, 297)));
+        assert!(first.get_pixel(1000, 1000).0.iter().all(|&c| c > 245));
     }
 }

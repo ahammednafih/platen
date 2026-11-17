@@ -76,6 +76,7 @@ pub fn run() {
             commands::save_preset,
             commands::delete_preset,
             commands::scan_a4,
+            commands::import_files,
             commands::scan_top,
             commands::scan_bottom,
             commands::fill_page,

@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -138,7 +139,7 @@ private struct SessionPane: View {
                 if session.pages.isEmpty {
                     VStack(spacing: 16) {
                         SheetGlyph(kind: .empty, width: 72)
-                        Text("Put a page face down on the glass, then tap Scan.")
+                        Text("Put a page face down on the glass, then tap Scan. PDFs and images from the phone can go in too.")
                             .font(.body).multilineTextAlignment(.center).foregroundStyle(.secondary)
                     }
                     .padding(32)
@@ -196,6 +197,9 @@ private struct Controls: View {
     @Environment(AppModel.self) private var model
     @Binding var showSettings: Bool
     @Binding var showExport: Bool
+    @State private var picking = false
+    @State private var pickingPhotos = false
+    @State private var photos: [PhotosPickerItem] = []
 
     var body: some View {
         let session = model.session
@@ -228,6 +232,16 @@ private struct Controls: View {
                 HStack(spacing: 4) {
                     tool("Scan settings", "slider.horizontal.3") { showSettings = true }
                     tool("Scan a long page", "arrow.up.and.down.text.horizontal", enabled: idle && model.device != nil) { model.scanTop() }
+                    Menu {
+                        Button("Files", systemImage: "folder") { picking = true }
+                        Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
+                    } label: {
+                        Image(systemName: "doc.badge.plus").font(.title3).frame(width: 48, height: 48)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(idle ? Color.primary : Color.secondary.opacity(0.5))
+                    .disabled(!idle)
+                    .accessibilityLabel("Add a PDF or image")
                     Button {
                         if idle, model.device != nil { model.scan() }
                     } label: {
@@ -245,6 +259,26 @@ private struct Controls: View {
         }
         .animation(.spring(duration: 0.3), value: model.busy)
         .animation(.spring(duration: 0.3), value: model.top != nil)
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.pdf, .jpeg, .png, .heic], allowsMultipleSelection: true) { result in
+            if case let .success(urls) = result, !urls.isEmpty { model.importFiles(urls) }
+        }
+        .photosPicker(isPresented: $pickingPhotos, selection: $photos, maxSelectionCount: 20, matching: .images)
+        .onChange(of: photos) { loadPhotos() }
+    }
+
+    private func loadPhotos() {
+        let items = photos
+        guard !items.isEmpty, model.busy == nil else { return }
+        photos = []
+        model.busy = "Adding pages"
+        Task {
+            var data: [Data] = []
+            for item in items {
+                if let d = try? await item.loadTransferable(type: Data.self) { data.append(d) }
+            }
+            model.busy = nil
+            model.importPhotos(data)
+        }
     }
 
     private func tool(_ label: String, _ icon: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {

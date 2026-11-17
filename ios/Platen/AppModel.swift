@@ -270,6 +270,19 @@ final class AppModel {
         work("Scanning", { try platen.scanPage(replace: replace.map(UInt32.init), at: nil) }, done: placed)
     }
 
+    func importFiles(_ urls: [URL]) {
+        let platen = platen
+        work("Adding pages", { try platen.importFiles(paths: urls.map { try Storage.incoming($0).path }, at: nil) }, done: placed)
+    }
+
+    func importPhotos(_ photos: [Data]) {
+        let platen = platen
+        work("Adding pages", {
+            let paths = try photos.enumerated().map { try Storage.incomingImage($1, name: "Photo \($0 + 1).jpg").path }
+            return try platen.importFiles(paths: paths, at: nil)
+        }, done: placed)
+    }
+
     func scanTop() {
         let platen = platen
         work("Scanning the top half", { try platen.scanTop() }) { self.top = $0 }

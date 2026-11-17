@@ -76,6 +76,7 @@ export const api = {
   savePreset: (name: string) => invoke<Preset[]>("save_preset", { name }),
   deletePreset: (name: string) => invoke<Preset[]>("delete_preset", { name }),
   scanA4: (slot: Slot = {}) => invoke<PageResult>("scan_a4", slot),
+  importFiles: (paths: string[], at?: number) => invoke<PageResult>("import_files", { paths, at }),
   scanTop: () => invoke<TopHalf>("scan_top"),
   scanBottom: (top: TopHalf, slot: Slot = {}) => invoke<PageResult>("scan_bottom", { top, ...slot }),
   fillPage: (index: number) => invoke<PageResult>("fill_page", { index }),

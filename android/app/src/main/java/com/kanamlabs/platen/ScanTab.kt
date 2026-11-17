@@ -1,5 +1,7 @@
 package com.kanamlabs.platen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -211,6 +213,7 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
     var tools by remember { mutableStateOf<Int?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) model.importFiles(uris) }
 
     val pages: @Composable ColumnScope.() -> Unit = {
         SettingsChips(state, onClick = { showSettings = true })
@@ -218,7 +221,7 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
             if (session.pages.isEmpty()) {
                 Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     SheetGlyph(Glyph.Empty, active = false, width = 72.dp)
-                    Text("Put a page face down on the glass, then tap Scan.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Put a page face down on the glass, then tap Scan. PDFs and images from the phone can go in too.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 val grid = rememberLazyGridState()
@@ -313,6 +316,7 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
         ) {
             ToolbarButton(R.drawable.ic_tune, "Scan settings") { showSettings = true }
             ToolbarButton(R.drawable.ic_long_page, "Scan a long page", enabled = idle && state.device != null) { model.scanTop() }
+            ToolbarButton(R.drawable.ic_add_file, "Add a PDF or image", enabled = idle) { pick.launch(arrayOf("application/pdf", "image/jpeg", "image/png")) }
             ToolbarButton(R.drawable.ic_export, "Export", enabled = session.pages.isNotEmpty()) { showExport = true }
             ToolbarButton(R.drawable.ic_print, "Print", enabled = session.pages.isNotEmpty() && idle) {
                 model.work("Making a PDF", { File(model.platen.scanToPdf()) }, onPrint)

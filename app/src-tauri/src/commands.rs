@@ -265,6 +265,22 @@ pub async fn scan_a4(st: State<'_, AppState>, replace: Option<usize>, at: Option
     place(&st, c, replace, at)
 }
 
+/// Add every page of the picked PDFs and images at `at` (else at the end), as one undo step.
+#[tauri::command]
+pub async fn import_files(st: State<'_, AppState>, paths: Vec<PathBuf>, at: Option<usize>) -> Res<PageResult> {
+    let dir = session_dir(&st)?;
+    let added = blocking(move || capture::import(&dir, &paths)).await?;
+    let n = added.len();
+    let mut index = 0;
+    let session = edit(&st, |pages| {
+        index = at.unwrap_or(pages.len()).min(pages.len());
+        pages.splice(index..index, added);
+        Ok(())
+    })?;
+    let note = if n == 1 { "added from a file".into() } else { format!("added {n} pages from files") };
+    Ok(PageResult { session, index, note })
+}
+
 #[tauri::command]
 pub async fn scan_top(st: State<'_, AppState>) -> Res<TopHalf> {
     let (sc, set, dir) = (scanner(&st)?, *st.settings.lock().unwrap(), session_dir(&st)?);

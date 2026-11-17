@@ -199,6 +199,21 @@ impl Platen {
         self.place(c, replace, at)
     }
 
+    /// Add every page of the picked PDFs and images at `at` (else at the end), as one undo step.
+    pub fn import_files(&self, paths: Vec<String>, at: Option<u32>) -> Result<PageResult> {
+        let files: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
+        let added = capture::import(&self.session_dir()?, &files)?;
+        let n = added.len();
+        let mut index = 0;
+        let session = self.edit(|pages| {
+            index = at.map_or(pages.len(), |a| a as usize).min(pages.len());
+            pages.splice(index..index, added);
+            Ok(())
+        })?;
+        let note = if n == 1 { "Added 1 page".into() } else { format!("Added {n} pages") };
+        Ok(PageResult { session, index: index as u32, note })
+    }
+
     pub fn cancel_scan(&self) {
         if let Ok(s) = self.scanner() {
             s.cancel_scan();

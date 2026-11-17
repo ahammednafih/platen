@@ -238,6 +238,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun scan(replace: Int? = null) = work("Scanning", { platen.scanPage(replace?.toUInt(), null) }, ::placed)
 
+    fun importFiles(uris: List<Uri>) = work("Adding pages", { platen.importFiles(uris.map { saveFolder.copyToCache(it).path }, null) }, ::placed)
+
     fun scanTop() = work("Scanning the top half", { platen.scanTop() }) { t -> _state.update { it.copy(top = t) } }
 
     fun scanBottom() {

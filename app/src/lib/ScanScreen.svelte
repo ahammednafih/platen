@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { open } from "@tauri-apps/plugin-dialog";
   import { api, covered, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
   import AdjustDialog from "./AdjustDialog.svelte";
   import CropDialog from "./CropDialog.svelte";
@@ -129,6 +130,47 @@
     selected = to;
   }
 
+  const importable = ["pdf", "jpg", "jpeg", "png"];
+  const ext = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
+
+  async function addFiles(paths: string[]) {
+    if (!paths.length) return;
+    const r = await run(paths.length === 1 ? "Adding pages" : `Adding pages from ${paths.length} files`, () => api.importFiles(paths, insertAt));
+    if (r) landed(r);
+  }
+
+  async function pickFiles() {
+    const r = await open({ multiple: true, filters: [{ name: "PDF and images", extensions: importable }] });
+    if (r) addFiles(Array.isArray(r) ? r : [r]);
+  }
+
+  // Window drag-drop is off (it breaks page reordering), so dropped files arrive as bytes and get staged.
+  let dropping = $state(false);
+  const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes("Files");
+
+  function filesOver(e: DragEvent) {
+    if (!hasFiles(e) || busy) return;
+    e.preventDefault();
+    dropping = true;
+  }
+
+  function filesLeave(e: DragEvent) {
+    if (!(e.currentTarget as Node).contains(e.relatedTarget as Node | null)) dropping = false;
+  }
+
+  async function filesDrop(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dropping = false;
+    const ok = [...(e.dataTransfer?.files ?? [])].filter((f) => importable.includes(ext(f.name)));
+    if (!ok.length) return void (log = { ok: false, text: "Only PDFs, JPEGs and PNGs can be added." });
+    try {
+      addFiles(await Promise.all(ok.map(api.stageFile)));
+    } catch (err) {
+      log = { ok: false, text: String(err) };
+    }
+  }
+
   // The name is the scan's folder name; renaming also renames exports that carry it.
   let renaming = $state(false);
   let draft = $state("");
@@ -197,6 +239,7 @@
     if (e.key.toLowerCase() === "z" && !(e.target instanceof HTMLInputElement)) step(e.shiftKey);
     else if (e.key === "Enter" && connected) scanA4();
     else if (e.key === "l" && connected) wizard = {};
+    else if (e.key === "o") pickFiles();
     else if (e.key === "e" && session.pages.length) onexport();
     else if (e.key === "p" && session.pages.length) print();
     else return;
@@ -206,7 +249,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="screen">
+<div class="screen" class:dropping role="region" aria-label="Scan" ondragover={filesOver} ondragleave={filesLeave} ondrop={filesDrop}>
   <header class="topbar">
     <button class="ghost crumb" onclick={onclose} disabled={!!busy} title="Back to drafts (keeps this one)">Scan</button>
     <span class="faint">/</span>
@@ -232,6 +275,7 @@
     </div>
     <button onclick={print} disabled={!!busy || !session.pages.length} title="Open these pages in Print (⌘P)">Print</button>
     <button onclick={onexport} disabled={!!busy || !session.pages.length}>Export…</button>
+    <button onclick={pickFiles} disabled={!!busy} title="Add pages from PDFs or images (⌘O)">Add files…</button>
     <button onclick={() => (wizard = {})} disabled={!connected || !!busy} title="For pages taller than the glass, like Legal or receipts">Long page…</button>
     <button class="primary" onclick={() => scanA4()} disabled={!connected || !!busy} title="Scan one page at the size set on the right">Scan page</button>
   </header>
@@ -245,7 +289,7 @@
     {:else if !connected}
       <span>Waiting for the scanner. You can still review, reorder and export pages.</span>
     {:else}
-      <span>New pages go after the selected one. Drag to reorder.</span>
+      <span>New pages go after the selected one. Drag to reorder, or drop PDFs and images in.</span>
     {/if}
   </div>
 
@@ -291,7 +335,7 @@
           class:over={dragOver === i && dragFrom !== i}
           draggable={!busy}
           ondragstart={(e) => { dragFrom = i; e.dataTransfer!.effectAllowed = "move"; }}
-          ondragover={(e) => { e.preventDefault(); dragOver = i; }}
+          ondragover={(e) => { e.preventDefault(); if (dragFrom !== null) dragOver = i; }}
           ondragleave={() => { if (dragOver === i) dragOver = null; }}
           ondrop={(e) => { e.preventDefault(); if (dragFrom !== null) move(dragFrom, i); dragFrom = dragOver = null; }}
           ondragend={() => (dragFrom = dragOver = null)}
@@ -310,6 +354,7 @@
     <div class="empty">
       <p>Put a page face down on the glass and press <strong>Scan page</strong>.</p>
       <p class="muted">Pick the original's size on the right. For pages taller than the glass, use <strong>Long page</strong>: it scans the top and bottom halves and joins them.</p>
+      <p class="muted">To add pages from a PDF or image, use <strong>Add files</strong> or drop them here.</p>
     </div>
   {/if}
   </div>
@@ -347,6 +392,12 @@
 {/if}
 
 <style>
+  .screen { position: relative; }
+  .dropping::after {
+    content: "Drop to add pages"; position: absolute; inset: 8px; display: grid; place-content: center; pointer-events: none;
+    border: 2px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--bg) 80%, transparent);
+    font-weight: 600; z-index: 5;
+  }
   .crumb { padding: 0 6px; margin-left: -6px; }
   .count { margin-left: 4px; }
   .history { display: flex; gap: 1px; margin-right: 4px; }
