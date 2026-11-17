@@ -80,11 +80,12 @@ pub async fn print_plan(st: State<'_, AppState>, job: PrintJob) -> Res<Plan> {
 
 /// JPEG of the `slot`-th sheet the job would send.
 #[tauri::command]
-pub async fn print_preview(job: PrintJob, slot: usize) -> Res<Response> {
+pub async fn print_preview(job: PrintJob, slot: usize, dpi: Option<u32>) -> Res<Response> {
+    let dpi = dpi.map_or(PREVIEW_DPI, |d| d.clamp(PREVIEW_DPI, 150));
     blocking(move || {
         let plan = job.plan()?;
         let sheet = *plan.order.get(slot).ok_or_else(|| anyhow::anyhow!("no such sheet"))?;
-        Ok(Response::new(job.sheet(&plan, sheet, PREVIEW_DPI)?))
+        Ok(Response::new(job.sheet(&plan, sheet, dpi)?))
     })
     .await
 }

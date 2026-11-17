@@ -109,8 +109,8 @@ export const api = {
     invoke<string>("stage_file", new Uint8Array(await f.arrayBuffer()), { headers: { name: encodeURIComponent(f.name) } }),
   printCaps: () => invoke<PrintCaps>("print_caps"),
   printPlan: (job: PrintJob) => invoke<Plan>("print_plan", { job }),
-  printPreview: async (job: PrintJob, slot: number) =>
-    URL.createObjectURL(new Blob([bytes(await invoke<ArrayBuffer | number[]>("print_preview", { job, slot }))], { type: "image/jpeg" })),
+  printPreview: async (job: PrintJob, slot: number, dpi?: number) =>
+    URL.createObjectURL(new Blob([bytes(await invoke<ArrayBuffer | number[]>("print_preview", { job, slot, dpi }))], { type: "image/jpeg" })),
   print: (job: PrintJob) => invoke<number>("print", { job }),
   copyReset: () => invoke<void>("copy_reset"),
   copyScan: (area: Area, color: boolean) => invoke<string>("copy_scan", { area, color }),

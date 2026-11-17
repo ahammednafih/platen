@@ -3,6 +3,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, covered, paperName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
+  import SheetViewer from "./SheetViewer.svelte";
 
   let { connected, incoming = null, onreceived = () => {} }: {
     connected: boolean;
@@ -12,6 +13,7 @@
   } = $props();
 
   const PREVIEWS = 60;
+  const VIEW_DPI = 110;
   const printable = ["pdf", "jpg", "jpeg", "png"];
 
   let files = $state<string[]>([]);
@@ -42,6 +44,7 @@
   let sheetPreviews = $state<string[]>([]);
   let busy = $state("");
   let flip = $state(false);
+  let viewing = $state<{ of: "Pages" | "Sheets"; index: number } | null>(null);
   let log = $state<{ ok: boolean; text: string } | null>(null);
 
   const scale = $derived<Scale>(scaleMode === "Percent" ? { Percent: pct } : scaleMode);
@@ -93,13 +96,17 @@
     return () => { stale = true; clearTimeout(t); };
   });
 
-  // The preview shows every page, one per tile, so pages can be picked by clicking.
-  $effect(() => {
-    // Built by hand so picking pages (ranges) doesn't re-render every preview.
-    const j: PrintJob = {
+  // Every page, one per sheet; built by hand so picking pages (ranges) doesn't re-render every preview.
+  function pagesJob(): PrintJob {
+    return {
       files: $state.snapshot(files), ranges: "", subset: "All", reverse: false, nup: 1, scale, collate: true, clean,
       opts: { copies: 1, color, media, scaling: "fit", quality },
     };
+  }
+
+  // The preview shows every page, one per tile, so pages can be picked by clicking.
+  $effect(() => {
+    const j = pagesJob();
     if (!j.files.length) {
       sel = [];
       previews = [];
@@ -266,7 +273,14 @@
   }
 
   function onkey(e: KeyboardEvent) {
-    if (!e.metaKey || busy || covered()) return;
+    if (busy || covered()) return;
+    if (!e.metaKey) {
+      if (e.key !== " " || e.target instanceof HTMLInputElement || !files.length) return;
+      if (view === "Pages" && sel.length) viewing = { of: "Pages", index: Math.min(anchor, sel.length - 1) };
+      else if (view === "Sheets" && plan) viewing = { of: "Sheets", index: 0 };
+      else return;
+      return e.preventDefault();
+    }
     if (e.key === "o") pick();
     else if ((e.key === "p" || e.key === "Enter") && connected && plan && !none && !flip) print();
     else return;
@@ -367,9 +381,9 @@
           <ol class="sheets">
             {#each plan.order.slice(0, PREVIEWS) as s, i (i)}
               <li>
-                <div class="paper sheet static" style="aspect-ratio: {paperRatio}">
+                <button class="paper sheet" style="aspect-ratio: {paperRatio}" title="View larger" onclick={() => (viewing = { of: "Sheets", index: i })}>
                   {#if sheetPreviews[i]}<img src={sheetPreviews[i]} alt="Sheet {i + 1}" />{/if}
-                </div>
+                </button>
                 <span class="faint small">{s === null ? "Blank back" : `Sheet ${s + 1}`}</span>
               </li>
             {/each}
@@ -383,10 +397,13 @@
           {#each sel.slice(0, PREVIEWS) as on, i (i)}
             <li>
               <button class="paper sheet" class:off={!on} style="aspect-ratio: {paperRatio}" aria-pressed={on}
-                title={on ? "Click to leave out, shift-click for a run" : "Click to print, shift-click for a run"}
-                onclick={(e) => toggle(i, e)}>
+                title={on ? "Click to leave out, shift-click for a run, double-click to view" : "Click to print, shift-click for a run, double-click to view"}
+                onclick={(e) => toggle(i, e)} ondblclick={() => (viewing = { of: "Pages", index: i })}>
                 {#if previews[i]}<img src={previews[i]} alt="Page {i + 1}" />{/if}
                 <span class="tick" aria-hidden="true">{on ? "✓" : ""}</span>
+              </button>
+              <button class="ghost small peek" title="View larger (Space)" aria-label="View page {i + 1}" onclick={() => (viewing = { of: "Pages", index: i })}>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z M8 6.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" /></svg>
               </button>
               <span class="faint small">Page {i + 1}</span>
             </li>
@@ -471,6 +488,17 @@
   </div>
 </div>
 
+{#if viewing?.of === "Pages"}
+  {@const j = pagesJob()}
+  <SheetViewer count={sel.length} bind:index={viewing.index} caption={(i) => `Page ${i + 1}`}
+    render={(i) => api.printPreview(j, i, VIEW_DPI)} onclose={() => (viewing = null)} />
+{:else if viewing?.of === "Sheets" && plan}
+  {@const j = job()}
+  {@const order = plan.order}
+  <SheetViewer count={order.length} bind:index={viewing.index} caption={(i) => (order[i] === null ? `Blank back, sheet ${i + 1}` : `Sheet ${i + 1}`)}
+    render={(i) => api.printPreview(j, i, VIEW_DPI)} onclose={() => (viewing = null)} />
+{/if}
+
 <style>
   .count { margin-left: 4px; }
   .screen-main { padding: 16px 20px 40px; display: grid; gap: 16px; align-content: start; }
@@ -495,14 +523,19 @@
   }
   .drop:hover:not(:disabled) { background: var(--panel); border-color: var(--accent); }
   .sheets { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px 16px; }
-  .sheets li { display: grid; gap: 6px; justify-items: center; }
+  .sheets li { display: grid; gap: 6px; justify-items: center; position: relative; }
+  .peek {
+    position: absolute; top: 6px; left: 6px; width: 24px; height: 24px; padding: 0; display: grid; place-content: center;
+    border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 1px var(--line); opacity: 0; transition: opacity 0.14s var(--ease);
+  }
+  .peek svg { width: 14px; height: 14px; }
+  .sheets li:hover .peek, .peek:focus-visible { opacity: 1; }
   .sheet {
     width: 100%; height: auto; display: grid; position: relative; padding: 0; border: 0; border-radius: 2px; background: var(--paper);
     outline: 2px solid transparent; outline-offset: 3px; transition: opacity 0.15s var(--ease), outline-color 0.15s var(--ease), transform 0.1s var(--ease);
   }
   .sheet:hover { background: var(--paper); outline-color: var(--line-strong); }
   .sheet.off { opacity: 0.35; }
-  .sheet.static { outline: none; }
   .view { justify-self: start; }
   .tick {
     position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-content: center;
