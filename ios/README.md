@@ -5,10 +5,10 @@ page edits, export, copy, print and shrink; this app is the UI plus the few thin
 
 ## Building
 
-You need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and the iOS Rust target:
+You need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and the iOS Rust targets:
 
 ```sh
-rustup target add aarch64-apple-ios
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 cd ios
 ./build-rust.sh        # first time only, so XcodeGen sees the generated bindings
 xcodegen generate
@@ -17,9 +17,11 @@ xcodebuild -project Platen.xcodeproj -scheme Platen -destination 'id=<iPhone UDI
 xcrun devicectl device install app --device <iPhone UDID> build/Build/Products/Debug-iphoneos/Platen.app
 ```
 
+Or run it in the simulator from Xcode, or with `-destination 'platform=iOS Simulator,name=<device>'`.
+
 Xcode runs `build-rust.sh` before compiling: it builds `platen-mobile` as a static library for arm64
-iPhones and writes the Swift bindings into `Generated/`. Test on a real iPhone on the printer's Wi-Fi;
-there's no simulator build. The Debug build installs as **Platen (Dev)** (`com.kanamlabs.platen.dev`).
+iPhones (or the arm64 simulator) and writes the Swift bindings into `Generated/`. The Mac running the
+simulator has to be on the printer's network, like a phone would. The Debug build installs as **Platen (Dev)** (`com.kanamlabs.platen.dev`).
 
 ## Where things are
 
