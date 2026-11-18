@@ -26,10 +26,10 @@ import androidx.compose.ui.unit.sp
 
 enum class Accent(val label: String, val light: Color, val dark: Color, val onLight: Color, val onDark: Color) {
     Ink("Ink black", Color(0xFF1C1D1F), Color(0xFFE8E6E1), Color.White, Color(0xFF111214)),
-    Magenta("Magenta", Color(0xFFC2185B), Color(0xFFE0457F), Color.White, Color.White),
-    Orange("Toner orange", Color(0xFFD9480F), Color(0xFFF2703A), Color.White, Color(0xFF1B120C)),
+    Magenta("Magenta", Color(0xFFC2185B), Color(0xFFEC6A96), Color.White, Color(0xFF1A0710)),
+    Orange("Toner orange", Color(0xFFBF3F0C), Color(0xFFF2703A), Color.White, Color(0xFF1B120C)),
     Teal("Teal", Color(0xFF0F766E), Color(0xFF2BB3A3), Color.White, Color(0xFF04201D)),
-    Coffee("Coffee", Color(0xFF7A4A2A), Color(0xFF8B5A3C), Color.White, Color.White),
+    Coffee("Coffee", Color(0xFF7A4A2A), Color(0xFFB8835D), Color.White, Color(0xFF1B120C)),
     Wallpaper("Match wallpaper", Color(0xFF6C6F75), Color(0xFF8A8F98), Color.White, Color.Black),
 }
 
@@ -77,11 +77,11 @@ private fun light(a: Accent): ColorScheme {
         tertiaryContainer = soft, onTertiaryContainer = a.light,
         background = Color(0xFFF7F7F8), onBackground = Color(0xFF1C1D1F),
         surface = Color(0xFFF7F7F8), onSurface = Color(0xFF1C1D1F),
-        surfaceVariant = Color(0xFFECECEF), onSurfaceVariant = Color(0xFF6C6F75),
+        surfaceVariant = Color(0xFFECECEF), onSurfaceVariant = Color(0xFF595C62),
         surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFFFFFF),
         surfaceContainer = Color(0xFFF1F1F3), surfaceContainerHigh = Color(0xFFECECEF), surfaceContainerHighest = Color(0xFFE5E5E9),
         surfaceBright = Color.White, surfaceDim = Color(0xFFE7E7EA),
-        outline = Color(0xFFC9CACF), outlineVariant = Color(0xFFE2E2E6),
+        outline = Color(0xFF84878E), outlineVariant = Color(0xFFE2E2E6),
         error = Color(0xFFD14343), onError = Color.White, errorContainer = Color(0xFFFBE4E4), onErrorContainer = Color(0xFF8E1F1F),
         inverseSurface = Color(0xFF1C1D1F), inverseOnSurface = Color(0xFFF1F1F3), inversePrimary = a.dark,
     )
@@ -98,11 +98,11 @@ private fun dark(a: Accent): ColorScheme {
         tertiaryContainer = soft, onTertiaryContainer = a.dark,
         background = Color(0xFF101113), onBackground = Color(0xFFE3E4E6),
         surface = Color(0xFF101113), onSurface = Color(0xFFE3E4E6),
-        surfaceVariant = Color(0xFF1F2024), onSurfaceVariant = Color(0xFF8A8F98),
+        surfaceVariant = Color(0xFF1F2024), onSurfaceVariant = Color(0xFFA3A8B0),
         surfaceContainerLowest = Color(0xFF0C0D0E), surfaceContainerLow = Color(0xFF151618),
         surfaceContainer = Color(0xFF0C0D0E), surfaceContainerHigh = Color(0xFF1C1D21), surfaceContainerHighest = Color(0xFF26272C),
         surfaceBright = Color(0xFF26272C), surfaceDim = Color(0xFF0C0D0E),
-        outline = Color(0xFF3A3C43), outlineVariant = Color(0xFF26282D),
+        outline = Color(0xFF686B73), outlineVariant = Color(0xFF26282D),
         error = Color(0xFFEB5757), onError = Color(0xFF1B0B0B), errorContainer = Color(0xFF3A1717), onErrorContainer = Color(0xFFF5B4B4),
         inverseSurface = Color(0xFFE3E4E6), inverseOnSurface = Color(0xFF151618), inversePrimary = a.light,
     )

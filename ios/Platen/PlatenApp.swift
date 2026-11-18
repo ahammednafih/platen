@@ -22,6 +22,7 @@ struct PlatenApp: App {
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @State private var showDevice = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var model = model
@@ -43,10 +44,11 @@ struct RootView: View {
             if let m = model.message {
                 Toast(text: m)
                     .padding(.bottom, model.tab == .scan && model.session != nil ? 170 : 96)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                     .onTapGesture { model.message = nil }
                     .task(id: m) {
-                        try? await Task.sleep(for: .seconds(3.5))
+                        announce(m)
+                        try? await Task.sleep(for: .seconds(UIAccessibility.isVoiceOverRunning ? 7 : 3.5))
                         withAnimation { model.message = nil }
                     }
             }

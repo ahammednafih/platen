@@ -1,5 +1,21 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,7 +78,7 @@ fun PageViewer(pages: List<String>, start: Int, onClose: () -> Unit) {
             ZoomableImage({ thumbnail(pages[i], ViewerCache.WIDTH) }, pages[i], onZoomChange = { if (i == pager.currentPage) zoomed = it })
         }
     }) {
-        Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
     }
 }
 
@@ -159,7 +175,7 @@ fun PdfCompare(files: List<String>, start: Int, onClose: () -> Unit) {
     }) {
         Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Choice(listOf(0 to "Original", 1 to "Shrunk"), shown, { shown = it }, Modifier.width(260.dp))
-            Text("Page ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            Text("Page ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
         }
     }
 }
@@ -174,7 +190,7 @@ fun FilePagesViewer(pages: List<Pair<java.io.File, Int>>, start: Int, onClose: (
             ZoomableImage({ load(file, page, ViewerCache.WIDTH) }, "${file.path}/$page", onZoomChange = { if (i == pager.currentPage) zoomed = it })
         }
     }) {
-        Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        Text("Page ${pager.currentPage + 1} of ${pages.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
     }
 }
 
@@ -187,7 +203,7 @@ fun SheetsViewer(count: Int, start: Int, render: (Int) -> android.graphics.Bitma
             ZoomableImage({ render(i) }, "sheet/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
         }
     }) {
-        Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
     }
 }
 

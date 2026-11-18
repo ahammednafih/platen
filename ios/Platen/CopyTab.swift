@@ -130,8 +130,10 @@ struct CopyTab: View {
                 .pickerStyle(.segmented)
                 VStack(alignment: .leading) {
                     let d = Int(density)
-                    Text("Density: \(d > 0 ? "+\(d) darker" : d < 0 ? "\(d) lighter" : "normal")")
-                    Slider(value: $density, in: -3...3, step: 1)
+                    let spoken = d > 0 ? "+\(d) darker" : d < 0 ? "\(d) lighter" : "normal"
+                    Text("Density: \(spoken)").accessibilityHidden(true)
+                    Slider(value: $density, in: -3...3, step: 1) { Text("Density") }
+                        .accessibilityValue(spoken)
                 }
                 .sensoryFeedback(.selection, trigger: density)
                 Picker("Background", selection: $background) {
@@ -184,9 +186,12 @@ struct CopyTab: View {
                         }
                     }
                     .animation(.spring(duration: 0.3), value: step)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Step \(step + 1) of \(kind.steps.count)")
                 }
                 Text(kind.steps[min(step, kind.steps.count - 1)].0).font(.title3.weight(.semibold))
                     .contentTransition(.opacity)
+                    .onChange(of: step) { if step > 0 { announce(kind.steps[min(step, kind.steps.count - 1)].0) } }
                 if let busy {
                     BusyPill(label: "\(busy)…") {
                         Button("Stop") {
@@ -206,7 +211,7 @@ struct CopyTab: View {
                         if step > 0 { Button("Start over") { reset() } }
                     }
                 }
-                if let log { Text(log).font(.subheadline).foregroundStyle(.secondary) }
+                if let log { Text(log).font(.subheadline).foregroundStyle(.secondary).onAppear { announce(log) } }
             }
             .padding(20)
         }

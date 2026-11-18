@@ -1,5 +1,21 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -175,23 +191,24 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
 
     val tick = rememberTick()
     val modes: @Composable ColumnScope.() -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CopyKind.entries.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
                         val on = kind == k
                         Surface(
-                            onClick = { if (busy == null && kind != k) { tick(); kind = k; log = null; reset() } },
                             shape = MaterialTheme.shapes.large,
                             color = if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
                             border = if (on) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).clip(MaterialTheme.shapes.large).selectable(on, role = Role.RadioButton) {
+                                if (busy == null && kind != k) { tick(); kind = k; log = null; reset() }
+                            },
                         ) {
                             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 SheetGlyph(k.glyph, active = on, width = 30.dp)
                                 Column {
                                     Text(k.title, style = MaterialTheme.typography.titleMedium)
-                                    Text(k.short, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                                    Text(k.short, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -205,14 +222,14 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
         GlassBed(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (kind.steps.size > 1) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.semantics { contentDescription = "Step ${step + 1} of ${kind.steps.size}" }, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         kind.steps.indices.forEach { i ->
                             Box(Modifier.size(width = if (i == step) 28.dp else 10.dp, height = 10.dp).clip(CircleShape).background(if (i <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
                         }
                     }
                 }
                 AnimatedContent(step to kind, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "step") { (st, k) ->
-                    Text(k.steps[st].first, style = MaterialTheme.typography.titleLarge)
+                    Text(k.steps[st].first, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 }
                 AnimatedContent(busy, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "busy") { b ->
                     if (b != null) {
@@ -234,7 +251,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
                         }
                     }
                 }
-                log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
             }
         }
     }
@@ -254,7 +271,7 @@ fun CopyTab(model: AppModel, state: AppState, padding: PaddingValues) {
             Stepper("Copies", copies, 1..99) { copies = it }
             Labeled("Colour") { Choice(listOf(false to "Black and white", true to "Colour"), color, { color = it }) }
             Labeled("Density: ${if (density > 0) "+$density darker" else if (density < 0) "$density lighter" else "normal"}") {
-                Slider(density.toFloat(), { v -> val d = Math.round(v); if (d != density) tick(); density = d }, valueRange = -3f..3f, steps = 5)
+                Slider(density.toFloat(), { v -> val d = Math.round(v); if (d != density) tick(); density = d }, valueRange = -3f..3f, steps = 5, modifier = Modifier.semantics { contentDescription = "Density" })
             }
             Labeled("Background") { Choice(listOf(0 to "Keep", 1 to "Low", 2 to "Medium", 3 to "High"), background, { background = it }) }
         }

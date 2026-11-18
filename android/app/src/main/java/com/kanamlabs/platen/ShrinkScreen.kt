@@ -1,5 +1,17 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -175,9 +187,10 @@ fun ShrinkScreen(model: AppModel, file: File, folder: String?, onClose: () -> Un
                     Box(
                         Modifier.combinedClickable(
                             onClick = { tick(); skip = if (out) skip - i else skip + i; discard() },
+                            onClickLabel = if (out) "Keep" else "Leave out",
                             onLongClick = { click(); viewing = i },
                             onLongClickLabel = "View page ${i + 1}",
-                        ),
+                        ).semantics { role = Role.Checkbox; toggleableState = ToggleableState(!out); stateDescription = if (out) "Left out" else "Kept" },
                     ) {
                         Paper(Modifier.fillMaxWidth().aspectRatio(0.72f).graphicsLayer { alpha = if (out) 0.3f else 1f }) {
                             FileImage(file.path, 240, "Page ${i + 1}", Modifier.fillMaxSize(), page = i)

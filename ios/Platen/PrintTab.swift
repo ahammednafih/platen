@@ -167,7 +167,9 @@ struct PrintTab: View {
                             }
                             .onLongPressGesture { viewing = i }
                             .accessibilityAddTraits(.isButton)
-                            .accessibilityLabel("Page \(i + 1), \(on ? "picked" : "left out")")
+                            .accessibilityLabel("Page \(i + 1)")
+                            .accessibilityValue(on ? "Will print" : "Left out")
+                            .accessibilityAddTraits(on ? .isSelected : [])
                             .accessibilityAction(named: "View") { viewing = i }
                         }
                     }
@@ -232,7 +234,7 @@ struct PrintTab: View {
                 PaperSection(caps: model.printCaps, media: $media, quality: $quality, mediaType: $mediaType)
                 if model.printCaps?.borderless == true { Toggle("Borderless (to the edges of the paper)", isOn: $borderless) }
             }
-            if let log { Section { Text(log).foregroundStyle(.secondary) } }
+            if let log { Section { Text(log).foregroundStyle(.secondary).onAppear { announce(log) } } }
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) { printBar.padding(.horizontal, 16).padding(.bottom, 8) }

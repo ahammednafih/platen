@@ -1,5 +1,13 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.animation.AnimatedContent
@@ -119,7 +127,7 @@ fun Paper(modifier: Modifier = Modifier, fresh: Boolean = false, content: @Compo
 @Composable
 fun Section(title: String? = null, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        title?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp)) }
+        title?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp).semantics { heading() }) }
         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
         }
@@ -128,9 +136,9 @@ fun Section(title: String? = null, modifier: Modifier = Modifier, content: @Comp
 
 @Composable
 fun BusyPill(label: String, modifier: Modifier = Modifier, trailing: @Composable () -> Unit = {}) {
-    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = modifier) {
+    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
         Row(Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LoadingIndicator(Modifier.size(36.dp), color = MaterialTheme.colorScheme.inverseOnSurface)
+            LoadingIndicator(Modifier.size(36.dp).clearAndSetSemantics {}, color = MaterialTheme.colorScheme.inverseOnSurface)
             Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp))
             trailing()
         }
@@ -218,14 +226,15 @@ fun InkTank(name: String, level: Int, modifier: Modifier = Modifier) {
     LaunchedEffect(level) { fill.animateTo(level.coerceIn(0, 100) / 100f, spring(stiffness = Spring.StiffnessVeryLow)) }
     val color = inkColor(name, MaterialTheme.colorScheme.surface.luminance() < 0.3f)
     val track = MaterialTheme.colorScheme.surfaceContainerHigh
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val spoken = "${name.replaceFirstChar { it.uppercase() }} ink, ${if (level < 0) "level unknown" else "$level percent"}"
+    Column(modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(Modifier.size(40.dp, 96.dp)) {
             val r = CornerRadius(12.dp.toPx())
             drawRoundRect(track, cornerRadius = r)
             val h = size.height * fill.value
             drawRoundRect(color, Offset(0f, size.height - h), Size(size.width, h), r)
         }
-        Text("${level.coerceAtLeast(0)}%", style = MaterialTheme.typography.labelLarge)
+        Text(if (level < 0) "?" else "$level%", style = MaterialTheme.typography.labelLarge)
         Text(name.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
@@ -248,17 +257,19 @@ fun Stepper(label: String, value: Int, range: IntRange, onChange: (Int) -> Unit)
             onClick = { tick(); onChange(value - 1) },
             enabled = value > range.first,
             shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.semantics { contentDescription = "Fewer, $label" },
         ) { Text("−", style = MaterialTheme.typography.titleLarge) }
         AnimatedContent(value, transitionSpec = {
             val up = targetState > initialState
             (slideInVertically { if (up) it else -it } + fadeIn()) togetherWith (slideOutVertically { if (up) -it else it } + fadeOut())
         }, label = "stepper") { v ->
-            Text("$v", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, modifier = Modifier.width(56.dp))
+            Text("$v", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 56.dp).semantics { liveRegion = LiveRegionMode.Polite; contentDescription = "$label $v" })
         }
         FilledTonalIconButton(
             onClick = { tick(); onChange(value + 1) },
             enabled = value < range.last,
             shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.semantics { contentDescription = "More, $label" },
         ) { Text("+", style = MaterialTheme.typography.titleLarge) }
     }
 }
@@ -278,7 +289,7 @@ fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
 fun LowInk(state: AppState) {
     val low = state.status?.printer?.ink?.filter { it.level in 0..15 }.orEmpty()
     AnimatedVisibility(low.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 low.forEach { Box(Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(inkColor(it.name, false))) }
                 Text(
@@ -295,7 +306,7 @@ fun PrinterSheet(model: AppModel, state: AppState, onSettings: () -> Unit, onDis
     val tick = rememberTick()
     var renaming by remember { mutableStateOf<SavedPrinter?>(null) }
     Sheet(onDismiss) {
-        Text("Printers", style = MaterialTheme.typography.headlineSmall)
+        Text("Printers", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
         if (state.printers.isEmpty()) Text("No printers saved yet. Look for one on this Wi-Fi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         state.printers.forEach { p ->
             val current = p.base == state.current
@@ -303,6 +314,7 @@ fun PrinterSheet(model: AppModel, state: AppState, onSettings: () -> Unit, onDis
                 onClick = { if (!current) { tick(); model.usePrinter(p); onDismiss() } },
                 shape = MaterialTheme.shapes.large,
                 color = if (current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.semantics { selected = current },
             ) {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -336,7 +348,7 @@ fun PrinterSheet(model: AppModel, state: AppState, onSettings: () -> Unit, onDis
 @Composable
 fun OptionGroup(title: String?, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        title?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp)) }
+        title?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp).semantics { heading() }) }
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow), content = content)
     }
 }

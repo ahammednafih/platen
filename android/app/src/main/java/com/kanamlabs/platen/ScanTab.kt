@@ -1,5 +1,20 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -133,7 +148,7 @@ private fun StartPane(model: AppModel, state: AppState, padding: PaddingValues) 
         Text("Put a page on the glass", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
     }
     val start: @Composable () -> Unit = {
-        OutlinedTextField(name, { name = it }, placeholder = { Text("Name this scan (optional)") }, singleLine = true, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(name, { name = it }, label = { Text("Name this scan (optional)") }, singleLine = true, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
         Button(
             onClick = { model.newScan(name.ifBlank { null }); name = "" },
             shapes = ButtonDefaults.shapes(),
@@ -147,7 +162,7 @@ private fun StartPane(model: AppModel, state: AppState, padding: PaddingValues) 
     }
     val drafts: LazyListScope.() -> Unit = {
         if (state.drafts.isNotEmpty()) {
-            item { Text("Pick up where you left off", style = MaterialTheme.typography.titleMedium, modifier = Modifier.readable().padding(start = 4.dp, top = 8.dp)) }
+            item { Text("Pick up where you left off", style = MaterialTheme.typography.titleMedium, modifier = Modifier.readable().padding(start = 4.dp, top = 8.dp).semantics { heading() }) }
             items(state.drafts, key = { it.name }) { d -> DraftRow(model, d.name, d.pages.toInt(), d.modified.toLong(), Modifier.readable()) }
         }
     }
@@ -247,6 +262,8 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
                         PageSheet(
                             i, p, fresh = p.file == state.fresh, dropHere = dragTo == i && dragFrom != i,
                             onOpen = { viewing = i }, onTools = { click(); tools = i },
+                            onMove = { to -> if (to in session.pages.indices) { model.movePage(i, to); click() } },
+                            last = session.pages.lastIndex,
                             modifier = (if (lifted) Modifier.zIndex(1f) else Modifier.animateItem())
                                 .graphicsLayer {
                                     if (lifted) {
@@ -289,7 +306,7 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
             }
         }
         AnimatedVisibility(state.top != null && state.busy == null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.padding(horizontal = 16.dp)) {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.padding(horizontal = 16.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Top half done", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Text("Turn the page around so the bottom is on the glass, bottom edge against the far edge. Leave a few centimetres of overlap.", style = MaterialTheme.typography.bodyMedium)
@@ -306,6 +323,7 @@ private fun SessionPane(model: AppModel, state: AppState, padding: PaddingValues
             floatingActionButton = {
                 FloatingToolbarDefaults.VibrantFloatingActionButton(
                     onClick = { if (idle && state.device != null) model.scan() },
+                    modifier = Modifier.semantics { if (!idle || state.device == null) disabled() },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {
@@ -361,10 +379,16 @@ private fun SettingsChips(state: AppState, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PageSheet(index: Int, p: Page, fresh: Boolean, dropHere: Boolean, onOpen: () -> Unit, onTools: () -> Unit, modifier: Modifier = Modifier) {
+private fun PageSheet(index: Int, p: Page, fresh: Boolean, dropHere: Boolean, onOpen: () -> Unit, onTools: () -> Unit, onMove: (Int) -> Unit, last: Int, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
             onClick = onOpen,
+            modifier = Modifier.semantics {
+                customActions = listOfNotNull(
+                    CustomAccessibilityAction("Move earlier") { onMove(index - 1); true }.takeIf { index > 0 },
+                    CustomAccessibilityAction("Move later") { onMove(index + 1); true }.takeIf { index < last },
+                )
+            },
             color = androidx.compose.ui.graphics.Color.Transparent,
             border = if (dropHere) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
             shape = RoundedCornerShape(6.dp),
@@ -407,7 +431,7 @@ private fun ScanSettingsSheet(model: AppModel, state: AppState, onDismiss: () ->
     val modes = state.caps?.modes?.takeIf { it.isNotEmpty() } ?: ColorMode.entries
     Sheet(onDismiss) {
         run {
-            Text("Scan settings", style = MaterialTheme.typography.headlineSmall)
+            Text("Scan settings", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             Labeled("Presets") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     state.presets.forEach { p ->
@@ -455,7 +479,7 @@ private fun ExportSheet(model: AppModel, onDismiss: () -> Unit) {
     var limit by remember { mutableStateOf(saved.maxMb?.toString() ?: "") }
     Sheet(onDismiss) {
         run {
-            Text("Export", style = MaterialTheme.typography.headlineSmall)
+            Text("Export", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             Text("Saves to ${model.saveFolder.label}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Section {
                 Check("Colour PDF", "Full quality, as scanned", opts.color) { opts = opts.copy(color = it) }
@@ -525,6 +549,7 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onDone: (S
         text = {
             OutlinedTextField(
                 name, { name = it },
+                label = { Text("Name") },
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

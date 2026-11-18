@@ -104,7 +104,7 @@ struct ShrinkView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Keep it under").font(.headline)
+                    Text("Keep it under").font(.headline).accessibilityAddTraits(.isHeader)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(limits, id: \.0) { mb, label in
@@ -138,6 +138,10 @@ struct ShrinkView: View {
                                 discard()
                             }
                             .onLongPressGesture { viewing = i }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Page \(i + 1)")
+                            .accessibilityValue(out ? "Left out" : "Kept")
+                            .accessibilityHint(out ? "Double-tap to keep it" : "Double-tap to leave it out")
                             .accessibilityAddTraits(.isButton)
                             .accessibilityAction(named: "View") { viewing = i }
                         }
@@ -230,6 +234,7 @@ struct ShrinkView: View {
         .buttonStyle(.bordered)
         .buttonBorderShape(.capsule)
         .tint(on ? .accentColor : .secondary)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func discard() {

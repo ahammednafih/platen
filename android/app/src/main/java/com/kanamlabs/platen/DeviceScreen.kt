@@ -1,5 +1,17 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -213,7 +225,7 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
         var visible by remember { mutableStateOf(false) }
         Sheet({ askPassword = false; wrong = false }) {
             run {
-                Text("Printer password", style = MaterialTheme.typography.headlineSmall)
+                Text("Printer password", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
                 Text("The admin password for the printer's web page. It's kept encrypted on this phone.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     password, { password = it; wrong = false },
@@ -280,11 +292,17 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
             state.printers.forEach { p ->
                 val current = p.base == state.current
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    RadioButton(selected = current, onClick = { if (!current) { tick(); model.usePrinter(p) } })
+                    Row(
+                        Modifier.weight(1f).clip(MaterialTheme.shapes.small).selectable(current, role = Role.RadioButton) { if (!current) { tick(); model.usePrinter(p) } },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                    RadioButton(selected = current, onClick = null)
                     Column(Modifier.weight(1f)) {
                         Text(p.label, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                         if (p.nickname != null) Text(p.model, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         Text(p.base.substringAfter("//").substringBefore('/').substringBefore(':'), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
                     }
                     IconButton(onClick = { renaming = p }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.Edit, contentDescription = "Rename ${p.label}") }
                     IconButton(onClick = { model.forgetPrinter(p) }, shapes = IconButtonDefaults.shapes()) {
@@ -369,7 +387,7 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
                 FilledTonalButton(onClick = { tick(); ask(HeadAction.Clean) }, enabled = host != null && !headBusy, shapes = ButtonDefaults.shapes()) { Text("Clean print head") }
                 if (headBusy) LoadingIndicator(Modifier.size(32.dp))
             }
-            headNote?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            headNote?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         }
 
         }
@@ -400,11 +418,11 @@ fun DeviceScreen(model: AppModel, state: AppState, onBack: () -> Unit) {
         }
 
         Section("Accent colour") {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Accent.entries.forEach { a ->
                     val dark = isSystemInDarkTheme()
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Surface(onClick = { tick(); model.setAccent(a) }, shape = CircleShape, color = Color.Transparent) {
+                        Surface(shape = CircleShape, color = Color.Transparent, modifier = Modifier.clip(CircleShape).selectable(state.accent == a, role = Role.RadioButton) { tick(); model.setAccent(a) }.semantics { contentDescription = a.label }) {
                             Swatch(if (a == Accent.Wallpaper) MaterialTheme.colorScheme.primary.takeIf { state.accent == a } ?: (if (dark) a.dark else a.light) else if (dark) a.dark else a.light, selected = state.accent == a)
                         }
                     }

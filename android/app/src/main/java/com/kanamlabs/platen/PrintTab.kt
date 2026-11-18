@@ -1,5 +1,21 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -192,7 +208,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
             GlassBed(Modifier.readable()) {
                 Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     SheetGlyph(Glyph.Empty, active = false, width = 72.dp)
-                    Text("Print PDFs and photos", style = MaterialTheme.typography.headlineSmall)
+                    Text("Print PDFs and photos", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
                     Text("Pick pages by tapping them, put several on a sheet, or print both sides by hand.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     Button(
                         onClick = { pick.launch(arrayOf("application/pdf", "image/jpeg", "image/png")) },
@@ -243,9 +259,10 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                                 Box(
                                     Modifier.combinedClickable(
                                         onClick = { tick(); setSel(sel.toMutableList().also { it[i] = !on }) },
+                                        onClickLabel = if (on) "Leave out" else "Print",
                                         onLongClick = { click(); viewing = i },
                                         onLongClickLabel = "View page ${i + 1}",
-                                    ),
+                                    ).semantics { role = Role.Checkbox; toggleableState = ToggleableState(on); stateDescription = if (on) "Will print" else "Left out" },
                                 ) {
                                     Paper(Modifier.size(84.dp, 116.dp).graphicsLayer { alpha = if (on) 1f else 0.35f }) {
                                         FileImage(p.file.path, 200, "Page ${i + 1}", Modifier.fillMaxSize(), page = p.index)
@@ -258,8 +275,8 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     FilterChip(selected = sel.all { it }, onClick = { tick(); setSel(pages.map { true }) }, label = { Text("All") })
-                    FilterChip(selected = false, onClick = { tick(); setSel(pages.indices.map { it % 2 == 0 }) }, label = { Text("Odd") })
-                    FilterChip(selected = false, onClick = { tick(); setSel(pages.indices.map { it % 2 == 1 }) }, label = { Text("Even") })
+                    FilterChip(selected = sel == pages.indices.map { it % 2 == 0 }, onClick = { tick(); setSel(pages.indices.map { it % 2 == 0 }) }, label = { Text("Odd") })
+                    FilterChip(selected = sel == pages.indices.map { it % 2 == 1 }, onClick = { tick(); setSel(pages.indices.map { it % 2 == 1 }) }, label = { Text("Even") })
                 }
                 OutlinedTextField(ranges, { text ->
                     ranges = text
@@ -280,7 +297,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                                     onClick = { click(); viewingSheet = i },
                                     onLongClick = { click(); viewingSheet = i },
                                     onClickLabel = "View sheet ${i + 1}",
-                                ),
+                                ).semantics { contentDescription = "Sheet ${i + 1}" },
                             ) {
                                 b?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
                             }
@@ -305,7 +322,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                 PaperAndQuality(state, media, { media = it }, quality, { quality = it }, mediaType, { mediaType = it })
                 if (state.printCaps?.borderless == true) Toggle("Borderless (to the edges of the paper)", borderless) { borderless = it }
             }
-            log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            log?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         }
         val printBar: @Composable () -> Unit = {
             AnimatedContent(busy, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "print") { b ->

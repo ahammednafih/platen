@@ -93,7 +93,7 @@ private struct CropView: View {
                         }
                     }
                 }
-                if let note { Text(note).font(.footnote).foregroundStyle(.secondary) }
+                if let note { Text(note).font(.footnote).foregroundStyle(.secondary).onAppear { announce(note) } }
                 ZStack {
                     if let image { Image(uiImage: image).resizable() }
                     CropOverlay(rect: $rect) { picked = "Custom" }
@@ -127,6 +127,7 @@ private struct CropView: View {
         .buttonStyle(.bordered)
         .buttonBorderShape(.capsule)
         .tint(picked == name ? .accentColor : .secondary)
+        .accessibilityAddTraits(picked == name ? .isSelected : [])
     }
 
     private func auto() {
@@ -226,12 +227,14 @@ private struct LevelsView: View {
             }
             Section {
                 VStack(alignment: .leading) {
-                    Text("Brightness \(Int((brightness * 100).rounded()))%")
-                    Slider(value: $brightness, in: 0.5...1.5)
+                    Text("Brightness \(Int((brightness * 100).rounded()))%").accessibilityHidden(true)
+                    Slider(value: $brightness, in: 0.5...1.5) { Text("Brightness") }
+                        .accessibilityValue("\(Int((brightness * 100).rounded())) percent")
                 }
                 VStack(alignment: .leading) {
-                    Text("Contrast \(Int((contrast * 100).rounded()))%")
-                    Slider(value: $contrast, in: 0.5...2)
+                    Text("Contrast \(Int((contrast * 100).rounded()))%").accessibilityHidden(true)
+                    Slider(value: $contrast, in: 0.5...2) { Text("Contrast") }
+                        .accessibilityValue("\(Int((contrast * 100).rounded())) percent")
                 }
                 Button("Reset") {
                     brightness = 1
@@ -297,6 +300,7 @@ struct ImageCropView: View {
                             .buttonStyle(.bordered)
                             .buttonBorderShape(.capsule)
                             .tint(aspect == a.0 ? .accentColor : .secondary)
+                            .accessibilityAddTraits(aspect == a.0 ? .isSelected : [])
                         }
                     }
                     if let image {

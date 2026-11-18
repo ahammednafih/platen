@@ -62,7 +62,7 @@ private struct StartPane: View {
                 }
                 .padding(.bottom, 8)
                 if !model.drafts.isEmpty {
-                    Text("Pick up where you left off").font(.headline).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4)
+                    Text("Pick up where you left off").font(.headline).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4).accessibilityAddTraits(.isHeader)
                     ForEach(model.drafts, id: \.name) { DraftRow(draft: $0) }
                 }
             }
@@ -86,31 +86,35 @@ private struct DraftRow: View {
     @State private var cover: String?
 
     var body: some View {
-        Button { model.newScan(draft.name) } label: {
-            HStack(spacing: 16) {
-                Group {
-                    if let cover {
-                        Paper { FileImage(path: cover, width: 160, fill: true) }
-                    } else {
-                        SheetGlyph(kind: .empty, width: 52)
+        HStack(spacing: 16) {
+            Button { model.newScan(draft.name) } label: {
+                HStack(spacing: 16) {
+                    Group {
+                        if let cover {
+                            Paper { FileImage(path: cover, width: 160, fill: true) }
+                        } else {
+                            SheetGlyph(kind: .empty, width: 52)
+                        }
                     }
+                    .frame(width: 52, height: 70)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(draft.name).font(.headline).lineLimit(2)
+                        Text("\(plural(Int(draft.pages), "page")), \(Date(timeIntervalSince1970: TimeInterval(draft.modified)).formatted(date: .abbreviated, time: .shortened))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(width: 52, height: 70)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(draft.name).font(.headline).lineLimit(1)
-                    Text("\(plural(Int(draft.pages), "page")), \(Date(timeIntervalSince1970: TimeInterval(draft.modified)).formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                Button("Delete draft \(draft.name)", systemImage: "trash", role: .destructive) { model.deleteDraft(draft.name) }
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(.secondary)
+                .contentShape(.rect)
             }
-            .padding(12)
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 20))
-            .contentShape(.rect)
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the draft")
+            Button("Delete draft \(draft.name)", systemImage: "trash", role: .destructive) { model.deleteDraft(draft.name) }
+                .labelStyle(.iconOnly)
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 44, minHeight: 44)
         }
-        .buttonStyle(.plain)
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 20))
         .task(id: draft.pages) { cover = firstPage() }
     }
 
@@ -149,7 +153,9 @@ private struct SessionPane: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 20)], spacing: 20) {
                             ForEach(Array(session.pages.enumerated()), id: \.element.file) { i, p in
                                 PageCell(index: i, page: p, fresh: p.file == model.fresh, dropHere: dropTarget == i,
-                                         onOpen: { viewing = i }, onTools: { tools = i })
+                                         onOpen: { viewing = i }, onTools: { tools = i },
+                                         onMove: i > 0 || i < session.pages.count - 1 ? { to in model.movePage(i, to) } : nil,
+                                         last: session.pages.count - 1)
                                     .draggable(p.file) {
                                         Paper { FileImage(path: p.path, width: 200) }.frame(width: 100, height: 140)
                                     }
@@ -200,9 +206,12 @@ private struct Controls: View {
     @State private var picking = false
     @State private var pickingPhotos = false
     @State private var photos: [PhotosPickerItem] = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .title3) private var side: CGFloat = 48
 
     var body: some View {
         let session = model.session
+        let slide: AnyTransition = reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
         let idle = model.busy == nil && model.top == nil
         let hasPages = !(session?.pages.isEmpty ?? true)
         VStack(spacing: 12) {
@@ -211,7 +220,7 @@ private struct Controls: View {
                     if busy.hasPrefix("Scanning") { Button("Cancel") { model.cancelScan() }.fontWeight(.semibold) }
                 }
                 .padding(.horizontal, 16)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(slide)
             }
             if model.top != nil, model.busy == nil {
                 VStack(alignment: .leading, spacing: 12) {
@@ -226,7 +235,8 @@ private struct Controls: View {
                 .padding(16)
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
                 .padding(.horizontal, 16)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(slide)
+                .onAppear { announce("Top half done. Turn the page around and scan the bottom half.") }
             }
             GlassEffectContainer {
                 HStack(spacing: 4) {
@@ -236,7 +246,7 @@ private struct Controls: View {
                         Button("Files", systemImage: "folder") { picking = true }
                         Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
                     } label: {
-                        Image(systemName: "doc.badge.plus").font(.title3).frame(width: 48, height: 48)
+                        Image(systemName: "doc.badge.plus").font(.title3).frame(width: side, height: side)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(idle ? Color.primary : Color.secondary.opacity(0.5))
@@ -245,7 +255,7 @@ private struct Controls: View {
                     Button {
                         if idle, model.device != nil { model.scan() }
                     } label: {
-                        Image(systemName: "doc.viewfinder").font(.title2.weight(.semibold)).frame(width: 64, height: 52)
+                        Image(systemName: "doc.viewfinder").font(.title2.weight(.semibold)).frame(width: side * 4 / 3, height: side * 13 / 12)
                     }
                     .prominent(glass: true)
                     .disabled(!idle || model.device == nil)
@@ -282,7 +292,7 @@ private struct Controls: View {
     }
 
     private func tool(_ label: String, _ icon: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: icon).font(.title3).frame(width: 48, height: 48) }
+        Button(action: action) { Image(systemName: icon).font(.title3).frame(width: side, height: side) }
             .buttonStyle(.plain)
             .foregroundStyle(enabled ? Color.primary : Color.secondary.opacity(0.5))
             .disabled(!enabled)
@@ -315,6 +325,7 @@ private struct SettingsChips: View {
             .buttonBorderShape(.capsule)
             .tint(.secondary)
             .foregroundStyle(.primary)
+            .accessibilityHint("Opens scan settings")
     }
 }
 
@@ -325,6 +336,8 @@ private struct PageCell: View {
     let dropHere: Bool
     let onOpen: () -> Void
     let onTools: () -> Void
+    let onMove: ((Int) -> Void)?
+    let last: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -335,9 +348,14 @@ private struct PageCell: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Page \(index + 1)")
+            .accessibilityValue("\(page.dpi) dpi")
+            .accessibilityActions {
+                if let onMove, index > 0 { Button("Move earlier") { onMove(index - 1) } }
+                if let onMove, index < last { Button("Move later") { onMove(index + 1) } }
+            }
             HStack(spacing: 6) {
-                Text("\(index + 1)").font(.headline)
-                Text("\(page.dpi) dpi, \(dur(page.secs))").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text("\(index + 1)").font(.headline).accessibilityHidden(true)
+                Text("\(page.dpi) dpi, \(dur(page.secs))").font(.caption2).foregroundStyle(.secondary).lineLimit(1).accessibilityHidden(true)
                 Spacer(minLength: 0)
                 Button("Edit page \(index + 1)", systemImage: "ellipsis.circle", action: onTools)
                     .labelStyle(.iconOnly)
@@ -366,8 +384,12 @@ private struct ScanSettingsSheet: View {
                                     .buttonStyle(.bordered)
                                     .buttonBorderShape(.capsule)
                                     .tint(p.settings == s ? .accentColor : .secondary)
+                                    .accessibilityAddTraits(p.settings == s ? .isSelected : [])
                                     .contextMenu {
                                         if !p.builtin { Button("Delete \(p.name)", systemImage: "trash", role: .destructive) { model.deletePreset(p.name) } }
+                                    }
+                                    .accessibilityActions {
+                                        if !p.builtin { Button("Delete \(p.name)") { model.deletePreset(p.name) } }
                                     }
                             }
                             Button("Save these…", systemImage: "plus") { saving = true }

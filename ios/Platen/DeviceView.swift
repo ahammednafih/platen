@@ -58,6 +58,7 @@ struct DeviceView: View {
                                 Circle().fill(a.color).frame(width: 32, height: 32)
                                     .padding(4)
                                     .overlay(Circle().strokeBorder(Color.primary, lineWidth: model.accent == a ? 2 : 0))
+                                    .frame(minWidth: 44, minHeight: 44)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(a.label)
@@ -128,6 +129,7 @@ struct DeviceView: View {
                         Image(systemName: current ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(current ? Color.accentColor : .secondary)
                             .font(.title3)
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(p.label).font(.headline).lineLimit(1)
                             if p.nickname != nil { Text(p.model).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
@@ -138,6 +140,11 @@ struct DeviceView: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(current ? .isSelected : [])
+                .accessibilityActions {
+                    Button("Rename") { renaming = p }
+                    Button("Forget") { model.forgetPrinter(p) }
+                }
                 .swipeActions {
                     Button("Forget", systemImage: "trash", role: .destructive) { model.forgetPrinter(p) }
                     Button("Rename", systemImage: "pencil") { renaming = p }.tint(.orange)
@@ -180,10 +187,11 @@ struct DeviceView: View {
             }
             .buttonStyle(.plain)
             .disabled(model.host == nil || loading)
+            .accessibilityValue(details == nil ? "" : detailsOpen ? "Shown" : "Hidden")
             if let details, detailsOpen {
                 ForEach(Array(details.enumerated()), id: \.offset) { _, g in
                     if !g.title.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Text(g.title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 6)
+                        Text(g.title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 6).accessibilityAddTraits(.isHeader)
                     }
                     ForEach(Array(g.rows.enumerated()), id: \.offset) { _, r in DetailLine(row: r) }
                 }
@@ -221,7 +229,7 @@ struct DeviceView: View {
                     .disabled(model.host == nil || headBusy)
                 if headBusy { Spacer(); ProgressView() }
             }
-            if let headNote { Text(headNote).font(.subheadline) }
+            if let headNote { Text(headNote).font(.subheadline).onAppear { announce(headNote) } }
         } header: {
             Text("Print head")
         }
@@ -367,6 +375,7 @@ private struct DetailLine: View {
                 .multilineTextAlignment(.trailing)
         }
         .padding(.leading, row.sub ? 16 : 0)
+        .accessibilityElement(children: .combine)
     }
 }
 

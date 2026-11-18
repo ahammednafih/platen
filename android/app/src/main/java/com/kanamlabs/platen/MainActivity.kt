@@ -1,5 +1,21 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -164,11 +180,12 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
                             style = MaterialTheme.typography.headlineSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.semantics { heading() },
                         )
                     },
                     subtitle = {
                         Row(
-                            Modifier.clip(MaterialTheme.shapes.small).clickable { Haptics.tick(view); switching = true }.padding(end = 4.dp),
+                            Modifier.clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "Switch printer") { Haptics.tick(view); switching = true }.padding(end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
@@ -180,7 +197,7 @@ fun AppRoot(model: AppModel, state: AppState, incoming: List<File>, onIncomingTa
                                 maxLines = 1,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch printer", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
                     actions = {

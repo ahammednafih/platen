@@ -18,10 +18,10 @@ enum Accent: String, CaseIterable, Identifiable {
     var color: Color {
         switch self {
         case .ink: Color(light: 0x1C1D1F, dark: 0xE8E6E1)
-        case .magenta: Color(light: 0xC2185B, dark: 0xE0457F)
-        case .orange: Color(light: 0xD9480F, dark: 0xF2703A)
+        case .magenta: Color(light: 0xC2185B, dark: 0xEC6A96)
+        case .orange: Color(light: 0xBF3F0C, dark: 0xF2703A)
         case .teal: Color(light: 0x0F766E, dark: 0x2BB3A3)
-        case .coffee: Color(light: 0x7A4A2A, dark: 0x8B5A3C)
+        case .coffee: Color(light: 0x7A4A2A, dark: 0xB8835D)
         }
     }
 }
@@ -42,7 +42,8 @@ extension Accent {
         case .ink: Color(light: 0xFFFFFF, dark: 0x111214)
         case .orange: Color(light: 0xFFFFFF, dark: 0x1B120C)
         case .teal: Color(light: 0xFFFFFF, dark: 0x04201D)
-        case .magenta, .coffee: .white
+        case .magenta: Color(light: 0xFFFFFF, dark: 0x1A0710)
+        case .coffee: Color(light: 0xFFFFFF, dark: 0x1B120C)
         }
     }
 }
@@ -80,6 +81,11 @@ func inkColor(_ name: String) -> Color {
     if n.contains("magenta") { return Color(hex: 0xD6247D) }
     if n.contains("yellow") { return Color(hex: 0xF2C200) }
     return Color(light: 0x2A2B2E, dark: 0x8E9199)
+}
+
+@MainActor
+func announce(_ text: String) {
+    AccessibilityNotification.Announcement(text).post()
 }
 
 func size(_ bytes: Int64) -> String {
@@ -217,6 +223,7 @@ struct Paper<Content: View>: View {
     var fresh = false
     @ViewBuilder var content: Content
     @State private var dropped = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         content
@@ -224,12 +231,12 @@ struct Paper<Content: View>: View {
             .clipShape(.rect(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-            .scaleEffect(fresh && !dropped ? 0.92 : 1)
+            .scaleEffect(fresh && !dropped && !reduceMotion ? 0.92 : 1)
             .opacity(fresh && !dropped ? 0 : 1)
-            .offset(y: fresh && !dropped ? -24 : 0)
+            .offset(y: fresh && !dropped && !reduceMotion ? -24 : 0)
             .onAppear {
                 guard fresh else { return }
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) { dropped = true }
+                withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 0.6)) { dropped = true }
             }
     }
 }
@@ -262,8 +269,8 @@ struct BusyPill<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ProgressView().tint(.white)
-            Text(label).font(.subheadline.weight(.semibold)).lineLimit(2)
+            ProgressView().tint(.white).accessibilityHidden(true)
+            Text(label).font(.subheadline.weight(.semibold)).lineLimit(3)
             Spacer(minLength: 0)
             trailing.tint(.white)
         }
@@ -272,6 +279,8 @@ struct BusyPill<Trailing: View>: View {
         .padding(.vertical, 10)
         .frame(minHeight: 50)
         .background(Color(white: 0.15), in: .capsule)
+        .onAppear { announce(label) }
+        .onChange(of: label) { announce(label) }
     }
 }
 
@@ -311,12 +320,14 @@ struct InkTank: View {
                 RoundedRectangle(cornerRadius: 12).fill(inkColor(name)).frame(height: 96 * shown)
             }
             .frame(width: 40, height: 96)
-            Text("\(max(0, level))%").font(.subheadline.weight(.semibold))
+            Text(level < 0 ? "?" : "\(level)%").font(.subheadline.weight(.semibold))
             Text(name.capitalized).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name.capitalized) ink")
+        .accessibilityValue(level < 0 ? "Level unknown" : "\(level) percent")
         .onAppear { withAnimation(.spring(duration: 1.2)) { shown = Double(min(max(level, 0), 100)) / 100 } }
         .onChange(of: level) { withAnimation(.spring(duration: 1.2)) { shown = Double(min(max(level, 0), 100)) / 100 } }
-        .accessibilityElement(children: .combine)
     }
 }
 

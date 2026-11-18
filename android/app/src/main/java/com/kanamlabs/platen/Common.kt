@@ -1,5 +1,10 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.selection.selectableGroup
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -39,7 +44,22 @@ import java.io.File
 @Composable
 fun <T> Choice(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val tick = rememberTick()
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
+    // At large font sizes three or more connected buttons split words mid-way, so they wrap as separate buttons instead.
+    if (LocalDensity.current.fontScale > 1.3f && options.size >= 3) {
+        FlowRow(modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { (value, label) ->
+                ToggleButton(
+                    checked = selected == value,
+                    onCheckedChange = { if (selected != value) tick(); onSelect(value) },
+                    enabled = enabled,
+                    colors = ToggleButtonDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+                    modifier = Modifier.semantics { role = Role.RadioButton },
+                ) { Text(label) }
+            }
+        }
+        return
+    }
+    Row(modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         options.forEachIndexed { i, (value, label) ->
             ToggleButton(
                 checked = selected == value,
@@ -53,7 +73,7 @@ fun <T> Choice(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Uni
                 colors = ToggleButtonDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-            ) { Text(label, maxLines = 1) }
+            ) { Text(label, maxLines = 2, textAlign = TextAlign.Center) }
         }
     }
 }
@@ -61,7 +81,7 @@ fun <T> Choice(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Uni
 @Composable
 fun Labeled(label: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { heading() })
         content()
     }
 }

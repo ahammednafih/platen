@@ -1,5 +1,21 @@
 package com.kanamlabs.platen
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -75,7 +91,7 @@ fun PageTools(model: AppModel, page: Page, index: Int, count: Int, onView: () ->
     var levels by remember { mutableStateOf(false) }
     val act = { block: () -> Unit -> block(); onDismiss() }
     Sheet(onDismiss) {
-        Text("Page ${index + 1}", style = MaterialTheme.typography.headlineSmall)
+        Text("Page ${index + 1}", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
         OptionGroup("Page") {
             OptionRow(Icons.Outlined.Visibility, "View", onClick = onView)
             OptionRow(Icons.Outlined.Refresh, "Retake") { act { model.scan(replace = index) } }
@@ -151,7 +167,7 @@ private fun CropDialog(model: AppModel, page: Page, index: Int, onDismiss: () ->
                         )
                     }
                 }
-                note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
                 Box(Modifier.fillMaxWidth().aspectRatio(page.w.toFloat() / page.h.toFloat())) {
                     bitmap?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize()) }
                     CropOverlay(rect) { rect = it; picked = "Custom" }
@@ -243,9 +259,9 @@ private fun LevelsDialog(model: AppModel, page: Page, index: Int, onDismiss: () 
                     )
                 }
                 Text("Brightness ${Math.round(brightness * 100)}%")
-                Slider(brightness, { brightness = it }, valueRange = 0.5f..1.5f)
+                Slider(brightness, { brightness = it }, valueRange = 0.5f..1.5f, modifier = Modifier.semantics { contentDescription = "Brightness" })
                 Text("Contrast ${Math.round(contrast * 100)}%")
-                Slider(contrast, { contrast = it }, valueRange = 0.5f..2f)
+                Slider(contrast, { contrast = it }, valueRange = 0.5f..2f, modifier = Modifier.semantics { contentDescription = "Contrast" })
                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { brightness = 1f; contrast = 1f }, shapes = ButtonDefaults.shapes()) { Text("Reset") }
                 }
