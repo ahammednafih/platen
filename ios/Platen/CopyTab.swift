@@ -74,6 +74,7 @@ func printProgress(_ label: String, into update: @escaping @MainActor (String) -
 
 struct CopyTab: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var kind = CopyKind.one
     @State private var original = SizeId.a4
     @State private var copies = 1
@@ -98,7 +99,7 @@ struct CopyTab: View {
                 Section { LowInkBanner(inks: model.lowInks) }.listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
             }
             Section {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {
                     ForEach(CopyKind.allCases) { k in modeCard(k) }
                 }
                 .padding(.vertical, 4)
@@ -162,7 +163,7 @@ struct CopyTab: View {
                 SheetGlyph(kind: k.glyph, active: on, width: 30)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(k.title).font(.headline)
-                    Text(k.short).font(.caption).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading)
+                    Text(k.short).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 0)
             }

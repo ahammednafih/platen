@@ -15,7 +15,7 @@ struct FilesTab: View {
                     Text(Storage.label).font(.subheadline.weight(.semibold))
                 }
                 Button { pickingPdf = true } label: {
-                    Label("Shrink a PDF", systemImage: "arrow.down.right.and.arrow.up.left")
+                    Label { Text("Shrink a PDF").fixedSize(horizontal: false, vertical: true) } icon: { Image(systemName: "arrow.down.right.and.arrow.up.left") }
                 }
             }
             if model.files.isEmpty {

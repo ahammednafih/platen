@@ -46,7 +46,8 @@ private struct StartPane: View {
                     VStack(spacing: 20) {
                         SheetGlyph(kind: .empty, width: 88).padding(.top, 8)
                         Text("Put a page on the glass").font(.title2.bold()).multilineTextAlignment(.center)
-                        TextField("Name this scan (optional)", text: $name)
+                        TextField("Name (optional)", text: $name)
+                            .accessibilityLabel("Scan name, optional")
                             .textFieldStyle(.plain)
                             .padding(14)
                             .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 14))

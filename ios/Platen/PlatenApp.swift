@@ -108,11 +108,13 @@ struct PrinterMenu: View {
                     Image(systemName: "chevron.down").imageScale(.small)
                 }
                 .font(.caption)
-                .foregroundStyle(.secondary)
             }
             .frame(maxWidth: 240)
         }
         .buttonStyle(.plain)
+        .accessibilityShowsLargeContentViewer {
+            Label("\(title), \(model.device?.name ?? "no printer")", systemImage: "printer")
+        }
         .accessibilityLabel("\(title). Printer: \(model.device?.name ?? "none"). Switch printer")
     }
 }

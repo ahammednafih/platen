@@ -131,8 +131,8 @@ struct DeviceView: View {
                             .font(.title3)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(p.label).font(.headline).lineLimit(1)
-                            if p.nickname != nil { Text(p.model).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                            Text(p.label).font(.headline)
+                            if p.nickname != nil { Text(p.model).font(.caption).foregroundStyle(.secondary) }
                             Text(p.ip).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
