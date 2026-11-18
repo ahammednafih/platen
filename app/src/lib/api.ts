@@ -150,6 +150,18 @@ export function paperName(kw: string): string {
   return named[key] ? `${named[key]}` : dims.replace("x", " × ").replace(/(mm|in)$/, " $1");
 }
 
+export function paperTypeName(kw: string): string {
+  const named: Record<string, string> = {
+    stationery: "Plain", "stationery-inkjet": "Inkjet", "photographic-glossy": "Glossy photo", "photographic-matte": "Matte photo",
+    photographic: "Photo", "photographic-high-gloss": "High-gloss photo", "photographic-semi-gloss": "Semi-gloss photo",
+    envelope: "Envelope", labels: "Labels", cardstock: "Card",
+  };
+  if (named[kw]) return named[kw];
+  if (kw.startsWith("com.") || kw.startsWith("org.")) return "Printer's photo paper";
+  const s = kw.replaceAll("-", " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /** Thumbnail URL for a session image. Edits write new files, so URLs never go stale. */
 export function img(sub: "pages" | "raw", file: string, w = 360): string {
   return `scanimg://localhost/${sub}/${encodeURIComponent(file)}?w=${w}`;

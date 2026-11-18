@@ -3,7 +3,7 @@
   import { onMount, tick } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { api, covered, paperName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
+  import { api, covered, paperName, paperTypeName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
   import SheetViewer from "./SheetViewer.svelte";
 
   let { connected, incoming = null, onreceived = () => {} }: {
@@ -32,6 +32,8 @@
   const clean = $derived(tone === "B&W");
   let media = $state("iso_a4_210x297mm");
   let quality = $state<Quality>("Normal");
+  let mediaType = $state<string | null>(null);
+  let borderless = $state(false);
   let twoSided = $state(false);
 
   let plan = $state<Plan | null>(null);
@@ -55,7 +57,7 @@
   function job(over: Partial<PrintJob> = {}): PrintJob {
     return {
       files: $state.snapshot(files), ranges, subset: "All", reverse, nup, scale, collate, clean,
-      opts: { copies, color, media, scaling: "fit", quality },
+      opts: { copies, color, media, scaling: "fit", quality, media_type: mediaType, borderless: borderless && !!caps?.borderless },
       ...over,
     };
   }
@@ -65,6 +67,7 @@
     api.printCaps().then((c) => {
       caps = c;
       if (!c.media.includes(media)) media = c.media_default;
+      if (mediaType && !c.media_types.includes(mediaType)) mediaType = null;
       if (!c.color && tone === "Colour") tone = "Gray";
     }).catch(() => {});
   });
@@ -101,7 +104,7 @@
   function pagesJob(): PrintJob {
     return {
       files: $state.snapshot(files), ranges: "", subset: "All", reverse: false, nup: 1, scale, collate: true, clean,
-      opts: { copies: 1, color, media, scaling: "fit", quality },
+      opts: { copies: 1, color, media, scaling: "fit", quality, media_type: mediaType, borderless: borderless && !!caps?.borderless },
     };
   }
 
@@ -473,6 +476,17 @@
           <select id="print-media" bind:value={media}>
             {#each papers as m (m)}<option value={m}>{paperName(m)}</option>{/each}
           </select>
+          {#if caps?.media_types.length}
+            <label class="label" for="print-type">Type</label>
+            <select id="print-type" bind:value={mediaType}>
+              <option value={null}>Printer default</option>
+              {#each caps.media_types as t (t)}<option value={t}>{paperTypeName(t)}</option>{/each}
+            </select>
+          {/if}
+          {#if caps?.borderless}
+            <span class="label">Edges</span>
+            <label class="check"><input type="checkbox" bind:checked={borderless} /> Borderless</label>
+          {/if}
           <span class="label" id="print-tone">Colour</span>
           <Seg aria-labelledby="print-tone" value={tone} onchange={(v) => (tone = v)}
             options={[

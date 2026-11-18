@@ -3,7 +3,7 @@
   import { onDestroy } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { Radio, RadioGroup } from "@ui-sdk/svelte/radio";
-  import { api, covered, DEFAULT_SIZES, fileImg, paperName, type PrintCaps, type PrintJob, type Quality, type Scale, type Size, type SizeId, type TopHalf } from "./api";
+  import { api, covered, DEFAULT_SIZES, fileImg, paperName, paperTypeName, type PrintCaps, type PrintJob, type Quality, type Scale, type Size, type SizeId, type TopHalf } from "./api";
 
   let { connected }: { connected: boolean } = $props();
 
@@ -48,6 +48,7 @@
   let pct = $state(100);
   let media = $state("iso_a4_210x297mm");
   let quality = $state<Quality>("Normal");
+  let mediaType = $state<string | null>(null);
   let density = $state(0);
   let background = $state(0);
 
@@ -83,6 +84,7 @@
     api.printCaps().then((c) => {
       caps = c;
       if (!c.media.includes(media)) media = c.media_default;
+      if (mediaType && !c.media_types.includes(mediaType)) mediaType = null;
     }).catch(() => {});
   });
 
@@ -149,7 +151,7 @@
       busy = "Printing";
       const job: PrintJob = {
         files, ranges: "", subset: "All", reverse: false, nup: kind === "twoInOne" ? 2 : 1, scale, collate: true,
-        opts: { copies, color, media, scaling: "fit", quality },
+        opts: { copies, color, media, scaling: "fit", quality, media_type: mediaType },
       };
       await api.print(job);
       log = { ok: true, text: `Sent ${copies} ${copies === 1 ? "copy" : "copies"} to the printer.` };
@@ -280,6 +282,13 @@
           <select id="copy-media" bind:value={media}>
             {#each papers as m (m)}<option value={m}>{paperName(m)}</option>{/each}
           </select>
+          {#if caps?.media_types.length}
+            <label class="label" for="copy-type">Type</label>
+            <select id="copy-type" bind:value={mediaType}>
+              <option value={null}>Printer default</option>
+              {#each caps.media_types as t (t)}<option value={t}>{paperTypeName(t)}</option>{/each}
+            </select>
+          {/if}
           <span class="label" id="copy-quality">Quality</span>
           <Seg aria-labelledby="copy-quality" value={quality} onchange={(v) => (quality = v)} options={qualities.map((q) => ({ value: q, label: q }))} />
         </div>
