@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { tick, untrack } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, covered, dur, img, mm, type Edit, type PageResult, type SessionView } from "./api";
   import AdjustDialog from "./AdjustDialog.svelte";
   import CropDialog from "./CropDialog.svelte";
   import LongPageWizard from "./LongPageWizard.svelte";
   import Lightbox from "./Lightbox.svelte";
+  import { Toolbar, ToolbarButton, ToolbarGroup } from "@ui-sdk/svelte/toolbar";
 
   let { session = $bindable(), connected, press = null, onpressed = () => {}, onprint = () => {}, onexport, onclose }: {
     session: SessionView;
@@ -54,6 +55,8 @@
     specks: svg("M3 3.5h.01 M12.5 5h.01 M5 12.5h.01 M10 11h.01 M7.5 7.5h.01 M13 13h.01 M2.5 8.5h.01"),
     bw: svg("M8 2.5a5.5 5.5 0 1 0 0 11z M8 2.5a5.5 5.5 0 0 1 0 11"),
     trash: svg("M3 4.5h10 M6.5 4.5V3h3v1.5 M4.4 4.5l.6 9h6l.6-9"),
+    earlier: svg("M9.5 3.5 5 8l4.5 4.5"),
+    later: svg("M6.5 3.5 11 8l-4.5 4.5"),
   };
 
   const insertAt = $derived(selected === null ? undefined : selected + 1);
@@ -128,6 +131,16 @@
     if (!s) return;
     session = s;
     selected = to;
+    log = { ok: true, text: `Moved page ${from + 1} to ${to + 1}` };
+  }
+
+  async function shift(d: number) {
+    if (selected === null) return;
+    const to = selected + d;
+    if (to < 0 || to >= session.pages.length) return;
+    await move(selected, to);
+    await tick();
+    document.querySelector(".tile.sel")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
 
   const importable = ["pdf", "jpg", "jpeg", "png"];
@@ -194,7 +207,10 @@
   }
 
   function renameKey(e: KeyboardEvent) {
-    if (e.key === "Enter") commitRename();
+    if (e.key === "Enter") {
+      if (e.isComposing || e.keyCode === 229) return;
+      commitRename();
+    }
     else if (e.key === "Escape") renaming = false;
     else return;
     e.preventDefault();
@@ -204,11 +220,13 @@
   function onkey(e: KeyboardEvent) {
     if (busy || covered()) return;
     if (e.metaKey) return command(e);
-    if (e.target instanceof HTMLInputElement) return;
+    if (e.target instanceof HTMLInputElement || (e.target as Element).closest?.('[role="toolbar"], [role="radiogroup"]')) return;
     const n = session.pages.length;
     if (!n) return;
     const i = selected ?? 0;
-    if (e.key === "ArrowRight") selected = Math.min(n - 1, i + 1);
+    if (e.altKey && e.key === "ArrowRight" && selected !== null) shift(1);
+    else if (e.altKey && e.key === "ArrowLeft" && selected !== null) shift(-1);
+    else if (e.key === "ArrowRight") selected = Math.min(n - 1, i + 1);
     else if (e.key === "ArrowLeft") selected = Math.max(0, i - 1);
     else if (e.key === " " && selected !== null) preview = selected;
     else if ((e.key === "Backspace" || e.key === "Delete") && selected !== null) remove(selected);
@@ -281,49 +299,53 @@
   </header>
   <div class="content">
 
-  <div class="status" class:err={log && !log.ok}>
+  <div class="status" class:err={log && !log.ok} role="status">
     {#if busy}
-      <span class="spinner"></span> {busy}… <span class="muted">{dur((now - started) / 1000)}</span>
+      <span class="spinner"></span> {busy}… <span class="muted" aria-hidden="true">{dur((now - started) / 1000)}</span>
     {:else if log}
       {log.text}
     {:else if !connected}
       <span>Waiting for the scanner. You can still review, reorder and export pages.</span>
     {:else}
-      <span>New pages go after the selected one. Drag to reorder, or drop PDFs and images in.</span>
+      <span>New pages go after the selected one. Drag or press ⌥← ⌥→ to reorder, or drop PDFs and images in.</span>
     {/if}
   </div>
 
   {#if session.pages.length && selected !== null && session.pages[selected]}
     {@const i = selected}
     {@const p = session.pages[i]}
-    <div class="pagebar" role="toolbar" aria-label="Page {i + 1} tools">
+    <Toolbar class="pagebar" aria-label="Page {i + 1} tools">
       <div class="which">
         <strong>Page {i + 1}</strong>
         <span class="muted">{p.kind === "Long" ? "Long, " : ""}{mm(p).join(" × ")} mm</span>
       </div>
-      <div class="group">
-        <button class="ghost small" title="View larger (Space)" onclick={() => (preview = i)}>{@html icon.view} View</button>
-        <button class="ghost small" title="Scan this page again" onclick={() => retake(i)} disabled={!connected || !!busy}>{@html icon.retake} Retake</button>
-      </div>
-      <div class="group">
-        <button class="ghost small square" title="Rotate left (⇧R)" aria-label="Rotate left" onclick={() => edit(i, "RotateLeft")} disabled={!!busy}>{@html icon.left}</button>
-        <button class="ghost small square" title="Rotate right (R)" aria-label="Rotate right" onclick={() => edit(i, "RotateRight")} disabled={!!busy}>{@html icon.right}</button>
-        <button class="ghost small" title="Straighten tilted text" onclick={() => edit(i, "Straighten")} disabled={!!busy}>{@html icon.straighten} Straighten</button>
-        <button class="ghost small" title="Crop to the paper, a standard size, or a box you draw" onclick={() => (cropping = i)} disabled={!!busy}>{@html icon.crop} Crop</button>
-      </div>
-      <div class="group">
-        <button class="ghost small" title="Paint torn or cut-away edges" onclick={() => fill(i)} disabled={!!busy}>{@html icon.fill} Fill</button>
-        <button class="ghost small" title="Brightness and contrast" onclick={() => (adjusting = i)} disabled={!!busy}>{@html icon.adjust} Adjust</button>
-        <button class="ghost small" title="Remove small stray marks: dust, toner specks, photocopy noise. Dots that belong to text are kept" onclick={() => edit(i, { Despeckle: { dpi: p.dpi } })} disabled={!!busy}>{@html icon.specks} Clean specks</button>
-        <button class="ghost small" title="Make this page black and white" onclick={() => edit(i, "BlackWhite")} disabled={!!busy}>{@html icon.bw} B&W</button>
-        <button class="ghost small" title="Make this page gray" onclick={() => edit(i, "Gray")} disabled={!!busy}>Gray</button>
+      <ToolbarGroup class="group" aria-label="View">
+        <ToolbarButton class="ghost small" title="View larger (Space)" onclick={() => (preview = i)}>{@html icon.view} View</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Scan this page again" onclick={() => retake(i)} disabled={!connected || !!busy}>{@html icon.retake} Retake</ToolbarButton>
+      </ToolbarGroup>
+      <ToolbarGroup class="group" aria-label="Order">
+        <ToolbarButton class="ghost small square" title="Move earlier (⌥←)" aria-label="Move page {i + 1} earlier" onclick={() => shift(-1)} disabled={!!busy || i === 0}>{@html icon.earlier}</ToolbarButton>
+        <ToolbarButton class="ghost small square" title="Move later (⌥→)" aria-label="Move page {i + 1} later" onclick={() => shift(1)} disabled={!!busy || i === session.pages.length - 1}>{@html icon.later}</ToolbarButton>
+      </ToolbarGroup>
+      <ToolbarGroup class="group" aria-label="Shape">
+        <ToolbarButton class="ghost small square" title="Rotate left (⇧R)" aria-label="Rotate left" onclick={() => edit(i, "RotateLeft")} disabled={!!busy}>{@html icon.left}</ToolbarButton>
+        <ToolbarButton class="ghost small square" title="Rotate right (R)" aria-label="Rotate right" onclick={() => edit(i, "RotateRight")} disabled={!!busy}>{@html icon.right}</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Straighten tilted text" onclick={() => edit(i, "Straighten")} disabled={!!busy}>{@html icon.straighten} Straighten</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Crop to the paper, a standard size, or a box you draw" onclick={() => (cropping = i)} disabled={!!busy}>{@html icon.crop} Crop</ToolbarButton>
+      </ToolbarGroup>
+      <ToolbarGroup class="group" aria-label="Clean up">
+        <ToolbarButton class="ghost small" title="Paint torn or cut-away edges" onclick={() => fill(i)} disabled={!!busy}>{@html icon.fill} Fill</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Brightness and contrast" onclick={() => (adjusting = i)} disabled={!!busy}>{@html icon.adjust} Adjust</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Remove small stray marks: dust, toner specks, photocopy noise. Dots that belong to text are kept" onclick={() => edit(i, { Despeckle: { dpi: p.dpi } })} disabled={!!busy}>{@html icon.specks} Clean specks</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Make this page black and white" onclick={() => edit(i, "BlackWhite")} disabled={!!busy}>{@html icon.bw} B&W</ToolbarButton>
+        <ToolbarButton class="ghost small" title="Make this page gray" onclick={() => edit(i, "Gray")} disabled={!!busy}>Gray</ToolbarButton>
         {#if p.color}
-          <button class="ghost small" title="Back to the colour scan this page was made from" onclick={() => edit(i, "Colour")} disabled={!!busy}>Colour</button>
+          <ToolbarButton class="ghost small" title="Back to the colour scan this page was made from" onclick={() => edit(i, "Colour")} disabled={!!busy}>Colour</ToolbarButton>
         {/if}
-      </div>
+      </ToolbarGroup>
       <span class="grow"></span>
-      <button class="ghost small danger" title="Delete (⌫)" onclick={() => remove(i)} disabled={!!busy}>{@html icon.trash} Delete</button>
-    </div>
+      <ToolbarButton class="ghost small danger" title="Delete (⌫)" onclick={() => remove(i)} disabled={!!busy}>{@html icon.trash} Delete</ToolbarButton>
+    </Toolbar>
   {/if}
 
   {#if session.pages.length}
@@ -404,16 +426,16 @@
   .history .square { width: 28px; padding: 0; }
   .history .square :global(svg) { width: 16px; height: 16px; }
   h1 { display: flex; }
-  .title { font: inherit; color: var(--text); height: 28px; padding: 0 6px; margin: 0 -2px; gap: 6px; }
+  .title { font: inherit; color: var(--text); min-height: 28px; padding: 0 6px; margin: 0 -2px; gap: 6px; }
   .title svg { opacity: 0; color: var(--muted); transition: opacity 0.14s var(--ease); }
   .title:hover svg, .title:focus-visible svg { opacity: 1; }
-  .rename { font: inherit; font-weight: 600; height: 28px; padding: 0 6px; max-width: 360px; }
+  .rename { font: inherit; font-weight: 600; min-height: 28px; padding: 0 6px; max-width: 360px; }
   .content { padding: 12px 20px 40px; display: grid; gap: 14px; align-content: start; }
-  .status { min-height: 22px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .status { min-height: 22px; font-size: 0.75rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
   .status.err { color: var(--danger); }
   .status:has(.spinner) { color: var(--text); }
   .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-  .tile { display: grid; gap: 8px; align-content: start; padding: 4px; }
+  .tile { display: grid; gap: 8px; align-content: start; padding: 4px; scroll-margin: 12px; }
   /* The sheet itself carries selection: an accent ring around the paper, not a tinted box. */
   .thumb {
     height: auto; padding: 0; border: none; border-radius: 2px; background: var(--paper);
@@ -428,18 +450,18 @@
   .thumb:focus-visible { outline-color: var(--accent); }
   .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
   .meta { display: flex; gap: 6px; align-items: baseline; justify-content: center; }
-  .num { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 10px; }
+  .num { font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 20px; text-align: center; padding: 1px 6px; border-radius: 10px; }
   .sel .num { color: var(--accent-text); background: var(--accent); }
-  .pagebar {
+  .content :global(.pagebar) {
     position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
     padding: 6px 8px 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); box-shadow: var(--shadow);
   }
-  .which { display: flex; gap: 8px; align-items: baseline; margin-right: 4px; font-size: 13px; white-space: nowrap; }
-  .group { display: flex; align-items: center; gap: 1px; padding-left: 10px; border-left: 1px solid var(--line); }
-  .pagebar button { gap: 5px; }
-  .pagebar .square { width: 26px; padding: 0; }
-  .pagebar .square :global(svg) { width: 16px; height: 16px; }
-  .pagebar .danger { color: var(--danger); }
-  .pagebar .grow { flex: 1; }
+  .which { display: flex; gap: 8px; align-items: baseline; margin-right: 4px; font-size: 0.8125rem; white-space: nowrap; }
+  .content :global(.pagebar .group) { display: flex; align-items: center; gap: 1px; padding-left: 10px; border-left: 1px solid var(--line); }
+  .content :global(.pagebar button) { gap: 5px; }
+  .content :global(.pagebar .square) { width: 26px; padding: 0; }
+  .content :global(.pagebar .square svg) { width: 16px; height: 16px; }
+  .content :global(.pagebar .danger) { color: var(--danger); }
+  .content .grow { flex: 1; }
   .empty { margin: 80px auto; max-width: 400px; text-align: center; display: grid; gap: 8px; }
 </style>

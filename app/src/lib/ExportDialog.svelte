@@ -108,12 +108,12 @@
         <label class="opt">
           <input type="checkbox" checked={opts.max_mb !== null} onchange={(e) => (opts!.max_mb = e.currentTarget.checked ? 1 : null)} />
           <span>Fit each PDF under</span>
-          <input class="mb" type="number" min="0.05" step="0.1" disabled={opts.max_mb === null}
+          <input class="mb" type="number" aria-label="Size limit in MB" min="0.05" step="0.1" disabled={opts.max_mb === null}
             value={opts.max_mb ?? 1} oninput={(e) => (opts!.max_mb = Number(e.currentTarget.value) || null)} />
           <span>MB <span class="muted">— for upload limits</span></span>
         </label>
       </fieldset>
-      {#if error}<p class="error">{error}</p>{/if}
+      {#if error}<p role="alert" class="error">{error}</p>{/if}
       <footer>
         <button class="ghost" onclick={onclose} disabled={busy}>Cancel</button>
         <span class="grow"></span>
@@ -128,12 +128,12 @@
   fieldset { border: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   legend { padding: 0; margin-bottom: 6px; }
   .opt { display: flex; gap: 10px; align-items: baseline; cursor: pointer; }
-  .mb { width: 70px; height: 24px; }
+  .mb { width: 70px; min-height: 24px; }
   .opt.danger { color: var(--danger); }
   .opt.off { cursor: default; opacity: 0.6; }
   input[type="checkbox"] { accent-color: var(--accent); }
   .files { list-style: none; margin: 0; padding: 0; }
-  .files button { height: 24px; padding: 0 6px; color: var(--accent); justify-content: flex-start; }
+  .files button { min-height: 24px; padding: 0 6px; color: var(--accent); justify-content: flex-start; }
   footer { display: flex; gap: 8px; }
   .grow { flex: 1; }
   .error { color: var(--danger); margin: 0; }

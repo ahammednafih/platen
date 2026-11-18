@@ -116,13 +116,14 @@
         <button class="ghost small pct" onclick={() => setZoom(1)} title="Fit to window (0)">{zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`}</button>
         <button class="ghost small" onclick={() => setZoom(zoom * 1.5)} disabled={zoom >= 8} title="Zoom in (+), or pinch" aria-label="Zoom in">+</button>
       </span>
-      <button class="ghost small" class:on={textMode} onclick={() => (textMode = !textMode)} title="Select text on the page (T)">
+      <button class="ghost small" class:on={textMode} aria-pressed={textMode} onclick={() => (textMode = !textMode)} title="Select text on the page (T)">
         {#if reading}<span class="spinner"></span>Reading text{:else}Text{/if}
       </button>
       {#if textMode && text}
         <button class="ghost small" onclick={copyAll} disabled={!text.text}>{copied ? "Copied" : text.text ? "Copy all text" : "No text found"}</button>
       {/if}
-      {#if error}<span class="err">{error}</span>{/if}
+      {#if error}<span class="err" role="alert">{error}</span>{/if}
+      <button class="ghost small" onclick={onclose}>Close</button>
     </div>
   </div>
 </Modal>
@@ -139,16 +140,16 @@
   .zoomed .frame { max-width: none; max-height: none; }
   .zoom { display: flex; align-items: center; gap: 1px; }
   .zoom .pct { min-width: 48px; font-variant-numeric: tabular-nums; }
-  .zoom button { font-size: 14px; }
+  .zoom button { font-size: 0.875rem; }
   img { max-width: 100%; max-height: calc(100vh - 90px); object-fit: contain; box-shadow: 0 8px 40px rgb(0 0 0 / 50%); background: #fff; }
   .words { position: absolute; inset: 0; width: 100%; height: 100%; user-select: text; -webkit-user-select: text; cursor: text; }
   .words text { fill: transparent; white-space: pre; font-family: -apple-system, system-ui, sans-serif; }
   .words text::selection { fill: transparent; background: rgb(64 132 255 / 40%); }
   .words .hint { fill: rgb(64 132 255 / 10%); pointer-events: none; }
   .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .caption { color: #ddd; font-size: 13px; }
+  .caption { color: #ddd; font-size: 0.8125rem; }
   .bar button { color: #ddd; }
   .bar button:hover:not(:disabled) { background: rgb(255 255 255 / 10%); color: #fff; }
   .bar button.on { background: rgb(255 255 255 / 16%); color: #fff; }
-  .err { color: #f0a59c; font-size: 12px; }
+  .err { color: #f0a59c; font-size: 0.75rem; }
 </style>

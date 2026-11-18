@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Seg from "./Seg.svelte";
   import { onMount } from "svelte";
   import { api, DEFAULT_SIZES, type Caps, type ColorMode, type Fill, type Preset, type Settings } from "./api";
 
@@ -83,34 +84,34 @@
 </script>
 
 <section class="settings">
-  <header class="head">Scan settings</header>
+  <h2 class="head">Scan settings</h2>
   <div class="field">
-    <span class="label">Preset</span>
-    <div class="chips">
+    <span class="label" id="preset-label">Preset</span>
+    <div class="chips" role="group" aria-labelledby="preset-label">
       {#each presets as p (p.name)}
-        <button class="chip" class:on={active === p.name} onclick={() => apply(p)}
-          title="{p.settings.dpi} dpi, {modeLabel[p.settings.mode]}, fill {p.settings.fill.toLowerCase()}">
-          {p.name}
-          {#if !p.builtin}<span class="x" role="presentation" title="Delete preset" onclick={(e) => deletePreset(p, e)}>×</span>{/if}
-        </button>
+        <span class="chip" class:on={active === p.name}>
+          <button aria-pressed={active === p.name} onclick={() => apply(p)}
+            title="{p.settings.dpi} dpi, {modeLabel[p.settings.mode]}, fill {p.settings.fill.toLowerCase()}">{p.name}</button>
+          {#if !p.builtin}<button class="x" aria-label="Delete preset {p.name}" title="Delete preset" onclick={(e) => deletePreset(p, e)}>×</button>{/if}
+        </span>
       {/each}
       {#if naming === null}
-        <button class="chip ghost" onclick={() => (naming = active && !presets.find((p) => p.name === active)?.builtin ? active : "")}
+        <button class="chip add ghost" onclick={() => (naming = active && !presets.find((p) => p.name === active)?.builtin ? active : "")}
           title="Save the current settings as a preset">+ Save</button>
       {/if}
     </div>
     {#if naming !== null}
       <form class="name" onsubmit={savePreset}>
         <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={naming} placeholder="Preset name" autofocus onkeydown={(e) => e.key === "Escape" && (naming = null)} />
+        <input bind:value={naming} aria-label="Preset name" placeholder="Preset name" autofocus onkeydown={(e) => e.key === "Escape" && (naming = null)} />
         <button type="submit">Save</button>
       </form>
     {/if}
-    {#if presetError}<span class="error small">{presetError}</span>{/if}
+    {#if presetError}<span role="alert" class="error small">{presetError}</span>{/if}
   </div>
   <div class="field">
-    <span class="label">Original size</span>
-    <select value={s.size} onchange={(e) => set("size", e.currentTarget.value as Settings["size"])}>
+    <label class="label" for="scan-size">Original size</label>
+    <select id="scan-size" value={s.size} onchange={(e) => set("size", e.currentTarget.value as Settings["size"])}>
       {#each caps.sizes as z (z.id)}
         <option value={z.id}>{z.name}, {Math.round(z.w_mm)} × {Math.round(z.h_mm)} mm</option>
       {/each}
@@ -118,43 +119,33 @@
     <span class="faint small">Longer than the glass? Use Long page.</span>
   </div>
   <div class="field">
-    <span class="label">Resolution <span class="faint">{hint(s.dpi)}</span></span>
-    <div class="seg">
-      {#each caps.resolutions as d (d)}
-        <button class:on={s.dpi === d} onclick={() => set("dpi", d)} title="{d} dpi">{d}</button>
-      {/each}
-    </div>
+    <span class="label" id="scan-dpi">Resolution <span class="faint">{hint(s.dpi)}</span></span>
+    <Seg aria-labelledby="scan-dpi" value={s.dpi} onchange={(v) => set("dpi", v)} options={caps.resolutions.map((d) => ({ value: d, label: `${d}`, title: `${d} dpi` }))} />
   </div>
   <div class="field">
-    <span class="label">Colour</span>
-    <div class="seg">
-      {#each caps.modes as m (m)}
-        <button class:on={s.mode === m} onclick={() => set("mode", m)} title={modeHint[m]}>{modeLabel[m]}</button>
-      {/each}
-    </div>
+    <span class="label" id="scan-mode">Colour</span>
+    <Seg aria-labelledby="scan-mode" value={s.mode} onchange={(v) => set("mode", v)} options={caps.modes.map((m) => ({ value: m, label: modeLabel[m], title: modeHint[m] }))} />
   </div>
   <div class="field">
-    <span class="label" title="Paint torn or cut-away edges where the dark lid shows through">Fill torn edges</span>
-    <div class="seg">
-      {#each fills as [v, label] (v)}
-        <button class:on={s.fill === v} onclick={() => set("fill", v)}>{label}</button>
-      {/each}
-    </div>
+    <span class="label" id="scan-fill" title="Paint torn or cut-away edges where the dark lid shows through">Fill torn edges</span>
+    <Seg aria-labelledby="scan-fill" value={s.fill} onchange={(v) => set("fill", v)} options={fills.map(([value, label]) => ({ value, label }))} />
   </div>
 </section>
 
 <style>
   .settings { display: grid; gap: 14px; }
   /* Same height and rule as the screen's topbar beside it, so the two lines meet. */
-  .head { height: 44px; display: flex; align-items: center; margin: 0 -16px 2px; padding: 0 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  .head { font-size: 0.8125rem; min-height: 44px; display: flex; align-items: center; margin: 0 -16px 2px; padding: 0 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
   .field { display: grid; gap: 6px; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .chip { height: 24px; padding: 0 8px; font-size: 12px; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; min-height: 24px; font-size: 0.75rem; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--raised); overflow: hidden; }
+  .chip.add { padding: 0 8px; border-color: transparent; background: none; }
+  .chip > button { min-height: 22px; padding: 0 8px; font-size: 0.75rem; border: none; border-radius: 0; background: none; }
+  .chip > button.x { padding: 0 6px 0 2px; color: var(--muted); }
+  .chip > button.x:hover:not(:disabled) { color: var(--text); }
   .chip.on { background: var(--accent-soft); border-color: var(--accent); }
-  .chip.on:hover:not(:disabled) { background: var(--accent-soft); }
-  .chip .x { color: var(--faint); margin-right: -2px; }
-  .chip .x:hover { color: var(--text); }
+  .chip.on > button:hover:not(:disabled) { background: none; }
   .name { display: flex; gap: 6px; }
   .name input { flex: 1; min-width: 0; }
-  .label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+  .label { font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between; }
 </style>

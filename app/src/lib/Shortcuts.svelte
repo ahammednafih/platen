@@ -7,7 +7,7 @@
     ["Anywhere", [["⌘1 – ⌘4", "Scan, Copy, Print, Saved scans"], ["⌘/", "Show these shortcuts"], ["Esc", "Close a dialog"]]],
     ["Scan", [
       ["⌘↩", "Scan page"], ["⌘L", "Long page"], ["⌘E", "Export"], ["⌘P", "Print these pages"], ["⌘Z / ⇧⌘Z", "Undo / redo a page change"],
-      ["← →", "Select page"], ["Space", "Preview page"], ["T", "Select text (in preview)"], ["R / ⇧R", "Rotate right / left"], ["⌫", "Delete page"],
+      ["← →", "Select page"], ["⌥← ⌥→", "Move page"], ["Space", "Preview page"], ["T", "Select text (in preview)"], ["R / ⇧R", "Rotate right / left"], ["⌫", "Delete page"],
     ]],
     ["Copy", [["⌘↩", "Scan / print the next step"]]],
     ["Print", [["⌘O", "Add files"], ["⌘P or ⌘↩", "Print"]]],
@@ -24,7 +24,7 @@
     </header>
     {#each groups as [title, keys] (title)}
       <section>
-        <div class="group-title">{title}</div>
+        <h3 class="group-title">{title}</h3>
         <dl>
           {#each keys as [k, what] (k)}
             <dt><kbd>{k}</kbd></dt>
@@ -40,8 +40,8 @@
   .dialog { width: min(420px, 92vw); max-height: 88vh; overflow-y: auto; padding: 20px 22px; display: grid; gap: 14px; }
   h2 { margin: 0; }
   header { display: flex; align-items: center; justify-content: space-between; }
-  .close { width: 26px; height: 26px; padding: 0; margin-right: -8px; border-radius: 50%; }
+  .close { width: 26px; min-height: 26px; padding: 0; margin-right: -8px; border-radius: 50%; }
   dl { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; margin: 6px 0 0; }
   dt, dd { margin: 0; }
-  kbd { font: inherit; font-size: 12px; color: var(--muted); }
+  kbd { font: inherit; font-size: 0.75rem; color: var(--muted); }
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Seg from "./Seg.svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { api, fileImg, size, type ShrinkResult } from "./api";
   import Modal from "./Modal.svelte";
@@ -112,6 +113,7 @@
   }
 
   function onkey(e: KeyboardEvent) {
+    if ((e.target as Element).closest?.('[role="radiogroup"]')) return;
     if (draft && e.key === "ArrowRight") page = Math.min(draft.pages - 1, page + 1);
     else if (draft && e.key === "ArrowLeft") page = Math.max(0, page - 1);
     else if (draft && e.key === " ") showing = showing === "Shrunk" ? "Original" : "Shrunk";
@@ -132,11 +134,7 @@
       <footer><span class="grow"></span><button class="primary" onclick={onclose}>Done</button></footer>
     {:else if draft}
       <div class="bar">
-        <div class="seg" title="Flip between them (Space)">
-          {#each ["Original", "Shrunk"] as const as v (v)}
-            <button class:on={showing === v} onclick={() => (showing = v)}>{v}</button>
-          {/each}
-        </div>
+        <Seg aria-label="Version" title="Flip between them (Space)" value={showing} onchange={(v) => (showing = v)} options={[{ value: "Original" as const, label: "Original" }, { value: "Shrunk" as const, label: "Shrunk" }]} />
         <span class="sizes">{size(draft.before)} → <strong>{size(draft.after)}</strong></span>
         <span class="grow"></span>
         {#if draft.pages > 1}
@@ -146,10 +144,7 @@
             <button class="ghost small" onclick={() => (page = Math.min(draft!.pages - 1, page + 1))} disabled={page === draft.pages - 1} aria-label="Next page">›</button>
           </div>
         {/if}
-        <div class="seg zoom">
-          <button class:on={!zoom} onclick={() => (zoom = false)}>Fit</button>
-          <button class:on={zoom} onclick={() => (zoom = true)}>Zoom</button>
-        </div>
+        <Seg class="zoom" aria-label="Zoom" value={zoom} onchange={(v) => (zoom = v)} options={[{ value: false, label: "Fit" }, { value: true, label: "Zoom" }]} />
       </div>
       <div class="view" class:zoom>
         {#key `${showing}-${page}-${zoom}`}
@@ -161,7 +156,7 @@
       {:else}
         <p class="muted small">Flip between Original and Shrunk, and zoom in on small text, before saving.</p>
       {/if}
-      {#if error}<p class="error">{error}</p>{/if}
+      {#if error}<p role="alert" class="error">{error}</p>{/if}
       <footer>
         <button class="ghost" onclick={cancel} disabled={busy}>Cancel</button>
         <span class="grow"></span>
@@ -170,20 +165,20 @@
       </footer>
     {:else}
       <div class="row">
-        <span>Fit under</span>
-        <input type="number" min="0.05" step="0.1" bind:value={mb} onfocus={() => (limit = true)} class:off={!limit} />
+        <label for="shrink-mb">Fit under</label>
+        <input id="shrink-mb" type="number" min="0.05" step="0.1" bind:value={mb} onfocus={() => (limit = true)} class:off={!limit} />
         <span>MB</span>
       </div>
-      <div class="presets">
+      <div class="presets" role="group" aria-label="Size limit">
         {#each presets as p (p)}
-          <button class:on={limit && mb === p} onclick={() => ((mb = p), (limit = true))}>{p} MB</button>
+          <button class:on={limit && mb === p} aria-pressed={limit && mb === p} onclick={() => ((mb = p), (limit = true))}>{p} MB</button>
         {/each}
-        <button class:on={!limit} onclick={() => (limit = false)}>Any size</button>
+        <button class:on={!limit} aria-pressed={!limit} onclick={() => (limit = false)}>Any size</button>
       </div>
       {#if count > 1}
         <div class="row">
           <label for="skip-pages">Leave out</label>
-          <input id="skip-pages" type="text" placeholder="e.g. 11-18" bind:value={typed} oninput={onType} class:bad={typedBad} />
+          <input id="skip-pages" type="text" placeholder="e.g. 11-18" bind:value={typed} oninput={onType} class:bad={typedBad} aria-invalid={typedBad} spellcheck="false" />
           <span class="muted small count">{skip.length ? `Keeping ${kept.length} of ${count}` : `All ${count} pages`}</span>
         </div>
         <div class="pages">
@@ -209,7 +204,7 @@
         </div>
       {/if}
       <p class="muted small">{limit ? "Scanned images are reduced in resolution and quality only as much as needed; text stays sharp." : "Pages are left out; the rest stay as they are."} You'll see it before anything is saved.</p>
-      {#if error}<p class="error">{error}</p>{/if}
+      {#if error}<p role="alert" class="error">{error}</p>{/if}
       <footer>
         <button class="ghost" onclick={cancel} disabled={busy}>Cancel</button>
         <span class="grow"></span>
@@ -231,14 +226,14 @@
 <style>
   .dialog { width: min(520px, 92vw); max-height: 92vh; padding: 20px 22px; display: grid; gap: 14px; }
   .dialog.wide { width: min(820px, 94vw); }
-  .file { font-size: 12px; word-break: break-all; margin-top: -8px; }
+  .file { font-size: 0.75rem; word-break: break-all; margin-top: -8px; }
   .row { display: flex; align-items: center; gap: 8px; }
   input[type="number"] { width: 90px; }
   input.off { opacity: 0.5; }
   .presets { display: flex; gap: 6px; flex-wrap: wrap; }
-  .presets button { font-size: 12px; height: 24px; padding: 0 10px; }
+  .presets button { font-size: 0.75rem; min-height: 24px; padding: 0 10px; }
   .presets button.on { border-color: var(--accent); background: var(--accent-soft); }
-  .small { font-size: 12px; }
+  .small { font-size: 0.75rem; }
   .row label { flex: none; }
   .row input[type="text"] { flex: 1; }
   .row .count { flex: none; font-variant-numeric: tabular-nums; }
@@ -249,27 +244,27 @@
   .frame { position: relative; width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; overflow: hidden; border-radius: 4px; background: var(--paper); box-shadow: 0 0 0 1px var(--line-strong); }
   .thumb:hover .frame { box-shadow: 0 0 0 2px var(--accent); }
   .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .num { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .num { font-size: 0.6875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .thumb.out img { opacity: 0.2; }
   .thumb.out .num { text-decoration: line-through; }
   .tile { position: relative; }
-  .expand { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; padding: 0; border-radius: 6px; background: var(--raised); opacity: 0; }
+  .expand { position: absolute; top: 4px; right: 4px; width: 24px; min-height: 24px; padding: 0; border-radius: 6px; background: var(--raised); opacity: 0; }
   .tile:hover .expand, .expand:focus-visible { opacity: 1; }
   .viewer-skip { color: #eee; }
   .viewer-skip[aria-pressed="true"] { color: #f0a59c; }
-  .x { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: var(--danger); }
+  .x { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.375rem; color: var(--danger); }
   p { margin: 0; }
-  .link { color: var(--accent); padding: 0; height: auto; border: none; background: none; }
+  .link { color: var(--accent); padding: 0; min-height: 0; border: none; background: none; }
   footer { display: flex; gap: 8px; }
   .grow { flex: 1; }
   .error { color: var(--danger); }
   .warn { color: var(--warn); }
   .bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .bar .seg { width: 170px; }
-  .bar .seg.zoom { width: 110px; }
+  .bar :global(.seg) { width: 170px; }
+  .bar :global(.seg.zoom) { width: 110px; }
   .sizes { font-variant-numeric: tabular-nums; }
   .pager { display: flex; align-items: center; gap: 2px; }
-  .pager button { width: 24px; padding: 0; font-size: 16px; }
+  .pager button { width: 24px; padding: 0; font-size: 1rem; }
   /* Fixed height so flipping Original/Shrunk keeps the page in the same place. */
   .view { height: min(58vh, 640px); background: var(--sunken); border-radius: 8px; display: grid; place-items: center; overflow: hidden; padding: 12px; }
   .view img { max-width: 100%; max-height: calc(min(58vh, 640px) - 24px); object-fit: contain; background: var(--paper); box-shadow: 0 0 0 1px var(--line-strong); }

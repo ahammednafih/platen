@@ -41,13 +41,13 @@
 <div class="start">
   <div class="new">
     <span class="tile" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 2.5h6l3 3v8h-9z M9.5 2.5v3h3 M1.5 9h13" /></svg></span>
-    <h1>New scan</h1>
+    <h2>New scan</h2>
     <p class="muted">Pages are saved as you go, so you can close the app and come back to a draft.</p>
     <form onsubmit={(e) => { e.preventDefault(); open(name); }}>
-      <input type="text" placeholder="Name (optional, e.g. passport-renewal)" bind:value={name} />
+      <input type="text" aria-label="Scan name" placeholder="Name (optional, e.g. passport-renewal)" bind:value={name} />
       <button class="primary">Start</button>
     </form>
-    {#if error}<p class="error">{error}</p>{/if}
+    {#if error}<p role="alert" class="error">{error}</p>{/if}
   </div>
 
   <div class="drafts">
@@ -63,12 +63,12 @@
             </button>
             {#if confirming === d.name}
               <span class="confirm">
-                <span class="muted small">Delete scans?</span>
+                <span class="muted small">Delete {d.name}?</span>
                 <button class="danger small" onclick={() => remove(d.name)}>Delete</button>
                 <button class="ghost small" onclick={() => (confirming = null)}>Keep</button>
               </span>
             {:else}
-              <button class="ghost del" title="Delete draft (exported files are kept)" onclick={() => (confirming = d.name)}>Delete</button>
+              <button class="ghost del" aria-label="Delete {d.name}" title="Delete draft (exported files are kept)" onclick={() => (confirming = d.name)}>Delete</button>
             {/if}
           </li>
         {/each}
@@ -85,22 +85,22 @@
   .new { display: grid; gap: 10px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
   .tile { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 4px; }
   .tile svg { width: 18px; height: 18px; }
-  .count { font-size: 11px; color: var(--muted); background: var(--sunken); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; margin-left: 4px; font-variant-numeric: tabular-nums; }
-  .new h1 { font-size: 20px; }
+  .count { font-size: 0.6875rem; color: var(--muted); background: var(--sunken); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .new h2 { font-size: 1.25rem; }
   form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
   form input { flex: 1 1 180px; }
   .drafts { display: grid; gap: 8px; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
   .row { display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--line); }
   .draft {
-    flex: 1; height: 40px; display: grid; grid-template-columns: 1fr auto auto; gap: 16px;
+    flex: 1; min-height: 40px; display: grid; grid-template-columns: 1fr auto auto; gap: 16px;
     align-items: center; text-align: left; padding: 0 8px; border: none; background: none; border-radius: 0;
   }
   .draft:hover .resume { opacity: 1; }
-  .del { font-size: 12px; height: 24px; }
+  .del { font-size: 0.75rem; min-height: 24px; }
   .del:hover:not(:disabled) { color: var(--danger); }
   .confirm { display: flex; gap: 4px; align-items: center; }
-  .small { font-size: 12px; }
+  .small { font-size: 0.75rem; }
   .meta { text-align: right; font-variant-numeric: tabular-nums; }
   .dname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .resume { color: var(--accent); opacity: 0; transition: opacity 0.12s; }

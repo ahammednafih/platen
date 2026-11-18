@@ -49,7 +49,10 @@
   }
 
   function renameKey(e: KeyboardEvent) {
-    if (e.key === "Enter") commitRename();
+    if (e.key === "Enter") {
+      if (e.isComposing || e.keyCode === 229) return;
+      commitRename();
+    }
     else if (e.key === "Escape") renaming = null;
     else return;
     e.preventDefault();
@@ -84,12 +87,12 @@
   <header class="topbar">
     <h1>Saved scans</h1>
     <span class="grow"></span>
-    <input class="search" type="text" placeholder="Search" bind:value={filter} />
+    <search><input class="search" type="search" aria-label="Search saved scans" placeholder="Search" bind:value={filter} spellcheck="false" /></search>
     <button onclick={pickPdf}>Shrink a PDF…</button>
   </header>
   <div class="library">
 
-  {#if error}<p class="error small">{error}</p>{/if}
+  {#if error}<p role="alert" class="error small">{error}</p>{/if}
   {#if !items.length}
     <p class="muted">Nothing exported yet. Exported PDFs and images show up here.</p>
   {/if}
@@ -103,7 +106,7 @@
       <ul>
         {#each files as f (f.path)}
           <li class="card">
-            <button class="thumb" onclick={() => (viewing = f.path)} title="Preview">
+            <button class="thumb" onclick={() => (viewing = f.path)} title="Preview" aria-label="Preview {f.name}">
               <span class="spinner" aria-hidden="true"></span>
               <img src={fileImg(f.path, 0, 240)} alt="" loading="lazy" onload={(e) => e.currentTarget.classList.add("loaded")} />
             </button>
@@ -116,11 +119,11 @@
               {/if}
               <div class="muted small">{size(f.bytes)}, {when(f.modified)}</div>
               <div class="tools">
-                <button class="ghost" onclick={() => (viewing = f.path)}>Preview</button>
-                <button class="ghost" onclick={() => onprint(f.path)} title="Open in Print">Print</button>
-                <button class="ghost" onclick={(e) => share(f.path, e)} title="AirDrop, Mail, Messages…">Share</button>
+                <button class="ghost" aria-label="Preview {f.name}" onclick={() => (viewing = f.path)}>Preview</button>
+                <button class="ghost" aria-label="Print {f.name}" onclick={() => onprint(f.path)} title="Open in Print">Print</button>
+                <button class="ghost" aria-label="Share {f.name}" onclick={(e) => share(f.path, e)} title="AirDrop, Mail, Messages…">Share</button>
                 <Menu>
-                  <MenuTrigger class="ghost dots" aria-label="More">
+                  <MenuTrigger class="ghost dots" aria-label="More actions for {f.name}">
                     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="12.5" cy="8" r="1.3" /></svg>
                   </MenuTrigger>
                   <MenuContent class="menu card" align="start" sideOffset={4} finalFocus={() => (renaming === f.path ? document.querySelector<HTMLElement>("input.rename") : null)}>
@@ -153,8 +156,8 @@
   .library { padding: 16px 20px 40px; display: grid; gap: 22px; align-content: start; overflow: auto; }
   .search { width: 200px; }
   .group { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-  .small { font-size: 12px; }
-  .link { color: var(--accent); padding: 0; height: auto; border: none; background: none; }
+  .small { font-size: 0.75rem; }
+  .link { color: var(--accent); padding: 0; min-height: 0; border: none; background: none; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
   li { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 10px; }
   .thumb { height: auto; padding: 0; aspect-ratio: 210 / 297; background: var(--paper); border: none; box-shadow: 0 0 0 1px var(--line-strong); border-radius: 2px; overflow: hidden; }
@@ -166,19 +169,20 @@
   .info { min-width: 0; display: grid; align-content: start; gap: 2px; }
   .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tools { display: flex; flex-wrap: wrap; margin: 4px -6px 0; }
-  .tools button { height: 22px; padding: 0 6px; font-size: 12px; }
+  .tools button { min-height: 22px; padding: 0 6px; font-size: 0.75rem; }
   .tools { align-items: center; }
   .tools :global(.dots) { width: 24px; padding: 0; }
   .tools :global(.dots[data-open]) { background: var(--hover); color: var(--text); }
   .tools :global(.menu) {
     margin: 0; min-width: 168px; padding: 4px; display: grid; color: var(--text);
-    background: var(--raised); border: none; border-radius: 8px; box-shadow: var(--shadow-pop); animation: pop-in 0.14s var(--ease);
+    background: var(--raised); border: none; border-radius: 8px; box-shadow: var(--shadow-pop);
+    @media (prefers-reduced-motion: no-preference) { animation: pop-in 0.14s var(--ease); }
   }
-  .tools :global([data-slot="menu-item"]) { display: flex; align-items: center; height: 26px; font-size: 13px; padding: 0 10px; border-radius: 5px; cursor: default; outline: none; }
+  .tools :global([data-slot="menu-item"]) { display: flex; align-items: center; min-height: 26px; font-size: 0.8125rem; padding: 0 10px; border-radius: 5px; cursor: default; outline: none; }
   .tools :global([data-slot="menu-item"][data-highlighted]) { background: var(--accent); color: var(--accent-text); }
   .tools :global([data-slot="menu-item"][data-destructive]) { color: var(--danger); }
   .tools :global([data-slot="menu-item"][data-destructive][data-highlighted]) { background: var(--danger); color: #fff; }
   .tools :global([data-slot="menu-separator"]) { border-top: 1px solid var(--line); margin: 4px 6px; }
-  .rename { height: 24px; font-weight: 600; }
+  .rename { min-height: 24px; font-weight: 600; }
   .error { color: var(--danger); }
 </style>

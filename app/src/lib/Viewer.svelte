@@ -35,9 +35,9 @@
     <span class="name">{name}</span>
     {#if pages > 1}
       <span class="nav">
-        <button class="ghost" disabled={page === 0} onclick={() => page--}>‹</button>
+        <button class="ghost" aria-label="Previous page" disabled={page === 0} onclick={() => page--}>‹</button>
         {page + 1} / {pages}
-        <button class="ghost" disabled={page >= pages - 1} onclick={() => page++}>›</button>
+        <button class="ghost" aria-label="Next page" disabled={page >= pages - 1} onclick={() => page++}>›</button>
       </span>
     {/if}
     {@render actions?.(page)}
@@ -45,9 +45,9 @@
   </header>
   <div class="stage">
     {#if error}
-      <p class="error">{error}</p>
+      <p role="alert" class="error">{error}</p>
     {:else if noImage === page}
-      <p class="error">This page has no scanned image to preview.</p>
+      <p role="alert" class="error">This page has no scanned image to preview.</p>
     {:else}
       {#key page}
         <img src={fileImg(path, page)} alt="Page {page + 1}" onerror={() => (noImage = page)} />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Seg from "./Seg.svelte";
   import { onDestroy } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { Radio, RadioGroup } from "@ui-sdk/svelte/radio";
@@ -200,7 +201,7 @@
         {#if k.steps.length > 1}
           <ol class="steps">
             {#each k.steps as s, i (i)}
-              <li class:on={i === step} class:done={i < step}>{s.button.replace(/^Scan /, "")}</li>
+              <li class:on={i === step} class:done={i < step} aria-current={i === step ? "step" : undefined}>{s.button.replace(/^Scan /, "")}</li>
             {/each}
           </ol>
         {/if}
@@ -210,13 +211,15 @@
           <button class="primary big" onclick={go} disabled={!connected || !!busy}>{k.steps[step].button}</button>
         </div>
 
-        {#if busy}
-          <p class="status"><span class="spinner"></span>{busy}… <button class="ghost small stop" onclick={stop} disabled={stopping}>Stop</button></p>
-        {:else if log}
-          <p class="status" class:err={!log.ok}>{log.text}</p>
-        {:else if !connected}
-          <p class="status">Waiting for the scanner.</p>
-        {/if}
+        <div role="status">
+          {#if busy}
+            <p class="status"><span class="spinner"></span>{busy}… <button class="ghost small stop" onclick={stop} disabled={stopping}>Stop</button></p>
+          {:else if log}
+            <p class="status" class:err={!log.ok}>{log.text}</p>
+          {:else if !connected}
+            <p class="status">Waiting for the scanner.</p>
+          {/if}
+        </div>
 
         </div>
         {#if scans.length}
@@ -234,54 +237,51 @@
 
     <aside class="pane">
       <section>
-        <div class="group-title">Copy settings</div>
+        <h2 class="group-title">Copy settings</h2>
         <div class="props">
           {#if kind === "copy" || kind === "twoInOne"}
-            <span class="label">Original</span>
-            <select bind:value={original}>
+            <label class="label" for="copy-original">Original</label>
+            <select id="copy-original" bind:value={original}>
               {#each sizes as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
             </select>
           {/if}
-          <span class="label">Copies</span>
-          <input type="number" min="1" max={caps?.max_copies ?? 99} bind:value={copies} />
-          <span class="label">Colour</span>
-          <div class="seg">
-            <button class:on={color} onclick={() => (color = true)} disabled={caps ? !caps.color : false}>Colour</button>
-            <button class:on={!color} onclick={() => (color = false)}>B&W</button>
-          </div>
+          <label class="label" for="copy-copies">Copies</label>
+          <input id="copy-copies" type="number" min="1" max={caps?.max_copies ?? 99} bind:value={copies} />
+          <span class="label" id="copy-colour">Colour</span>
+          <Seg aria-labelledby="copy-colour" value={color} onchange={(v) => (color = v)}
+            options={[{ value: true, label: "Colour", disabled: caps ? !caps.color : false }, { value: false, label: "B&W" }]} />
           {#if kind === "copy"}
-            <span class="label">Scale</span>
-            <div class="seg">
-              <button class:on={scaleMode === "Actual"} onclick={() => (scaleMode = "Actual")}>100%</button>
-              <button class:on={scaleMode === "Fit"} onclick={() => (scaleMode = "Fit")} title={fitPct ? `Fit the original to the paper (${fitPct}%)` : "Fit to paper"}>Fit</button>
-              <button class:on={scaleMode === "Percent"} onclick={() => (scaleMode = "Percent")}>Custom</button>
-            </div>
+            <span class="label" id="copy-scale">Scale</span>
+            <Seg aria-labelledby="copy-scale" value={scaleMode} onchange={(v) => (scaleMode = v)}
+              options={[
+                { value: "Actual" as const, label: "100%" },
+                { value: "Fit" as const, label: "Fit", title: fitPct ? `Fit the original to the paper (${fitPct}%)` : "Fit to paper" },
+                { value: "Percent" as const, label: "Custom" },
+              ]} />
             {#if scaleMode === "Percent"}
-              <span class="label">Percent</span>
-              <input type="number" min="25" max="400" step="5" bind:value={pct} />
+              <label class="label" for="copy-pct">Percent</label>
+              <input id="copy-pct" type="number" min="25" max="400" step="5" bind:value={pct} />
             {/if}
           {/if}
-          <span class="label">Density</span>
-          <select bind:value={density}>
+          <label class="label" for="copy-density">Density</label>
+          <select id="copy-density" bind:value={density}>
             {#each [-3, -2, -1, 0, 1, 2, 3] as d (d)}<option value={d}>{d > 0 ? `+${d} darker` : d < 0 ? `${d} lighter` : "Normal"}</option>{/each}
           </select>
-          <span class="label">Background</span>
-          <select bind:value={background} title="Push tinted or grey paper to white">
+          <label class="label" for="copy-background">Background</label>
+          <select id="copy-background" bind:value={background} title="Push tinted or grey paper to white">
             {#each ["Keep", "Remove (low)", "Remove (medium)", "Remove (high)"] as b, i (b)}<option value={i}>{b}</option>{/each}
           </select>
         </div>
       </section>
       <section>
-        <div class="group-title">Paper</div>
+        <h2 class="group-title">Paper</h2>
         <div class="props">
-          <span class="label">Size</span>
-          <select bind:value={media}>
+          <label class="label" for="copy-media">Size</label>
+          <select id="copy-media" bind:value={media}>
             {#each papers as m (m)}<option value={m}>{paperName(m)}</option>{/each}
           </select>
-          <span class="label">Quality</span>
-          <div class="seg">
-            {#each qualities as q (q)}<button class:on={quality === q} onclick={() => (quality = q)}>{q}</button>{/each}
-          </div>
+          <span class="label" id="copy-quality">Quality</span>
+          <Seg aria-labelledby="copy-quality" value={quality} onchange={(v) => (quality = v)} options={qualities.map((q) => ({ value: q, label: q }))} />
         </div>
       </section>
     </aside>
@@ -292,13 +292,13 @@
   /* Kinds and stage share one width so their edges line up. */
   .stage { max-width: 760px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
   .stage-text { display: grid; gap: 10px; align-content: start; min-width: 0; }
-  .stage .prompt { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  .stage .prompt { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
   .go { display: flex; gap: 8px; margin-top: 4px; }
-  button.big { height: 34px; padding: 0 18px; font-weight: 600; }
+  button.big { min-height: 34px; padding: 0 18px; font-weight: 600; }
   .glass { width: 120px; height: 150px; }
   .glass .bed { fill: var(--sunken); stroke: var(--line-strong); }
   .glass .edge { fill: var(--line-strong); }
-  .glass .sheet { fill: var(--paper); stroke: var(--accent); stroke-width: 1.5; width: 100px; height: 128px; rx: 2; transition: all 0.3s var(--ease); }
+  .glass .sheet { fill: var(--paper); stroke: var(--accent); stroke-width: 1.5; width: 100px; height: 128px; rx: 2; @media (prefers-reduced-motion: no-preference) { transition: width 0.3s var(--ease), height 0.3s var(--ease), fill 0.3s var(--ease); } }
   .glass.idCard .sheet { width: 54px; height: 34px; }
   .glass.long .sheet { height: 150px; stroke-dasharray: 4 3; }
   .glass.twoInOne.second .sheet, .glass.idCard.second .sheet { fill: var(--accent-soft); }
@@ -311,7 +311,7 @@
   }
   .screen-main :global(.kinds [data-slot="radio"][data-checked]) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
   .kname { font-weight: 600; }
-  .kabout { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .kabout { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
 
   /* Small sheet glyph showing where the copy lands on the paper. */
   .glyph { width: 26px; height: 36px; margin-bottom: 6px; position: relative; background: var(--paper); border-radius: 2px; box-shadow: 0 0 0 1px var(--line-strong); }
@@ -327,14 +327,14 @@
   .long i:last-child { display: none; }
 
   .steps { list-style: none; margin: 0 0 6px; padding: 0; display: flex; gap: 6px; counter-reset: step; }
-  .steps li { counter-increment: step; font-size: 12px; color: var(--faint); display: flex; align-items: center; gap: 6px; text-transform: capitalize; }
-  .steps li::before { content: counter(step); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-strong); font-size: 11px; }
+  .steps li { counter-increment: step; font-size: 0.75rem; color: var(--faint); display: flex; align-items: center; gap: 6px; text-transform: capitalize; }
+  .steps li::before { content: counter(step); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-strong); font-size: 0.6875rem; }
   .steps li + li::after { order: -1; content: ""; width: 18px; height: 1px; background: var(--line-strong); }
   .steps li.on { color: var(--text); }
   .steps li.on::before { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
   .steps li.done::before { content: "✓"; color: var(--ok); border-color: var(--ok); }
-  .prompt { font-size: 15px; line-height: 1.45; font-weight: 500; }
-  .status { margin-top: 6px; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .prompt { font-size: 0.9375rem; line-height: 1.45; font-weight: 500; }
+  .status { margin-top: 6px; font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
   .status.err { color: var(--danger); }
   .status:has(.spinner) { color: var(--text); }
   .scans { display: flex; gap: 14px; margin-top: 10px; }

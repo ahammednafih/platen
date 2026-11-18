@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Seg from "./lib/Seg.svelte";
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -54,9 +55,10 @@
     api.setDockIcon(accent).catch(() => {});
   });
   $effect(() => {
+    document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]')!.content = theme === "system" ? "light dark" : theme;
     if (theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
-    try { localStorage.setItem("theme", theme); } catch {}
+    try { if (theme === "system") localStorage.removeItem("theme"); else localStorage.setItem("theme", theme); } catch {}
     getCurrentWindow().setTheme(theme === "system" ? null : theme).catch(() => {});
   });
 
@@ -100,7 +102,7 @@
     <div class="brand"><span class="mark" aria-hidden="true"></span>Platen{#if import.meta.env.DEV}<span class="dev">Dev</span>{/if}</div>
     <nav>
       {#each nav as [v, label, key] (v)}
-        <button class:on={view === v} onclick={() => (view = v)} title="{label} (⌘{key})">
+        <button class:on={view === v} aria-current={view === v ? "page" : undefined} onclick={() => (view = v)} title="{label} (⌘{key})">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"><path d={icons[v]} /></svg>
           {label}
         </button>
@@ -115,11 +117,8 @@
           Appearance
         </PopoverTrigger>
         <PopoverContent class="pop card" side="top" align="start" sideOffset={6} aria-label="Appearance">
-          <div class="seg theme">
-            {#each [["system", "System"], ["light", "Light"], ["dark", "Dark"]] as [v, label] (v)}
-              <button class:on={theme === v} aria-pressed={theme === v} onclick={() => (theme = v as Theme)}>{label}</button>
-            {/each}
-          </div>
+          <Seg class="theme" aria-label="Theme" value={theme} onchange={(v) => (theme = v)}
+            options={[{ value: "system" as Theme, label: "System" }, { value: "light" as Theme, label: "Light" }, { value: "dark" as Theme, label: "Dark" }]} />
           <RadioGroup class="accents" aria-label="Accent colour" value={accent} onValueChange={(v) => { if (v) accent = v as Accent; }}>
             {#each accents as [v, label, light, dark] (v)}
               <Radio value={v} title={label} aria-label={label} style="--light: {light}; --dark: {dark}" />
@@ -170,28 +169,29 @@
 <style>
   .shell { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
   .side { background: var(--side); border-right: 1px solid var(--line); padding: 10px 8px 12px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
-  .brand { font-weight: 600; padding: 4px 8px; height: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
+  .brand { font-weight: 600; padding: 4px 8px; min-height: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
   .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); position: relative; transition: background-color 0.25s var(--ease); }
-  .dev { font-size: 10px; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; line-height: 14px; }
+  .dev { font-size: 0.625rem; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; line-height: 14px; }
   .mark::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 2px; border-radius: 1px; background: var(--accent-text); opacity: 0.9; }
   .foot { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
   .foot :global([data-slot="popover-trigger"][data-open]) { background: var(--hover); color: var(--text); }
   .foot :global(.pop) {
     margin: 0; width: 196px; padding: 10px; display: grid; gap: 10px; color: inherit;
-    background: var(--raised); box-shadow: var(--shadow-pop); border: none; border-radius: 10px; animation: pop-in 0.16s var(--ease);
+    background: var(--raised); box-shadow: var(--shadow-pop); border: none; border-radius: 10px;
+    @media (prefers-reduced-motion: no-preference) { animation: pop-in 0.16s var(--ease); }
   }
   nav { display: grid; gap: 1px; }
-  nav button { justify-content: flex-start; border: none; background: none; height: 28px; padding: 0 8px; color: var(--muted); gap: 10px; }
+  nav button { justify-content: flex-start; border: none; background: none; min-height: 28px; padding: 0 8px; color: var(--muted); gap: 10px; }
   nav button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   nav button.on { background: var(--hover); color: var(--text); }
   nav button svg { transition: color 0.14s var(--ease); }
   nav button.on svg { color: var(--accent); }
   nav svg { width: 16px; height: 16px; }
   .grow { flex: 1; }
-  .theme { margin: 0; }
+  .foot :global(.theme) { margin: 0; }
   .foot :global(.accents) { display: flex; justify-content: space-between; padding: 0 4px; }
   .foot :global(.accents [data-slot="radio"]) { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; transition: transform 0.1s; }
-  .foot :global(.accents [data-slot="radio"]:hover:not(:disabled)) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); transform: scale(1.15); }
+  .foot :global(.accents [data-slot="radio"]:hover:not(:disabled)) { background: linear-gradient(135deg, var(--light) 50%, var(--dark) 50%); @media (prefers-reduced-motion: no-preference) { transform: scale(1.15); } }
   .foot :global(.accents [data-slot="radio"][data-checked]) { box-shadow: 0 0 0 2px var(--raised), 0 0 0 3.5px var(--text); }
   .foot :global(.accents [data-slot="radio"]:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
   main { min-width: 0; min-height: 0; overflow: hidden; }

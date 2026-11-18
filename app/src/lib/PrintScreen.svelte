@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import Seg from "./Seg.svelte";
+  import { onMount, tick } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { open } from "@tauri-apps/plugin-dialog";
   import { api, covered, paperName, type Plan, type PrintCaps, type PrintJob, type Quality, type Scale, type Subset } from "./api";
@@ -230,12 +231,17 @@
     }
   }
 
-  function move(i: number, d: number) {
+  // Reordering detaches the row, which drops focus; put it back on the same row's control.
+  async function move(i: number, d: number, e: MouseEvent) {
     const j = i + d;
     if (j < 0 || j >= files.length) return;
+    const button = e.currentTarget as HTMLButtonElement;
     const f = [...files];
     [f[i], f[j]] = [f[j], f[i]];
     files = f;
+    await tick();
+    const row = button.closest("li");
+    (button.disabled ? row?.querySelector<HTMLButtonElement>("button:not(:disabled)") : button)?.focus();
   }
 
   let stopping = $state(false);
@@ -275,7 +281,7 @@
   function onkey(e: KeyboardEvent) {
     if (busy || covered()) return;
     if (!e.metaKey) {
-      if (e.key !== " " || e.target instanceof HTMLInputElement || !files.length) return;
+      if (e.key !== " " || e.target instanceof HTMLInputElement || (e.target as Element).closest?.('[role="radiogroup"]') || !files.length) return;
       if (view === "Pages" && sel.length) viewing = { of: "Pages", index: Math.min(anchor, sel.length - 1) };
       else if (view === "Sheets" && plan) viewing = { of: "Sheets", index: 0 };
       else return;
@@ -332,14 +338,15 @@
           {#each files as f, i (f)}
             <li>
               <span class="fname" title={f}>{name(f)}</span>
-              <button class="ghost small" title="Move up" disabled={i === 0} onclick={() => move(i, -1)}>↑</button>
-              <button class="ghost small" title="Move down" disabled={i === files.length - 1} onclick={() => move(i, 1)}>↓</button>
-              <button class="ghost small" onclick={() => (files = files.filter((x) => x !== f))}>Remove</button>
+              <button class="ghost small" title="Move up" aria-label="Move {name(f)} up" disabled={i === 0} onclick={(e) => move(i, -1, e)}>↑</button>
+              <button class="ghost small" title="Move down" aria-label="Move {name(f)} down" disabled={i === files.length - 1} onclick={(e) => move(i, 1, e)}>↓</button>
+              <button class="ghost small" aria-label="Remove {name(f)}" onclick={() => (files = files.filter((x) => x !== f))}>Remove</button>
             </li>
           {/each}
         </ul>
       {/if}
 
+      <div role="status">
       {#if busy || log || planError || flip}
         <div class="status" class:err={(log && !log.ok) || (planError && !busy)}>
           {#if busy}
@@ -360,6 +367,7 @@
           {/if}
         </div>
       {/if}
+      </div>
 
       {#if !files.length}
         <button class="drop" onclick={pick}>
@@ -369,11 +377,7 @@
       {/if}
 
       {#if files.length && sel.length}
-        <div class="seg view">
-          {#each ["Pages", "Sheets"] as const as v (v)}
-            <button class:on={view === v} onclick={() => (view = v)}>{v}</button>
-          {/each}
-        </div>
+        <Seg class="view" aria-label="Preview" value={view} onchange={(v) => (view = v)} options={[{ value: "Pages" as const, label: "Pages" }, { value: "Sheets" as const, label: "Sheets" }]} />
       {/if}
 
       {#if files.length && view === "Sheets"}
@@ -417,38 +421,35 @@
 
     <aside class="pane">
       <section>
-        <div class="group-title">Pages</div>
+        <h2 class="group-title">Pages</h2>
         <div class="props">
-          <span class="label">Range</span>
-          <input type="text" placeholder="All, or e.g. 1-3, 7" bind:value={ranges}
+          <label class="label" for="print-range">Range</label>
+          <input id="print-range" type="text" spellcheck="false" placeholder="All, or e.g. 1-3, 7" bind:value={ranges}
             oninput={() => { const s = fromRanges(ranges, sel.length); if (s) sel = s; }} />
-          <span class="label">Per sheet</span>
-          <select bind:value={nup}>
+          <label class="label" for="print-nup">Per sheet</label>
+          <select id="print-nup" bind:value={nup}>
             {#each [1, 2, 4, 6, 9, 16] as n (n)}<option value={n}>{n === 1 ? "1 page" : `${n} pages`}</option>{/each}
           </select>
-          <span class="label">Scale</span>
-          <div class="seg">
-            <button class:on={scaleMode === "Fit"} onclick={() => (scaleMode = "Fit")}>Fit</button>
-            <button class:on={scaleMode === "Actual"} onclick={() => (scaleMode = "Actual")} disabled={nup > 1}>100%</button>
-            <button class:on={scaleMode === "Percent"} onclick={() => (scaleMode = "Percent")} disabled={nup > 1}>Custom</button>
-          </div>
+          <span class="label" id="print-scale">Scale</span>
+          <Seg aria-labelledby="print-scale" value={scaleMode} onchange={(v) => (scaleMode = v)}
+            options={[
+              { value: "Fit" as const, label: "Fit" },
+              { value: "Actual" as const, label: "100%", disabled: nup > 1 },
+              { value: "Percent" as const, label: "Custom", disabled: nup > 1 },
+            ]} />
           {#if scaleMode === "Percent" && nup === 1}
-            <span class="label">Percent</span>
-            <input type="number" min="10" max="400" step="5" bind:value={pct} />
+            <label class="label" for="print-pct">Percent</label>
+            <input id="print-pct" type="number" min="10" max="400" step="5" bind:value={pct} />
           {/if}
-          <span class="label">Pick</span>
-          <div class="seg">
-            {#each ["All", "Odd", "Even"] as const as v (v)}
-              <button class:on={preset === v} onclick={() => pickPreset(v)}>{v}</button>
-            {/each}
-          </div>
+          <span class="label" id="print-pick">Pick</span>
+          <Seg aria-labelledby="print-pick" value={preset} onchange={pickPreset} options={(["All", "Odd", "Even"] as const).map((v) => ({ value: v, label: v }))} />
           <span class="label">Order</span>
           <label class="check"><input type="checkbox" bind:checked={reverse} /> Last sheet first</label>
         </div>
       </section>
 
       <section>
-        <div class="group-title">Two-sided</div>
+        <h2 class="group-title">Two-sided</h2>
         <label class="check"><input type="checkbox" bind:checked={twoSided} /> Print both sides by hand</label>
         <p class="faint small hint">
           {caps?.duplex ? "This printer can also print two-sided on its own." : "Prints the fronts, then asks you to put the stack back for the backs."}
@@ -456,32 +457,31 @@
       </section>
 
       <section>
-        <div class="group-title">Copies</div>
+        <h2 class="group-title">Copies</h2>
         <div class="props">
-          <span class="label">Copies</span>
-          <input type="number" min="1" max={caps?.max_copies ?? 99} bind:value={copies} />
+          <label class="label" for="print-copies">Copies</label>
+          <input id="print-copies" type="number" min="1" max={caps?.max_copies ?? 99} bind:value={copies} />
           <span class="label">Collate</span>
           <label class="check"><input type="checkbox" bind:checked={collate} disabled={copies < 2} /> Whole sets</label>
         </div>
       </section>
 
       <section>
-        <div class="group-title">Paper</div>
+        <h2 class="group-title">Paper</h2>
         <div class="props">
-          <span class="label">Size</span>
-          <select bind:value={media}>
+          <label class="label" for="print-media">Size</label>
+          <select id="print-media" bind:value={media}>
             {#each papers as m (m)}<option value={m}>{paperName(m)}</option>{/each}
           </select>
-          <span class="label">Colour</span>
-          <div class="seg">
-            <button class:on={tone === "Colour"} onclick={() => (tone = "Colour")} disabled={caps ? !caps.color : false} title="Sheets with no colour on them still print with black ink only">Colour</button>
-            <button class:on={tone === "Gray"} onclick={() => (tone = "Gray")} title="Shades of gray, as the printer renders them">Gray</button>
-            <button class:on={tone === "B&W"} onclick={() => (tone = "B&W")} title="Clean black on white: paper pushed to white, ink kept dark. Best for scanned documents">B&W</button>
-          </div>
-          <span class="label">Quality</span>
-          <div class="seg">
-            {#each qualities as q (q)}<button class:on={quality === q} onclick={() => (quality = q)}>{q}</button>{/each}
-          </div>
+          <span class="label" id="print-tone">Colour</span>
+          <Seg aria-labelledby="print-tone" value={tone} onchange={(v) => (tone = v)}
+            options={[
+              { value: "Colour" as const, label: "Colour", disabled: caps ? !caps.color : false, title: "Sheets with no colour on them still print with black ink only" },
+              { value: "Gray" as const, label: "Gray", title: "Shades of gray, as the printer renders them" },
+              { value: "B&W" as const, label: "B&W", title: "Clean black on white: paper pushed to white, ink kept dark. Best for scanned documents" },
+            ]} />
+          <span class="label" id="print-quality">Quality</span>
+          <Seg aria-labelledby="print-quality" value={quality} onchange={(v) => (quality = v)} options={qualities.map((q) => ({ value: q, label: q }))} />
         </div>
       </section>
     </aside>
@@ -503,16 +503,16 @@
   .count { margin-left: 4px; }
   .screen-main { padding: 16px 20px 40px; display: grid; gap: 16px; align-content: start; }
   .files { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; }
-  .files li { display: flex; align-items: center; gap: 2px; height: 34px; padding: 0 6px 0 12px; }
+  .files li { display: flex; align-items: center; gap: 2px; min-height: 34px; padding: 0 6px 0 12px; }
   .files li + li { border-top: 1px solid var(--line); }
   .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .status { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .status { font-size: 0.75rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
   .status.err { color: var(--danger); }
   .status:has(.spinner) { color: var(--text); }
-  .flip { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px; color: var(--text); font-size: 13px; }
+  .flip { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px; color: var(--text); font-size: 0.8125rem; }
   .flip-actions { display: flex; gap: 6px; }
   .drop {
-    height: 260px; display: grid; place-content: center; gap: 4px; text-align: center;
+    min-height: 260px; display: grid; place-content: center; gap: 4px; text-align: center;
     border: 1px dashed var(--line-strong); border-radius: 10px; background: none;
   }
   .screen { position: relative; }
@@ -525,7 +525,7 @@
   .sheets { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px 16px; }
   .sheets li { display: grid; gap: 6px; justify-items: center; position: relative; }
   .peek {
-    position: absolute; top: 6px; left: 6px; width: 24px; height: 24px; padding: 0; display: grid; place-content: center;
+    position: absolute; top: 6px; left: 6px; width: 24px; min-height: 24px; padding: 0; display: grid; place-content: center;
     border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 1px var(--line); opacity: 0; transition: opacity 0.14s var(--ease);
   }
   .peek svg { width: 14px; height: 14px; }
@@ -536,15 +536,15 @@
   }
   .sheet:hover { background: var(--paper); outline-color: var(--line-strong); }
   .sheet.off { opacity: 0.35; }
-  .view { justify-self: start; }
+  .screen-main :global(.seg.view) { justify-self: start; }
   .tick {
     position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-content: center;
-    font-size: 11px; font-weight: 700; color: #fff; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg);
+    font-size: 0.6875rem; font-weight: 700; color: #fff; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg);
   }
   .off .tick { background: var(--bg); border: 1.5px solid var(--line-strong); }
   .sheet img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .more { text-align: center; }
   section { display: grid; gap: 8px; }
-  .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 0.8125rem; }
   .hint { margin-top: -2px; }
 </style>

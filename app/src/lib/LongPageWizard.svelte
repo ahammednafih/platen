@@ -46,8 +46,8 @@
     <header>
       <h2>{replace === undefined ? "Long page" : `Retake page ${replace + 1} (long)`}</h2>
       <ol class="steps">
-        <li class:on={step === "top" || step === "scanning-top"}>1. Top half</li>
-        <li class:on={step === "flip" || step === "joining"}>2. Bottom half</li>
+        <li class:on={step === "top" || step === "scanning-top"} aria-current={step === "top" || step === "scanning-top" ? "step" : undefined}>1. Top half</li>
+        <li class:on={step === "flip" || step === "joining"} aria-current={step === "flip" || step === "joining" ? "step" : undefined}>2. Bottom half</li>
       </ol>
     </header>
 
@@ -70,7 +70,7 @@
             </figure>
           {/if}
         {/if}
-        {#if error}<p class="error">{error}</p>{/if}
+        {#if error}<p role="alert" class="error">{error}</p>{/if}
       </div>
     </div>
 
@@ -92,7 +92,7 @@
 <style>
   .dialog { width: min(640px, 92vw); padding: 20px 22px; display: grid; gap: 18px; }
   header { display: flex; justify-content: space-between; align-items: baseline; }
-  .steps { display: flex; gap: 14px; list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--muted); }
+  .steps { display: flex; gap: 14px; list-style: none; margin: 0; padding: 0; font-size: 0.75rem; color: var(--muted); }
   .steps .on { color: var(--accent); font-weight: 600; }
   .body { display: grid; grid-template-columns: 120px 1fr; gap: 22px; }
   .text p { margin: 0 0 8px; }
@@ -106,7 +106,7 @@
   .sheet.flipped { background: linear-gradient(var(--warn) 0 30%, var(--sunken) 30%); }
   figure { margin: 10px 0 0; }
   figure img { max-height: 180px; max-width: 100%; border: 1px solid var(--line); border-radius: 4px; display: block; }
-  figcaption { font-size: 12px; margin-top: 4px; }
+  figcaption { font-size: 0.75rem; margin-top: 4px; }
   footer { display: flex; gap: 8px; }
   .grow { flex: 1; }
   .error { color: var(--danger); }

@@ -45,7 +45,7 @@
   <div class="backdrop" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}>
     <div class="stage" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}>
       {#if error}
-        <p class="err">{error}</p>
+        <p class="err" role="alert">{error}</p>
       {:else if url}
         <img src={url} alt={caption(index)} />
       {:else}
@@ -69,8 +69,8 @@
   .stage { display: grid; place-items: center; width: 100%; height: 100%; min-height: 0; }
   img { max-width: 100%; max-height: calc(100vh - 90px); object-fit: contain; box-shadow: 0 8px 40px rgb(0 0 0 / 50%); background: #fff; }
   .bar { display: flex; align-items: center; gap: 10px; }
-  .caption { color: #ddd; font-size: 13px; font-variant-numeric: tabular-nums; }
-  .bar button { color: #ddd; font-size: 14px; }
+  .caption { color: #ddd; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+  .bar button { color: #ddd; font-size: 0.875rem; }
   .bar button:hover:not(:disabled) { background: rgb(255 255 255 / 10%); color: #fff; }
-  .err { color: #f0a59c; font-size: 13px; }
+  .err { color: #f0a59c; font-size: 0.8125rem; }
 </style>

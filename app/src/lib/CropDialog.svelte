@@ -116,13 +116,13 @@
         </div>
       </div></div>
       <aside>
-        <div class="group-title">Crop to</div>
-        <div class="choices">
-          <button class:on={picked === "Auto"} onclick={auto} title="Find the paper from the dark border around it">Auto</button>
+        <h3 class="group-title" id="crop-to">Crop to</h3>
+        <div class="choices" role="group" aria-labelledby="crop-to">
+          <button class:on={picked === "Auto"} aria-pressed={picked === "Auto"} onclick={auto} title="Find the paper from the dark border around it">Auto</button>
           {#each sizes.filter(([, w, h]) => fits(w, h)) as [name, w, h] (name)}
-            <button class:on={picked === name} onclick={() => size(name, w, h)}>{name} <span class="faint">{w}×{h}</span></button>
+            <button class:on={picked === name} aria-pressed={picked === name} onclick={() => size(name, w, h)}>{name} <span class="faint">{w}×{h}</span></button>
           {/each}
-          <button class:on={picked === "Whole page"} onclick={whole}>Whole page</button>
+          <button class:on={picked === "Whole page"} aria-pressed={picked === "Whole page"} onclick={whole}>Whole page</button>
         </div>
         <p class="muted small">Or drag on the page to draw a box. Drag inside it to move, or a corner to resize.</p>
         <p class="small result">{Math.round(r.w * pageW)} × {Math.round(r.h * pageH)} mm</p>
@@ -155,11 +155,11 @@
   .sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
   aside { display: grid; gap: 10px; align-content: start; }
   .choices { display: grid; gap: 4px; }
-  .choices button { justify-content: space-between; height: 26px; font-size: 12px; }
+  .choices button { justify-content: space-between; min-height: 26px; font-size: 0.75rem; }
   .choices button.on { border-color: var(--accent); background: var(--accent-soft); }
   .result { font-variant-numeric: tabular-nums; font-weight: 600; }
   .warn { color: var(--warn); }
-  .small { font-size: 12px; }
+  .small { font-size: 0.75rem; }
   footer { display: flex; gap: 8px; }
   .grow { flex: 1; }
 </style>

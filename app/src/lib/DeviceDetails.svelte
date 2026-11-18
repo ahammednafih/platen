@@ -115,18 +115,18 @@
         <p class="muted small">The device asks for its admin password. It's usually on a label on the device, marked “Pwd”. Saved to your Keychain once it works.</p>
         <div class="row">
           <!-- svelte-ignore a11y_autofocus -->
-          <input type="password" placeholder="Device password" bind:value={password} autofocus />
+          <input type="password" aria-label="Device password" placeholder="Device password" bind:value={password} autofocus />
           <button class="primary" disabled={busy || !password}>{busy ? "…" : "Log in"}</button>
         </div>
       </form>
     {:else if busy && !groups.length}
       <p class="muted small"><span class="spinner"></span> Reading the device…</p>
     {/if}
-    {#if error}<p class="error small">{error}</p>{/if}
+    {#if error}<p role="alert" class="error small">{error}</p>{/if}
 
     {#if button}
       <section class="snmp">
-        <div class="group-title">Scan button</div>
+        <h3 class="group-title">Scan button</h3>
         {#if button.snmp !== "ReadWrite"}
           <p class="small">
             To use the device's own Scan button, the device has to let this Mac register on the network.
@@ -160,13 +160,13 @@
             </p>
           {/if}
         {/if}
-        {#if switchError}<p class="error small">{switchError}</p>{/if}
+        {#if switchError}<p role="alert" class="error small">{switchError}</p>{/if}
       </section>
     {/if}
 
     {#if groups.length}
       <section class="head">
-        <div class="group-title">Print head</div>
+        <h3 class="group-title">Print head</h3>
         <p class="faint small">For faint, streaky or missing colours. Print a nozzle check first and clean only the colours with gaps.</p>
         <div class="actions">
           <button class="primary" onclick={() => ask("check")} disabled={headBusy || !!confirming}>Print nozzle check…</button>
@@ -195,7 +195,7 @@
                 The printer can't print or copy until it's done, about a minute.
               </p>
               {#if lowInks.length}
-                <p class="error">
+                <p role="alert" class="error">
                   {lowInks.map((i) => `${i.name} is at ${i.level}%`).join(", ")}. Cleaning with little ink left can damage the
                   print head. Refill first.
                 </p>
@@ -211,13 +211,13 @@
         {/if}
         {#if headBusy}<p class="muted small"><span class="spinner"></span> Sending to the printer…</p>{/if}
         {#if headNote}<p class="small">{headNote}</p>{/if}
-        {#if headError}<p class="error small">{headError}</p>{/if}
+        {#if headError}<p role="alert" class="error small">{headError}</p>{/if}
       </section>
     {/if}
 
     {#each groups as g, i (i)}
       <section>
-        {#if g.title && g.title !== groups[i - 1]?.title}<div class="group-title">{g.title}</div>{/if}
+        {#if g.title && g.title !== groups[i - 1]?.title}<h3 class="group-title">{g.title}</h3>{/if}
         <dl>
           {#each g.rows as r, j (j)}
             <dt class:sub={r.sub}>{r.label}</dt>
@@ -238,7 +238,7 @@
   }
   h2 { margin: 0; }
   .grow { flex: 1; }
-  .close { width: 26px; height: 26px; padding: 0; margin-right: -8px; border-radius: 50%; }
+  .close { width: 26px; min-height: 26px; padding: 0; margin-right: -8px; border-radius: 50%; }
   .row { display: flex; gap: 8px; }
   .row input { flex: 1; }
   dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; margin: 6px 0 0; }

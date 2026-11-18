@@ -70,7 +70,8 @@
       <ul class="ink" title="Ink levels">
         {#each status.printer.ink as i (i.name)}
           <li title="{i.name} {i.level < 0 ? "unknown" : `${i.level}%`}">
-            <span class="bar"><span style="height:{Math.max(0, i.level)}%; background:{swatch(i.name)}"></span></span>
+            <span class="visually-hidden">{i.name}</span>
+            <span class="bar" aria-hidden="true"><span style="height:{Math.max(0, i.level)}%; background:{swatch(i.name)}"></span></span>
             <span class="pct">{i.level < 0 ? "?" : i.level}</span>
           </li>
         {/each}
@@ -85,14 +86,14 @@
   {/if}
 
   {#if error}
-    <p class="error small">{error}</p>
+    <p role="alert" class="error small">{error}</p>
   {/if}
   {#if buttonError}
-    <p class="error small" title={buttonError}>Scan button stopped: {buttonError}</p>
+    <p role="alert" class="error small" title={buttonError}>Scan button stopped: {buttonError}</p>
   {/if}
   {#if editing || (error && !device)}
     <form class="host" onsubmit={(e) => { e.preventDefault(); connect(host); }}>
-      <input type="text" placeholder="IP address, blank to search" bind:value={host} />
+      <input type="text" aria-label="Device address" placeholder="IP address, blank to search" bind:value={host} spellcheck="false" autocapitalize="none" autocorrect="off" />
       <button disabled={busy}>{busy ? "…" : "Connect"}</button>
     </form>
   {/if}
@@ -106,7 +107,7 @@
   .who:hover { background: var(--hover); }
   .grow { flex: 1; min-width: 0; display: grid; }
   .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { font-size: 0.75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 20%, transparent); }
   .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
   .dot.off { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
@@ -116,7 +117,7 @@
   .ink li { display: grid; gap: 4px; justify-items: center; }
   .bar { width: 100%; height: 34px; background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; display: flex; align-items: flex-end; }
   .bar span { display: block; width: 100%; }
-  .pct { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pct { font-size: 0.6875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .web { justify-self: start; }
   .searching { display: flex; gap: 8px; align-items: center; padding: 6px; }
   .host { display: flex; gap: 6px; }
