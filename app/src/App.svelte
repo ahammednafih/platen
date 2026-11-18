@@ -43,8 +43,8 @@
   const stored = (): Theme => { try { return (localStorage.getItem("theme") as Theme) || "system"; } catch { return "system"; } };
   let theme = $state<Theme>(stored());
   const accents = [
-    ["ink", "Ink black", "#1c1d1f", "#e8e6e1"], ["magenta", "Magenta", "#c2185b", "#e0457f"], ["orange", "Toner orange", "#d9480f", "#f2703a"],
-    ["teal", "Teal", "#0f766e", "#2bb3a3"], ["coffee", "Coffee", "#7a4a2a", "#8b5a3c"],
+    ["ink", "Ink black", "#1c1d1f", "#e8e6e1"], ["magenta", "Magenta", "#c2185b", "#ec6a96"], ["orange", "Toner orange", "#bf3f0c", "#f2703a"],
+    ["teal", "Teal", "#0f766e", "#2bb3a3"], ["coffee", "Coffee", "#7a4a2a", "#b8835d"],
   ] as const;
   type Accent = (typeof accents)[number][0];
   let accent = $state<Accent>((() => { try { return (localStorage.getItem("accent") as Accent) || "ink"; } catch { return "ink"; } })());
