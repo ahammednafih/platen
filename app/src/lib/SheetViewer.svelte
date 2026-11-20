@@ -9,25 +9,35 @@
     onclose: () => void;
   } = $props();
 
-  let url = $state("");
-  let error = $state("");
+  let urls = $state<Record<number, string>>({});
+  let errors = $state<Record<number, string>>({});
+  const url = $derived(urls[index] ?? "");
+  const error = $derived(errors[index] ?? "");
 
   $effect(() => {
-    const i = index;
+    const draw = render;
     let stale = false;
-    error = "";
-    render(i).then(
-      (u) => {
-        if (stale) return URL.revokeObjectURL(u);
-        if (url) URL.revokeObjectURL(url);
-        url = u;
-      },
-      (e) => { if (!stale) error = String(e); },
-    );
-    return () => { stale = true; };
+    const pending = new Set<number>();
+    const get = (i: number) => {
+      if (i < 0 || i >= count || i in urls || pending.has(i)) return;
+      pending.add(i);
+      draw(i).then(
+        (u) => { if (stale) URL.revokeObjectURL(u); else urls[i] = u; },
+        (e) => { if (!stale) errors[i] = String(e); },
+      );
+    };
+    $effect(() => {
+      get(index);
+      get(index + 1);
+      get(index - 1);
+    });
+    return () => {
+      stale = true;
+      Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
+      urls = {};
+      errors = {};
+    };
   });
-
-  $effect(() => () => { if (url) URL.revokeObjectURL(url); });
 
   function onkey(e: KeyboardEvent) {
     if (e.metaKey) return;

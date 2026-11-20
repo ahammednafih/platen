@@ -40,6 +40,59 @@ pub fn page_count(pdf: &Path) -> Result<usize> {
     return crate::pdfedit::page_count(&std::fs::read(pdf)?);
 }
 
+/// Like `load`, but shrunk to `dpi` and kept in memory, so redrawing previews after a layout
+/// change doesn't decode every file again.
+pub fn load_preview(p: &SrcPage, dpi: u32) -> Result<Src> {
+    let modified = std::fs::metadata(&p.path).and_then(|m| m.modified()).ok();
+    let key = (p.path.clone(), p.index, dpi, modified);
+    if let Some(src) = preview_cache::get(&key) {
+        return Ok(src);
+    }
+    let mut src = load(p, dpi)?;
+    if src.dpi > dpi as f32 {
+        let f = dpi as f32 / src.dpi;
+        let (w, h) = (((src.img.width() as f32 * f) as u32).max(1), ((src.img.height() as f32 * f) as u32).max(1));
+        src = Src { img: image::imageops::resize(&src.img, w, h, image::imageops::FilterType::Triangle), dpi: dpi as f32 };
+    }
+    preview_cache::put(key, &src);
+    Ok(src)
+}
+
+mod preview_cache {
+    use crate::sheet::Src;
+    use std::collections::VecDeque;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+    use std::time::SystemTime;
+
+    pub type Key = (PathBuf, usize, u32, Option<SystemTime>);
+
+    const MAX_BYTES: usize = 256 << 20;
+
+    static CACHE: Mutex<VecDeque<(Key, Src)>> = Mutex::new(VecDeque::new());
+
+    pub fn get(key: &Key) -> Option<Src> {
+        let mut c = CACHE.lock().ok()?;
+        let i = c.iter().position(|(k, _)| k == key)?;
+        let hit = c.remove(i)?;
+        let src = hit.1.clone();
+        c.push_back(hit);
+        Some(src)
+    }
+
+    pub fn put(key: Key, src: &Src) {
+        let Ok(mut c) = CACHE.lock() else { return };
+        c.retain(|(k, _)| k != &key);
+        c.push_back((key, src.clone()));
+        let mut bytes: usize = c.iter().map(|(_, s)| s.img.len()).sum();
+        while bytes > MAX_BYTES && c.len() > 1 {
+            if let Some((_, old)) = c.pop_front() {
+                bytes -= old.img.len();
+            }
+        }
+    }
+}
+
 /// Load a page; PDFs render at `dpi`, images keep their pixels and assume 300 dpi.
 pub fn load(p: &SrcPage, dpi: u32) -> Result<Src> {
     if !is_pdf(&p.path) {

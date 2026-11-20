@@ -77,6 +77,7 @@
   // Re-plan shortly after any setting changes.
   $effect(() => {
     const j = job();
+    const sheets = view === "Sheets";
     if (!j.files.length || none) {
       plan = null;
       return;
@@ -88,17 +89,29 @@
         if (stale) return;
         plan = p;
         planError = "";
-        if (view !== "Sheets") return;
-        const urls = await Promise.all(p.order.slice(0, PREVIEWS).map((_, i) => api.printPreview(j, i).catch(() => "")));
-        if (stale) return urls.forEach((u) => u && URL.revokeObjectURL(u));
-        sheetPreviews.forEach((u) => u && URL.revokeObjectURL(u));
-        sheetPreviews = urls;
+        if (!sheets) return;
+        await fill(j, p.order.length, sheetPreviews, (l) => (sheetPreviews = l), () => stale);
       } catch (e) {
         if (!stale) { plan = null; planError = String(e); }
       }
     }, 250);
     return () => { stale = true; clearTimeout(t); };
   });
+
+  // Swap each tile's image as soon as it's ready; the old one stays up until then.
+  async function fill(j: PrintJob, count: number, old: string[], set: (l: string[]) => void, stale: () => boolean) {
+    const n = Math.min(count, PREVIEWS);
+    const urls = old.slice(0, n);
+    old.slice(n).forEach((u) => u && URL.revokeObjectURL(u));
+    set(urls);
+    await Promise.all(Array.from({ length: n }, async (_, i) => {
+      const u = await api.printPreview(j, i).catch(() => "");
+      if (stale()) return u && URL.revokeObjectURL(u);
+      if (urls[i]) URL.revokeObjectURL(urls[i]);
+      urls[i] = u;
+      set([...urls]);
+    }));
+  }
 
   // Every page, one per sheet; built by hand so picking pages (ranges) doesn't re-render every preview.
   function pagesJob(): PrintJob {
@@ -122,10 +135,7 @@
         const p = await api.printPlan(j);
         if (stale) return;
         if (p.pages !== sel.length) setSel(Array(p.pages).fill(true));
-        const urls = await Promise.all(p.order.slice(0, PREVIEWS).map((_, i) => api.printPreview(j, i).catch(() => "")));
-        if (stale) return urls.forEach((u) => u && URL.revokeObjectURL(u));
-        previews.forEach((u) => u && URL.revokeObjectURL(u));
-        previews = urls;
+        await fill(j, p.order.length, previews, (l) => (previews = l), () => stale);
       } catch (e) {
         if (!stale) planError = String(e);
       }

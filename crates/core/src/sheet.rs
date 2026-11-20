@@ -31,6 +31,7 @@ impl Paper {
 }
 
 /// A page image and the resolution its pixels were made at (for actual-size placement).
+#[derive(Clone)]
 pub struct Src {
     pub img: RgbImage,
     pub dpi: f32,

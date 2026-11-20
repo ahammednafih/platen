@@ -86,8 +86,9 @@ impl PrintJob {
     /// The sheet as a JPEG, and whether it should print in colour. A sheet with no colour on it is
     /// sent gray even when colour is selected, so the printer doesn't mix colour inks to make black.
     fn render_sheet(&self, plan: &Plan, sheet: Option<usize>, dpi: u32) -> Result<(Vec<u8>, bool)> {
+        let load = if dpi < PRINT_DPI { render::load_preview } else { render::load };
         let pages = match sheet {
-            Some(i) => plan.groups.get(i).context("no such sheet")?.iter().map(|p| render::load(p, dpi)).collect::<Result<Vec<_>>>()?,
+            Some(i) => plan.groups.get(i).context("no such sheet")?.iter().map(|p| load(p, dpi)).collect::<Result<Vec<_>>>()?,
             None => Vec::new(),
         };
         let img = sheet::compose(&pages, self.nup, self.scale, self.paper(), dpi);
