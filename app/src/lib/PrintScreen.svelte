@@ -319,10 +319,16 @@
 
   const name = (p: string) => p.split("/").pop();
   const sheetsOut = $derived(plan ? (twoSided ? plan.sheets + (plan.sheets % 2) : plan.order.length) * Math.max(1, copies) : 0);
-  const paperRatio = $derived.by(() => {
+  const paperSize = $derived.by(() => {
     const m = media.match(/_([\d.]+)x([\d.]+)(mm|in)$/);
-    return m ? `${m[1]} / ${m[2]}` : "210 / 297";
+    const k = m?.[3] === "in" ? 25.4 : 1;
+    return m ? { w: +m[1] * k, h: +m[2] * k } : { w: 210, h: 297 };
   });
+  const paperRatio = $derived(`${paperSize.w} / ${paperSize.h}`);
+  // Where the printer stops printing (`PRINTER_MARGIN_MM` in core), outlined so its blank edge
+  // doesn't read as part of the document.
+  const MARGIN_MM = 3;
+  const edge = $derived(borderless && caps?.borderless ? "" : `inset: ${(MARGIN_MM / paperSize.h) * 100}% ${(MARGIN_MM / paperSize.w) * 100}%`);
 </script>
 
 <svelte:window onkeydown={onkey} />
@@ -400,6 +406,7 @@
               <li>
                 <button class="paper sheet" style="aspect-ratio: {paperRatio}" title="View larger" onclick={() => (viewing = { of: "Sheets", index: i })}>
                   {#if sheetPreviews[i]}<img src={sheetPreviews[i]} alt="Sheet {i + 1}" />{/if}
+                  {#if edge && sheetPreviews[i]}<span class="edge" style={edge} aria-hidden="true"></span>{/if}
                 </button>
                 <span class="faint small">{s === null ? "Blank back" : `Sheet ${s + 1}`}</span>
               </li>
@@ -417,6 +424,7 @@
                 title={on ? "Click to leave out, shift-click for a run, double-click to view" : "Click to print, shift-click for a run, double-click to view"}
                 onclick={(e) => toggle(i, e)} ondblclick={() => (viewing = { of: "Pages", index: i })}>
                 {#if previews[i]}<img src={previews[i]} alt="Page {i + 1}" />{/if}
+                {#if edge && previews[i]}<span class="edge" style={edge} aria-hidden="true"></span>{/if}
                 <span class="tick" aria-hidden="true">{on ? "✓" : ""}</span>
               </button>
               <button class="ghost small peek" title="View larger (Space)" aria-label="View page {i + 1}" onclick={() => (viewing = { of: "Pages", index: i })}>
@@ -567,6 +575,7 @@
   }
   .off .tick { background: var(--bg); border: 1.5px solid var(--line-strong); }
   .sheet img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .edge { position: absolute; border: 1px dashed var(--line-strong); pointer-events: none; }
   .more { text-align: center; }
   section { display: grid; gap: 8px; }
   .check { display: flex; gap: 8px; align-items: center; font-size: 0.8125rem; }

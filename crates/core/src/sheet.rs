@@ -133,6 +133,40 @@ pub fn compose(pages: &[Src], n: u32, scale: Scale, paper: Paper, dpi: u32) -> R
     sheet
 }
 
+/// The sheet as the printer puts it inside `margin` pixels of blank paper: shrunk to fit for
+/// `Fit`, cut off at the margins otherwise.
+pub fn inset(sheet: &RgbImage, margin: f32, scale: Scale) -> RgbImage {
+    let (w, h) = sheet.dimensions();
+    let m = margin.round() as u32;
+    if m == 0 || 2 * m >= w.min(h) {
+        return sheet.clone();
+    }
+    let mut out = RgbImage::from_pixel(w, h, Rgb([255, 255, 255]));
+    if scale == Scale::Fit {
+        let f = ((w - 2 * m) as f32 / w as f32).min((h - 2 * m) as f32 / h as f32);
+        let (iw, ih) = (((w as f32 * f) as u32).max(1), ((h as f32 * f) as u32).max(1));
+        let small = imageops::resize(sheet, iw, ih, imageops::FilterType::Triangle);
+        imageops::replace(&mut out, &small, ((w - iw) / 2) as i64, ((h - ih) / 2) as i64);
+    } else {
+        let inner = imageops::crop_imm(sheet, m, m, w - 2 * m, h - 2 * m).to_image();
+        imageops::replace(&mut out, &inner, m as i64, m as i64);
+    }
+    out
+}
+
+/// The sheet as a borderless printer puts it: enlarged evenly until it runs `bleed` pixels past
+/// every edge, the overhang lost.
+pub fn overspray(sheet: &RgbImage, bleed: f32) -> RgbImage {
+    let (w, h) = sheet.dimensions();
+    let f = ((w as f32 + 2.0 * bleed) / w as f32).max((h as f32 + 2.0 * bleed) / h as f32);
+    let (bw, bh) = (((w as f32 * f).round() as u32).max(w), ((h as f32 * f).round() as u32).max(h));
+    if (bw, bh) == (w, h) {
+        return sheet.clone();
+    }
+    let big = imageops::resize(sheet, bw, bh, imageops::FilterType::Triangle);
+    imageops::crop_imm(&big, (bw - w) / 2, (bh - h) / 2, w, h).to_image()
+}
+
 /// The page resized for a `cw`×`ch` cell; never larger than the cell.
 fn place(p: &Src, scale: Scale, cw: u32, ch: u32, dpi: u32) -> RgbImage {
     let (pw, ph) = (p.img.width() as f32, p.img.height() as f32);
@@ -158,6 +192,31 @@ mod tests {
 
     fn page(w: u32, h: u32, v: u8) -> Src {
         Src { img: RgbImage::from_pixel(w, h, Rgb([v, v, v])), dpi: 100.0 }
+    }
+
+    #[test]
+    fn inset_leaves_blank_margins_by_shrinking_or_cropping() {
+        let full = RgbImage::from_pixel(100, 140, Rgb([0, 0, 0]));
+        for scale in [Scale::Fit, Scale::Actual] {
+            let out = inset(&full, 10.0, scale);
+            assert_eq!(out.dimensions(), (100, 140));
+            assert_eq!(out.get_pixel(5, 70).0, [255; 3], "{scale:?}");
+            assert_eq!(out.get_pixel(50, 5).0, [255; 3], "{scale:?}");
+            assert_eq!(out.get_pixel(50, 70).0, [0; 3], "{scale:?}");
+        }
+    }
+
+    #[test]
+    fn overspray_loses_the_edges() {
+        let mut full = RgbImage::from_pixel(100, 140, Rgb([255, 255, 255]));
+        for y in 0..140 {
+            for x in 0..5 {
+                full.put_pixel(x, y, Rgb([0, 0, 0]));
+            }
+        }
+        let out = overspray(&full, 10.0);
+        assert_eq!(out.dimensions(), (100, 140));
+        assert!(out.get_pixel(0, 70).0[0] > 200);
     }
 
     #[test]

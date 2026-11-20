@@ -11,6 +11,10 @@ use std::path::PathBuf;
 /// Sheets are rendered at this resolution for printing.
 pub const PRINT_DPI: u32 = 300;
 
+/// What a printer typically leaves blank around a sheet, and how far past the edges it enlarges
+/// a borderless one.
+const PRINTER_MARGIN_MM: f32 = 3.0;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrintJob {
     pub files: Vec<PathBuf>,
@@ -78,20 +82,32 @@ impl PrintJob {
         Ok(Plan { pages: all.len(), picked: picked.len(), sheets: groups.len(), order, groups })
     }
 
-    /// One sheet as a JPEG (gray when printing in black and white).
+    /// Preview of one sheet as a JPEG (gray when printing in black and white), as it comes out:
+    /// inside the printer's margins, or for borderless enlarged past the paper's edges.
     pub fn sheet(&self, plan: &Plan, sheet: Option<usize>, dpi: u32) -> Result<Vec<u8>> {
-        self.render_sheet(plan, sheet, dpi).map(|(jpeg, _)| jpeg)
+        let pages = self.pages(plan, sheet, |p| render::load_preview(p, dpi))?;
+        let img = sheet::compose(&pages, self.nup, self.scale, self.paper(), dpi);
+        let px = PRINTER_MARGIN_MM * dpi as f32 / 25.4;
+        let img = if self.opts.borderless { sheet::overspray(&img, px) } else { sheet::inset(&img, px, self.scale) };
+        self.encode(img).map(|(jpeg, _)| jpeg)
     }
 
-    /// The sheet as a JPEG, and whether it should print in colour. A sheet with no colour on it is
-    /// sent gray even when colour is selected, so the printer doesn't mix colour inks to make black.
+    fn pages(&self, plan: &Plan, sheet: Option<usize>, load: impl Fn(&SrcPage) -> Result<sheet::Src>) -> Result<Vec<sheet::Src>> {
+        match sheet {
+            Some(i) => plan.groups.get(i).context("no such sheet")?.iter().map(load).collect(),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// The sheet as a JPEG, and whether it should print in colour.
     fn render_sheet(&self, plan: &Plan, sheet: Option<usize>, dpi: u32) -> Result<(Vec<u8>, bool)> {
-        let load = if dpi < PRINT_DPI { render::load_preview } else { render::load };
-        let pages = match sheet {
-            Some(i) => plan.groups.get(i).context("no such sheet")?.iter().map(|p| load(p, dpi)).collect::<Result<Vec<_>>>()?,
-            None => Vec::new(),
-        };
-        let img = sheet::compose(&pages, self.nup, self.scale, self.paper(), dpi);
+        let pages = self.pages(plan, sheet, |p| render::load(p, dpi))?;
+        self.encode(sheet::compose(&pages, self.nup, self.scale, self.paper(), dpi))
+    }
+
+    /// A sheet with no colour on it is sent gray even when colour is selected, so the printer
+    /// doesn't mix colour inks to make black.
+    fn encode(&self, img: image::RgbImage) -> Result<(Vec<u8>, bool)> {
         if self.opts.color && has_colour(&img) {
             return Ok((session::encode_rgb(&img, 90)?, true));
         }
