@@ -10,7 +10,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
-    MARKETING_VERSION: "0.5.1"
+    MARKETING_VERSION: "0.5.2"
     CURRENT_PROJECT_VERSION: "1"
     ARCHS: arm64
     SUPPORTED_PLATFORMS: iphoneos iphonesimulator
