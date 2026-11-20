@@ -103,6 +103,11 @@ impl Default for PrintOpts {
     }
 }
 
+const TIMEOUT: Duration = Duration::from_secs(120);
+
+/// A busy printer reads a sheet only as fast as it prints, which can take minutes for a photo.
+const PRINT_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
 /// What the printer offers, for the print dialog.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PrintCaps {
@@ -124,7 +129,8 @@ impl Printer {
     pub fn for_host(host: &str) -> Printer {
         let host = host.split(':').next().unwrap_or(host);
         let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(Duration::from_secs(120)))
+            .timeout_connect(Some(Duration::from_secs(10)))
+            .timeout_global(Some(TIMEOUT))
             .http_status_as_error(false)
             .build()
             .into();
@@ -199,7 +205,7 @@ impl Printer {
             Quality::High => 5,
         };
         req.attr(T_ENUM, "print-quality", &q.to_be_bytes());
-        let (_, groups) = self.send(req.end(), jpeg)?;
+        let (_, groups) = self.send_timeout(req.end(), jpeg, PRINT_TIMEOUT)?;
         let job = groups.into_iter().flatten().find(|(k, _)| k == "job-id").and_then(|(_, v)| v.first().and_then(Value::as_int));
         Ok(job.unwrap_or(0))
     }
@@ -227,9 +233,14 @@ impl Printer {
     }
 
     fn send(&self, body: Vec<u8>, doc: &[u8]) -> Result<(u16, Vec<Vec<(String, Vec<Value>)>>)> {
+        self.send_timeout(body, doc, TIMEOUT)
+    }
+
+    fn send_timeout(&self, body: Vec<u8>, doc: &[u8], timeout: Duration) -> Result<(u16, Vec<Vec<(String, Vec<Value>)>>)> {
         let mut data = body;
         data.extend_from_slice(doc);
-        let mut r = self.agent.post(&self.url).header("Content-Type", "application/ipp").send(&data[..])?;
+        let req = self.agent.post(&self.url).config().timeout_global(Some(timeout)).build();
+        let mut r = req.header("Content-Type", "application/ipp").send(&data[..])?;
         if r.status() != 200 {
             bail!("printer HTTP {}", r.status());
         }
