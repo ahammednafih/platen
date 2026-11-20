@@ -401,7 +401,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
 
     viewingSheet?.let { start ->
         val j = job()
-        SheetsViewer(plan?.order?.size ?: 0, start, render = { slot ->
+        SheetsViewer(plan?.order?.size ?: 0, start, j, render = { slot ->
             runCatching { model.platen.printPreview(j, slot.toUInt(), 120u) }.getOrNull()?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
         }, onClose = { viewingSheet = null })
     }

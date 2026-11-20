@@ -195,12 +195,12 @@ fun FilePagesViewer(pages: List<Pair<java.io.File, Int>>, start: Int, onClose: (
 }
 
 @Composable
-fun SheetsViewer(count: Int, start: Int, render: (Int) -> android.graphics.Bitmap?, onClose: () -> Unit) {
+fun SheetsViewer(count: Int, start: Int, job: Any, render: (Int) -> android.graphics.Bitmap?, onClose: () -> Unit) {
     val pager = rememberPagerState(start) { count }
     var zoomed by remember { mutableStateOf(false) }
     ViewerFrame(onClose, pager = {
         HorizontalPager(pager, userScrollEnabled = !zoomed, beyondViewportPageCount = 1) { i ->
-            ZoomableImage({ render(i) }, "sheet/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
+            ZoomableImage({ render(i) }, "sheet/${job.hashCode()}/$i", onZoomChange = { if (i == pager.currentPage) zoomed = it })
         }
     }) {
         Text("Sheet ${pager.currentPage + 1} of $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
