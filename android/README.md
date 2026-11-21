@@ -59,9 +59,15 @@ One-time setup:
 2. App integrity → App signing: choose to use your own key and upload the release key exported with
    Play's PEPK tool. Play then signs installs with the same key as the GitHub APKs, so people can move
    between the two without uninstalling. The same key stays the upload key; CI needs no change.
+   Play now generates its own key when the app is created, so use App signing → Change key before
+   the first release. PEPK needs an OpenJDK (Oracle's JDK refuses its bundled BouncyCastle) and the
+   provider registered: `security.provider.20=org.bouncycastle.jce.provider.BouncyCastleProvider` in a
+   file passed as `-Djava.security.properties=FILE`.
 3. Upload the first bundle by hand (Play's API can't create the first release): with the release key
    env vars above, `./gradlew :app:bundleRelease -PversionName=X.Y.Z`, then upload
-   `app/build/outputs/bundle/release/app-release.aab` to Internal testing.
+   `app/build/outputs/bundle/release/app-release.aab` to Internal testing. The browser upload may cap
+   file size; dropping `BUNDLE-METADATA/` (R8 mapping, native symbols) and re-signing with `jarsigner`
+   gets it to about 6 MB.
 4. A Google Cloud service account with the Google Play Android Developer API enabled and a JSON key,
    invited in Play Console → Users and permissions with release permissions for this app. Put the
    JSON in the `PLAY_SERVICE_ACCOUNT_JSON` repository secret.
