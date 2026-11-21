@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -232,7 +233,7 @@ fun PrintTab(model: AppModel, state: AppState, padding: PaddingValues, files: Li
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Paper(Modifier.size(36.dp, 48.dp)) { FileImage(f.path, 120, null, Modifier.fillMaxSize()) }
-                            Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                            Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
                         }
                         Box {
                             IconButton(onClick = { menu = true }, shapes = IconButtonDefaults.shapes()) { Icon(Icons.Default.MoreVert, contentDescription = "More for ${f.name}") }

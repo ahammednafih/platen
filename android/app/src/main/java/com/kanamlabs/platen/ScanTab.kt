@@ -400,7 +400,7 @@ private fun PageSheet(index: Int, p: Page, fresh: Boolean, dropHere: Boolean, on
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${index + 1}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 2.dp))
             Text(
-                "  ${p.dpi} dpi, ${dur(p.secs)}",
+                if (p.secs >= 0.5f) "  ${p.dpi} dpi, ${dur(p.secs)}" else "  ${p.dpi} dpi",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
