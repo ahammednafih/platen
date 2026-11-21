@@ -73,6 +73,18 @@ One-time setup:
    JSON in the `PLAY_SERVICE_ACCOUNT_JSON` repository secret.
 5. Set the `PLAY_TRACK` repository variable, e.g. `internal`.
 
+### Store screenshots
+
+```sh
+./gradlew :app:recordRoborazziDebug --tests com.kanamlabs.platen.StoreListingTest -PstoreListing=true
+```
+
+Renders the phone (1078×2155), tablet (2560×1600, used for 7" and 10") and foldable (2160×2160) listing images
+into `app/build/store-listing`, with Robolectric on the Mac: no phone, no printer. The test runs the real core
+(built for the host by the `cargoHost` task), imports the recipe pages in `app/src/test/resources/store` into a
+draft, and fakes only the printer, its ink and its saved name. Skipped in a normal test run. Upload images one
+at a time; Play shuffles a multi-file upload.
+
 ## Licences
 
 Inter is bundled under the SIL Open Font License; see [`licenses/Inter-OFL.txt`](licenses/Inter-OFL.txt).

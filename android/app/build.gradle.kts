@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.roborazzi)
 }
 
 val repo = rootDir.parentFile
@@ -25,6 +26,14 @@ val uniffiBindings by tasks.registering(Exec::class) {
 }
 
 tasks.named("preBuild") { dependsOn(uniffiBindings) }
+
+val storeListing = providers.gradleProperty("storeListing")
+val hostCore = repo.resolve("target/release/${System.mapLibraryName("platen_mobile")}")
+
+val cargoHost by tasks.registering(Exec::class) {
+    workingDir = repo
+    commandLine("mise", "exec", "--", "cargo", "build", "-p", "platen-mobile", "--lib", "--release")
+}
 
 val releaseKeystore = providers.environmentVariable("ANDROID_KEYSTORE").orNull?.let(::file)
 
@@ -66,6 +75,22 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all { test ->
+            test.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+            test.maxHeapSize = "2g"
+            test.systemProperty("uniffi.component.platen_mobile.libraryOverride", hostCore.path)
+            if (storeListing.isPresent) {
+                test.systemProperty("storeListing", storeListing.get())
+                test.dependsOn(cargoHost)
+            }
+        }
+    }
+}
+
+roborazzi {
+    outputDir.set(layout.buildDirectory.dir("store-listing"))
 }
 
 kotlin {
@@ -89,4 +114,12 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.window)
     implementation("${libs.jna.get()}@aar")
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.core)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test)
+    testImplementation(libs.jna)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
