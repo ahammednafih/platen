@@ -101,6 +101,9 @@ androidComponents {
     onVariants { variant ->
         variant.sources.jniLibs?.addStaticSourceDirectory(jniDir.get().asFile.path)
         variant.sources.kotlin?.addStaticSourceDirectory(bindingsDir.get().asFile.path)
+        variant.outputs.forEach { output ->
+            output.versionName.set(output.versionCode.map { code -> "${android.defaultConfig.versionName}.$code" })
+        }
     }
 }
 
