@@ -91,6 +91,10 @@ that work yet.
 
 ### Android
 
+<a href="https://play.google.com/store/apps/details?id=com.kanamlabs.platen"><img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="80"></a>
+
+Or install the APK directly:
+
 1. On the phone, download the latest `platen-…-android.apk` from [Releases](../../releases).
 2. Open it. Android asks to allow installs from your browser or file manager the first time; allow it.
 3. On first launch Platen asks to connect to a device on your local network. Pick your printer.
