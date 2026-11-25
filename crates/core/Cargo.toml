@@ -10,7 +10,7 @@ rayon.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
-mdns-sd = "0.21.7"
+mdns-sd = "0.22.0"
 ureq = "3.5.1"
 lopdf = { version = "0.47.0", default-features = false }
 
