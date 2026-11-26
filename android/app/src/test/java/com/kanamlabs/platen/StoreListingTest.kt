@@ -52,6 +52,8 @@ class StoreListingTest {
     @Test @Config(qualifiers = UNFOLDED) fun foldableCopy() = shot("foldableScreenshots/2_copy") { clickText("Copy") }
     @Test @Config(qualifiers = UNFOLDED) fun foldablePrint() = shot("foldableScreenshots/3_print", print = true)
     @Test @Config(qualifiers = UNFOLDED) fun foldableDevice() = shot("foldableScreenshots/4_device") { click("Printer and settings") }
+    @Test @Config(qualifiers = UNFOLDED_WIDE) fun foldableWideScan() = shot("foldableScreenshots/5_scan_wide")
+    @Test @Config(qualifiers = FOLDED) fun foldedScan() = shot("foldableScreenshots/6_scan_folded")
 
     private fun shot(name: String, print: Boolean = false, steps: () -> Unit = {}) {
         val model = AppModel(app)
@@ -110,5 +112,7 @@ class StoreListingTest {
         const val PHONE = "w411dp-h821dp-420dpi"
         const val TABLET = "w1280dp-h800dp-xhdpi"
         const val UNFOLDED = "w720dp-h720dp-xxhdpi"
+        const val UNFOLDED_WIDE = "w960dp-h720dp-xhdpi"
+        const val FOLDED = "w400dp-h640dp-xxhdpi"
     }
 }

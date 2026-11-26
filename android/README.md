@@ -80,7 +80,7 @@ One-time setup:
 ./gradlew :app:recordRoborazziDebug --tests com.kanamlabs.platen.StoreListingTest -PstoreListing=true
 ```
 
-Renders the phone (1078×2155), tablet (2560×1600, used for 7" and 10") and foldable (2160×2160) listing images
+Renders the phone (1078×2155), tablet (2560×1600, used for 7" and 10") and foldable (2160×2160 and 1920×1440 unfolded, 1200×1920 folded, as Play requires) listing images
 into `app/build/store-listing`, with Robolectric on the Mac: no phone, no printer. The test runs the real core
 (built for the host by the `cargoHost` task), imports the recipe pages in `app/src/test/resources/store` into a
 draft, and fakes only the printer, its ink and its saved name. Skipped in a normal test run. Upload images one
