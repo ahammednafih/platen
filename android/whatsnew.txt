@@ -1,0 +1,3 @@
+- Platen now installs on more phones and tablets.
+- Long file names on the Print screen stay on one line.
+- Pages opened from other apps no longer show a "0s" scan time.

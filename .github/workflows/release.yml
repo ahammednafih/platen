@@ -102,10 +102,12 @@ jobs:
       - name: What's new
         run: |
           mkdir whatsnew
-          notes=$(.github/release-notes.sh "$TAG" | awk '
-            /^## / { head = substr($0, 4); next }
-            /^- / && !/^- iOS/ { if (sub(/^- Android: /, "")) $0 = "- " toupper(substr($0, 1, 1)) substr($0, 2); if (head) { printf "%s%s\n", sep, head; head = ""; sep = "\n" } print }')
-          [ -n "$notes" ] || notes="Fixes and improvements."
+          prev=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          if [ -n "$prev" ] && ! git diff --quiet "$prev" "$TAG" -- android/whatsnew.txt; then
+            notes=$(cat android/whatsnew.txt)
+          else
+            notes="Fixes and improvements."
+          fi
           LC_ALL=C.UTF-8; printf '%s' "${notes:0:500}" > whatsnew/whatsnew-en-US
 
       - uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5

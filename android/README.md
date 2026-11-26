@@ -50,7 +50,8 @@ To build a signed APK locally, point `ANDROID_KEYSTORE`, `ANDROID_KEYSTORE_PASSW
 
 The same tag also builds an app bundle. When the `PLAY_TRACK` repository variable is set (`internal`,
 `alpha`, `beta` or `production`), the release workflow uploads it to that track, with the R8 mapping
-and "What's new" taken from the Android and shared lines of the release notes. Internal and testing
+and "What's new" taken from `android/whatsnew.txt` (written for users, up to 500 characters; update it with the
+version bump, or Play shows "Fixes and improvements."). Internal and testing
 tracks go live straight away; `production` is left as a draft to review and roll out in Play Console.
 
 One-time setup:
