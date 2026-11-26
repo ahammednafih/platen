@@ -89,7 +89,7 @@ export const api = {
   redo: () => invoke<SessionView>("redo"),
   movePage: (from: number, to: number) => invoke<SessionView>("move_page", { from, to }),
   getExportOpts: () => invoke<ExportOpts>("get_export_opts"),
-  export: (opts: ExportOpts) => invoke<Exported>("export", { opts }),
+  export: (opts: ExportOpts, pages = "") => invoke<Exported>("export", { opts, pages }),
   library: () => invoke<Saved[]>("library"),
   deleteDraft: (name: string) => invoke<Draft[]>("delete_draft", { name }),
   filePages: (path: string) => invoke<number>("file_pages", { path }),

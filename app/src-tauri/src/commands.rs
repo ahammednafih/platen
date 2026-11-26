@@ -346,7 +346,7 @@ pub fn get_export_opts() -> ExportOpts {
 }
 
 #[tauri::command]
-pub async fn export(st: State<'_, AppState>, opts: ExportOpts) -> Res<Exported> {
+pub async fn export(st: State<'_, AppState>, opts: ExportOpts, pages: Option<String>) -> Res<Exported> {
     opts.save();
     let mut s = {
         let g = st.session.lock().unwrap();
@@ -357,7 +357,7 @@ pub async fn export(st: State<'_, AppState>, opts: ExportOpts) -> Res<Exported> 
         Session { name: s.name.clone(), dir: s.dir.clone(), pages: s.pages.clone(), dirty: true }
     };
     let dir = s.dir.clone();
-    let files = blocking(move || s.export(opts)).await?;
+    let files = blocking(move || s.export_pages(opts, pages.as_deref().unwrap_or_default())).await?;
     if opts.open_pdf {
         if let Some(f) = best_pdf(&files) {
             let _ = tauri_plugin_opener::open_path(f, None::<&str>);

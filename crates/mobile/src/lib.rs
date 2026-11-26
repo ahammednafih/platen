@@ -275,14 +275,15 @@ impl Platen {
     }
 
     /// Write the chosen PDFs and images into the scan's folder; the app then copies them where the user keeps scans.
-    pub fn export(&self, opts: ExportOpts) -> Result<Exported> {
+    /// `pages` is a range like `1-3, 6`; empty exports every page.
+    pub fn export(&self, opts: ExportOpts, pages: String) -> Result<Exported> {
         let opts = opts.into_core(session::ExportOpts::load());
         opts.save();
         let mut s = self.snapshot()?;
         if s.pages.is_empty() {
             return Err(fail("Nothing to export yet"));
         }
-        let files = s.export(opts)?;
+        let files = s.export_pages(opts, &pages)?;
         if opts.cleanup {
             self.close_session();
         }

@@ -11,6 +11,8 @@
   let error = $state("");
   let done = $state<Exported | null>(null);
   let langs = $state<string[] | null>(null);
+  let ranges = $state("");
+  const partial = $derived(ranges.trim() !== "");
 
   onMount(async () => {
     opts = await api.getExportOpts();
@@ -42,7 +44,7 @@
     busy = true;
     error = "";
     try {
-      done = await api.export($state.snapshot(opts!));
+      done = await api.export({ ...$state.snapshot(opts!), cleanup: opts!.cleanup && !partial }, ranges);
     } catch (e) {
       error = String(e);
     } finally {
@@ -73,7 +75,14 @@
         <button class="primary" onclick={finish}>{done.closed ? "Back to start" : "Done"}</button>
       </footer>
     {:else if opts}
-      <h2>Export {pages} {pages === 1 ? "page" : "pages"}</h2>
+      <h2>{partial ? `Export pages ${ranges.trim()}` : `Export ${pages} ${pages === 1 ? "page" : "pages"}`}</h2>
+      <fieldset>
+        <legend><h3>Pages</h3></legend>
+        <label class="opt">
+          <input class="range" type="text" aria-label="Pages to export" spellcheck="false" placeholder="All, or e.g. 1-3, 7" bind:value={ranges} />
+          <span class="muted">{partial ? "the file names get the page numbers" : `all ${pages}`}</span>
+        </label>
+      </fieldset>
       <fieldset>
         <legend><h3>Save</h3></legend>
         {#each outputs as [k, label, hint] (k)}
@@ -86,9 +95,10 @@
       <fieldset>
         <legend><h3>Then</h3></legend>
         {#each after as [k, label] (k)}
-          <label class="opt" class:danger={k === "cleanup" && opts.cleanup}>
-            <input type="checkbox" bind:checked={opts[k]} />
-            <span>{label}</span>
+          {@const off = k === "cleanup" && partial}
+          <label class="opt" class:danger={k === "cleanup" && opts.cleanup && !partial} class:off>
+            <input type="checkbox" bind:checked={opts[k]} disabled={off} />
+            <span>{label}{#if off} <span class="muted">— needs every page</span>{/if}</span>
           </label>
         {/each}
       </fieldset>
@@ -129,6 +139,7 @@
   legend { padding: 0; margin-bottom: 6px; }
   .opt { display: flex; gap: 10px; align-items: baseline; cursor: pointer; }
   .mb { width: 70px; min-height: 24px; }
+  .range { width: 160px; min-height: 24px; }
   .opt.danger { color: var(--danger); }
   .opt.off { cursor: default; opacity: 0.6; }
   input[type="checkbox"] { accent-color: var(--accent); }

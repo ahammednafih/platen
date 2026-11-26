@@ -477,6 +477,8 @@ private fun ExportSheet(model: AppModel, onDismiss: () -> Unit) {
     val saved = remember { model.platen.exportOpts() }
     var opts by remember { mutableStateOf(saved) }
     var limit by remember { mutableStateOf(saved.maxMb?.toString() ?: "") }
+    var pages by remember { mutableStateOf("") }
+    val partial = pages.isNotBlank()
     Sheet(onDismiss) {
         run {
             Text("Export", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
@@ -488,6 +490,15 @@ private fun ExportSheet(model: AppModel, onDismiss: () -> Unit) {
                 Check("Images", "One JPEG or PNG per page", opts.images) { opts = opts.copy(images = it) }
             }
             OutlinedTextField(
+                pages, { pages = it.filter { c -> c.isDigit() || c == '-' || c == ',' || c == ' ' } },
+                label = { Text("Pages") },
+                placeholder = { Text("All, or e.g. 1-3, 7") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
                 limit, { limit = it.filter { c -> c.isDigit() || c == '.' } },
                 label = { Text("Keep each PDF under this many MB") },
                 singleLine = true,
@@ -495,11 +506,11 @@ private fun ExportSheet(model: AppModel, onDismiss: () -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Toggle("Close the scan afterwards", opts.cleanup) { opts = opts.copy(cleanup = it) }
+            Toggle("Close the scan afterwards", opts.cleanup && !partial, enabled = !partial) { opts = opts.copy(cleanup = it) }
             Spacer(Modifier.height(4.dp))
             Button(
                 onClick = {
-                    model.export(ExportOpts(opts.color, opts.share, opts.print, opts.images, opts.cleanup, limit.toFloatOrNull()))
+                    model.export(ExportOpts(opts.color, opts.share, opts.print, opts.images, opts.cleanup && !partial, limit.toFloatOrNull()), pages)
                     onDismiss()
                 },
                 enabled = opts.color || opts.share || opts.print || opts.images,

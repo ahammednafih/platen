@@ -275,10 +275,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun deletePreset(name: String) = work(null, { platen.deletePreset(name) }) { p -> _state.update { it.copy(presets = p) } }
 
-    fun export(opts: ExportOpts) {
+    fun export(opts: ExportOpts, pages: String) {
         val folder = _state.value.session?.name
         work("Exporting", {
-            val out = platen.export(opts)
+            val out = platen.export(opts, pages)
             out.files.forEach { saveFolder.save(File(it), folder) }
             out
         }) { out ->

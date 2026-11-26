@@ -118,13 +118,24 @@ impl Session {
     /// Write the selected outputs; optionally delete the working scans.
     /// Returns the files written.
     pub fn export(&mut self, o: ExportOpts) -> Result<Vec<PathBuf>> {
-        let originals: Vec<(Vec<u8>, u32)> = self
-            .pages
+        self.export_pages(o, "")
+    }
+
+    /// `export` for the pages in `ranges` (`1-3, 6`; empty = all). A partial export carries the
+    /// pages in its file names, so it doesn't overwrite the full one.
+    pub fn export_pages(&mut self, o: ExportOpts, ranges: &str) -> Result<Vec<PathBuf>> {
+        let picked = crate::sheet::pick(ranges, self.pages.len())?;
+        let all = picked.iter().copied().eq(0..self.pages.len());
+        if !all && o.cleanup {
+            bail!("Deleting the working scans needs every page exported");
+        }
+        let stem = if all { self.name.clone() } else { format!("{}_p{}", self.name, span(&picked)) };
+        let originals: Vec<(Vec<u8>, u32)> = picked
             .iter()
-            .map(|p| Ok((std::fs::read(self.page_path(p))?, p.dpi)))
+            .map(|&i| Ok((std::fs::read(self.page_path(&self.pages[i]))?, self.pages[i].dpi)))
             .collect::<Result<_>>()?;
         let mut written = Vec::new();
-        let out = |suffix: &str| self.dir.join(format!("{}_{suffix}", self.name));
+        let out = |suffix: &str| self.dir.join(format!("{stem}_{suffix}"));
 
         if o.color {
             let pages: Vec<JpegPage> = originals.iter().map(|(d, dpi)| JpegPage { data: d.clone(), dpi: *dpi as f32 }).collect();
@@ -176,6 +187,18 @@ impl Session {
         self.dirty = false;
         Ok(written)
     }
+}
+
+/// 0-based page indices as 1-based runs for a file name: `1-3,6`.
+fn span(pages: &[usize]) -> String {
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    for &p in pages {
+        match runs.last_mut() {
+            Some((_, b)) if *b + 1 == p => *b = p,
+            _ => runs.push((p, p)),
+        }
+    }
+    runs.iter().map(|&(a, b)| if a == b { format!("{}", a + 1) } else { format!("{}-{}", a + 1, b + 1) }).collect::<Vec<_>>().join(",")
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
@@ -394,6 +417,30 @@ mod tests {
         assert_eq!(names, [format!("{n}_share.pdf"), format!("{n}_print.pdf"), format!("{n}_page01.jpg")]);
         assert!(files.iter().all(|f| f.exists()));
         assert!(!dir.join("pages").exists() && !dir.join("raw").exists() && !dir.join("session.json").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn export_pages_writes_only_the_picked_pages() {
+        let dir = std::env::temp_dir().join(format!("scan-test-pick-{}", Session::new_stem()));
+        let mut s = Session::open(dir.clone()).unwrap();
+        let img = image::RgbImage::from_pixel(62, 88, image::Rgb([230, 220, 200]));
+        for i in 0..5 {
+            let file = format!("{i}.jpg");
+            std::fs::write(s.dir.join("pages").join(&file), encode_rgb(&img, 90).unwrap()).unwrap();
+            s.pages.push(Page { file, kind: Kind::A4, dpi: 75, w: 62, h: 88, secs: 1.0, color: None });
+        }
+        let opts = ExportOpts { color: true, share: false, print: false, images: false, cleanup: false, open_pdf: false, open_folder: false, max_mb: None, searchable: false };
+
+        let files = s.export_pages(opts, "1-2, 4").unwrap();
+        assert_eq!(files, [dir.join(format!("{}_p1-2,4_color.pdf", s.name))]);
+        assert_eq!(crate::pdfedit::page_count(&std::fs::read(&files[0]).unwrap()).unwrap(), 3);
+
+        let files = s.export_pages(opts, "1-").unwrap();
+        assert_eq!(files, [dir.join(format!("{}_color.pdf", s.name))]);
+
+        assert!(s.export_pages(ExportOpts { cleanup: true, ..opts }, "2").is_err());
+        assert!(s.export_pages(opts, "7").is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

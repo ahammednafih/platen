@@ -348,11 +348,11 @@ final class AppModel {
         presets = platen.deletePreset(name: name)
     }
 
-    func export(_ opts: ExportOpts) {
+    func export(_ opts: ExportOpts, pages: String) {
         let platen = platen
         let folder = session?.name
         work("Exporting", {
-            let out = try platen.export(opts: opts)
+            let out = try platen.export(opts: opts, pages: pages)
             for f in out.files { try Storage.save(URL(fileURLWithPath: f), into: folder) }
             return out
         }) { out in

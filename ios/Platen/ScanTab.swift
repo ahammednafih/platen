@@ -453,8 +453,10 @@ private struct ExportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var opts: ExportOpts?
     @State private var limit = ""
+    @State private var pages = ""
 
     var body: some View {
+        let partial = !pages.trimmingCharacters(in: .whitespaces).isEmpty
         NavigationStack {
             Form {
                 if let o = opts {
@@ -467,18 +469,22 @@ private struct ExportSheet: View {
                         Text("Saves to \(Storage.label)")
                     }
                     Section {
+                        LabeledContent("Pages") {
+                            TextField("All, or e.g. 1-3, 7", text: $pages).keyboardType(.numbersAndPunctuation).multilineTextAlignment(.trailing)
+                        }
                         LabeledContent("Keep each PDF under") {
                             HStack(spacing: 4) {
                                 TextField("No limit", text: $limit).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
                                 Text("MB").foregroundStyle(.secondary)
                             }
                         }
-                        Toggle("Close the scan afterwards", isOn: Binding(get: { o.cleanup }, set: { opts?.cleanup = $0 }))
+                        Toggle("Close the scan afterwards", isOn: Binding(get: { o.cleanup && !partial }, set: { opts?.cleanup = $0 }))
+                            .disabled(partial)
                     }
                     Section {
                         Button {
                             let mb = Float(limit.replacingOccurrences(of: ",", with: "."))
-                            model.export(ExportOpts(color: o.color, share: o.share, print: o.print, images: o.images, cleanup: o.cleanup, maxMb: mb))
+                            model.export(ExportOpts(color: o.color, share: o.share, print: o.print, images: o.images, cleanup: o.cleanup && !partial, maxMb: mb), pages: pages)
                             dismiss()
                         } label: {
                             Text("Export").font(.headline).frame(maxWidth: .infinity)
